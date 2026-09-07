@@ -1,0 +1,32 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+
+# .NET
+bin/
+obj/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+*.pem
+*.key
+secrets/
