@@ -71,7 +71,6 @@ public class IngredientService : IIngredientService
             Unit = request.Unit.Trim(),
             MinimumStockLevel = request.MinimumStockLevel,
             MaximumStockLevel = request.MaximumStockLevel,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -129,7 +128,6 @@ public class IngredientService : IIngredientService
         ingredient.Unit = request.Unit.Trim();
         ingredient.MinimumStockLevel = request.MinimumStockLevel;
         ingredient.MaximumStockLevel = request.MaximumStockLevel;
-        ingredient.IsActive = request.IsActive;
         ingredient.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -151,12 +149,78 @@ public class IngredientService : IIngredientService
             return false;
         }
 
-        ingredient.IsActive = false;
-        ingredient.UpdatedAt = DateTime.UtcNow;
+        // Check if there is any stock available across storage locations
+        var currentStock = await _context.StockBatches
+            .Where(b => b.IngredientId == id && b.Quantity > 0)
+            .SumAsync(b => b.Quantity);
 
-        await _context.SaveChangesAsync();
+        if (currentStock > 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot delete ingredient '{ingredient.Name}'. It currently has {currentStock:G29} {ingredient.Unit} of available stock in storage. Stock must be zero before deleting.");
+        }
 
-        return true;
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // Remove related stock adjustments
+            var adjustments = await _context.StockAdjustments
+                .Where(a => a.IngredientId == id)
+                .ToListAsync();
+            if (adjustments.Count != 0)
+            {
+                _context.StockAdjustments.RemoveRange(adjustments);
+            }
+
+            // Remove related stock movements
+            var movements = await _context.StockMovements
+                .Where(m => m.IngredientId == id)
+                .ToListAsync();
+            if (movements.Count != 0)
+            {
+                _context.StockMovements.RemoveRange(movements);
+            }
+
+            // Remove depleted batches from storage locations (quantity is 0)
+            var batches = await _context.StockBatches
+                .Where(b => b.IngredientId == id)
+                .ToListAsync();
+            if (batches.Count != 0)
+            {
+                _context.StockBatches.RemoveRange(batches);
+            }
+
+            // Remove related supplier ingredient associations if any
+            var supplierIngredients = await _context.SupplierIngredients
+                .Where(si => si.IngredientId == id)
+                .ToListAsync();
+            if (supplierIngredients.Count != 0)
+            {
+                _context.SupplierIngredients.RemoveRange(supplierIngredients);
+            }
+
+            // Remove related recipe ingredients if any
+            var recipeIngredients = await _context.RecipeIngredients
+                .Where(ri => ri.IngredientId == id)
+                .ToListAsync();
+            if (recipeIngredients.Count != 0)
+            {
+                _context.RecipeIngredients.RemoveRange(recipeIngredients);
+            }
+
+            // Permanently remove the ingredient from the database
+            _context.Ingredients.Remove(ingredient);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     private static IngredientResponse MapToResponse(Ingredient ingredient)
@@ -170,8 +234,7 @@ public class IngredientService : IIngredientService
             SKU = ingredient.SKU,
             Unit = ingredient.Unit,
             MinimumStockLevel = ingredient.MinimumStockLevel,
-            MaximumStockLevel = ingredient.MaximumStockLevel,
-            IsActive = ingredient.IsActive
+            MaximumStockLevel = ingredient.MaximumStockLevel
         };
     }
 }

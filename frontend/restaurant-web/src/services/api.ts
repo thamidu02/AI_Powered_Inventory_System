@@ -22,13 +22,33 @@ import type {
 const TOKEN_KEY = 'restaurant_auth_token';
 const USER_KEY = 'restaurant_auth_user';
 
-export const getStoredToken = (): string | null => localStorage.getItem(TOKEN_KEY);
+// Immediately clear stored session so the app always starts on login
+try {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+} catch {
+  // ignore
+}
+
+export const getStoredToken = (): string | null => {
+  const user = getStoredUser();
+  return user ? user.token : null;
+};
+
 export const getStoredUser = (): LoginResponse | null => {
   const json = localStorage.getItem(USER_KEY);
   if (!json) return null;
   try {
-    return JSON.parse(json);
+    const user = JSON.parse(json) as LoginResponse;
+    if (user.expiresAt && new Date(user.expiresAt).getTime() <= Date.now()) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+    return user;
   } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     return null;
   }
 };

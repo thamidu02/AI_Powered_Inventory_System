@@ -76,7 +76,6 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
   const [editIngUnit, setEditIngUnit] = useState('kg');
   const [editIngMinStock, setEditIngMinStock] = useState('10');
   const [editIngMaxStock, setEditIngMaxStock] = useState('50');
-  const [editIngIsActive, setEditIngIsActive] = useState<boolean>(true);
 
   const [editingCategory, setEditingCategory] = useState<CategoryResponse | null>(null);
   const [editCatName, setEditCatName] = useState('');
@@ -226,7 +225,6 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
     setEditIngUnit(ing.unit);
     setEditIngMinStock(ing.minimumStockLevel.toString());
     setEditIngMaxStock(ing.maximumStockLevel.toString());
-    setEditIngIsActive(ing.isActive);
     setError(null);
   };
 
@@ -246,7 +244,6 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
         unit: editIngUnit.trim(),
         minimumStockLevel: parseFloat(editIngMinStock) || 0,
         maximumStockLevel: parseFloat(editIngMaxStock) || 0,
-        isActive: editIngIsActive,
       });
       onSuccess(`Ingredient "${editIngName}" updated successfully.`);
       setEditingIngredient(null);
@@ -309,10 +306,10 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
   };
 
   const handleDeleteIngredient = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to deactivate ingredient "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to permanently delete ingredient "${name}" from the database? (Available stock must be 0)`)) return;
     try {
       await api.deleteIngredient(id);
-      onSuccess(`Ingredient "${name}" deactivated.`);
+      onSuccess(`Ingredient "${name}" permanently deleted from database and storage locations.`);
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete ingredient.');

@@ -10,5 +10,4 @@ public class IngredientResponse
     public string Unit { get; set; } = string.Empty;
     public decimal MinimumStockLevel { get; set; }
     public decimal MaximumStockLevel { get; set; }
-    public bool IsActive { get; set; }
 }
