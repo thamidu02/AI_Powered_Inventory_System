@@ -113,12 +113,12 @@ public class IngredientCategoryService : IIngredientCategoryService
         }
 
         var hasIngredients = await _context.Ingredients
-            .AnyAsync(i => i.CategoryId == id && i.IsActive);
+            .AnyAsync(i => i.CategoryId == id);
 
         if (hasIngredients)
         {
             throw new InvalidOperationException(
-                "Cannot delete a category that is used by active ingredients.");
+                "Cannot delete a category that is currently used by ingredients.");
         }
 
         // IngredientCategory currently has no IsActive property,

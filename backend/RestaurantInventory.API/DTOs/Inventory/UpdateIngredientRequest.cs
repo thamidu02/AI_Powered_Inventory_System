@@ -26,6 +26,4 @@ public class UpdateIngredientRequest
 
     [Range(0, double.MaxValue)]
     public decimal MaximumStockLevel { get; set; }
-
-    public bool IsActive { get; set; } = true;
 }

@@ -16,8 +16,6 @@ public class Ingredient : BaseEntity
 
     public decimal MaximumStockLevel { get; set; }
 
-    public bool IsActive { get; set; } = true;
-
     public IngredientCategory Category { get; set; } = null!;
 
     public ICollection<StockBatch> StockBatches { get; set; }

@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { api, getStoredUser } from '../services/api';
+import { api, setStoredAuth } from '../services/api';
 import { AuthContext } from './authContextDef';
 import type { LoginResponse } from '../types';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<LoginResponse | null>(() => getStoredUser());
+  // Always start on the login page
+  const [user, setUser] = useState<LoginResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Clear any residual session on startup
+    setStoredAuth(null);
+
     const handleUnauthorized = () => {
       setUser(null);
       setError('Your session has expired. Please log in again.');

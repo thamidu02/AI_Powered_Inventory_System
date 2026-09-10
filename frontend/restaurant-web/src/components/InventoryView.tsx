@@ -56,7 +56,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [editIngUnit, setEditIngUnit] = useState('');
   const [editIngMinStock, setEditIngMinStock] = useState('10');
   const [editIngMaxStock, setEditIngMaxStock] = useState('50');
-  const [editIngIsActive, setEditIngIsActive] = useState<boolean>(true);
   const [editLoading, setEditLoading] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -125,7 +124,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       setEditIngUnit(fullIng.unit);
       setEditIngMinStock(fullIng.minimumStockLevel.toString());
       setEditIngMaxStock(fullIng.maximumStockLevel.toString());
-      setEditIngIsActive(fullIng.isActive);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to load ingredient details for editing.');
     } finally {
@@ -150,7 +148,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         unit: editIngUnit.trim(),
         minimumStockLevel: parseFloat(editIngMinStock) || 0,
         maximumStockLevel: parseFloat(editIngMaxStock) || 0,
-        isActive: editIngIsActive,
       });
       if (onSuccess) {
         onSuccess(`Ingredient "${editIngName}" updated successfully.`);

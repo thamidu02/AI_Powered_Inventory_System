@@ -29,7 +29,6 @@ public class InventoryService : IInventoryService
             .AsNoTracking()
             .Include(i => i.StockBatches)
                 .ThenInclude(b => b.StorageLocation)
-            .Where(i => i.IsActive)
             .OrderBy(i => i.Name)
             .ToListAsync();
 

@@ -88,7 +88,6 @@ export interface IngredientResponse {
   unit: string;
   minimumStockLevel: number;
   maximumStockLevel: number;
-  isActive: boolean;
 }
 
 export interface CreateIngredientRequest {
@@ -107,7 +106,6 @@ export interface UpdateIngredientRequest {
   unit: string;
   minimumStockLevel: number;
   maximumStockLevel: number;
-  isActive: boolean;
 }
 
 // Master Data: Category
