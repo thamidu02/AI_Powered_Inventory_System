@@ -88,7 +88,7 @@ public class InventoryService : IInventoryService
             .AsNoTracking()
             .Include(b => b.StorageLocation)
             .Where(b =>
-                b.Status == "AVAILABLE" &&
+                (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
                 b.Quantity > 0 &&
                 b.ExpiryDate.HasValue &&
                 b.ExpiryDate.Value.Date >= today &&
@@ -126,13 +126,15 @@ public class InventoryService : IInventoryService
                 "Ingredient not found.");
 
         var location = await _context.StorageLocations
-            .FirstOrDefaultAsync(
-                x => x.Id == request.StorageLocationId &&
-                     x.IsActive);
+            .FirstOrDefaultAsync(x => x.Id == request.StorageLocationId);
 
         if (location == null)
             throw new InvalidOperationException(
-                "Storage location not found or inactive.");
+                "Storage location not found.");
+
+        if (!location.IsActive)
+            throw new InvalidOperationException(
+                $"Storage location '{location.Name}' is deactivated. No stock can be received or added into a deactivated storage location.");
 
         if (request.Quantity <= 0)
             throw new InvalidOperationException(
@@ -224,7 +226,7 @@ public class InventoryService : IInventoryService
         var batches = await _context.StockBatches
             .Where(b =>
                 b.IngredientId == request.IngredientId &&
-                b.Status == "AVAILABLE" &&
+                (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
                 b.Quantity > 0 &&
                 (!b.ExpiryDate.HasValue ||
                  b.ExpiryDate.Value.Date >= today))
@@ -589,13 +591,15 @@ public class InventoryService : IInventoryService
                 "Insufficient stock for transfer.");
 
         var destination = await _context.StorageLocations
-            .FirstOrDefaultAsync(x =>
-                x.Id == request.DestinationStorageLocationId &&
-                x.IsActive);
+            .FirstOrDefaultAsync(x => x.Id == request.DestinationStorageLocationId);
 
         if (destination == null)
             throw new InvalidOperationException(
-                "Destination storage location not found or inactive.");
+                "Destination storage location not found.");
+
+        if (!destination.IsActive)
+            throw new InvalidOperationException(
+                $"Destination storage location '{destination.Name}' is deactivated. Stock cannot be transferred into a deactivated storage location.");
 
         if (destination.Id == sourceBatch.StorageLocationId)
             throw new InvalidOperationException(

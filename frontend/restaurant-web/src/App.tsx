@@ -50,6 +50,10 @@ const MainAppContent: React.FC = () => {
           <InventoryView
             onOpenModal={setActiveModal}
             refreshTrigger={refreshTrigger}
+            onSuccess={(msg) => {
+              addToast(msg, 'success');
+              setRefreshTrigger((prev) => prev + 1);
+            }}
           />
         )}
 
@@ -58,19 +62,25 @@ const MainAppContent: React.FC = () => {
         )}
 
         {activeTab === 'masterData' && (
-          <MasterDataView onSuccess={(msg) => {
-            addToast(msg, 'success');
-            setRefreshTrigger((prev) => prev + 1);
-          }} />
+          <MasterDataView
+            onOpenModal={setActiveModal}
+            onSuccess={(msg) => {
+              addToast(msg, 'success');
+              setRefreshTrigger((prev) => prev + 1);
+            }}
+          />
         )}
       </main>
 
       {/* Global Stock Operations Modal Suite */}
-      <OperationsModals
-        modal={activeModal}
-        onClose={() => setActiveModal(null)}
-        onSuccess={handleModalSuccess}
-      />
+      {activeModal && (
+        <OperationsModals
+          key={`${activeModal.type}-${'ingredientId' in activeModal ? activeModal.ingredientId : ''}-${'batch' in activeModal ? activeModal.batch?.id : ''}-${'adjustmentId' in activeModal ? activeModal.adjustmentId : ''}`}
+          modal={activeModal}
+          onClose={() => setActiveModal(null)}
+          onSuccess={handleModalSuccess}
+        />
+      )}
 
       {/* Toasts Container */}
       <div className="toast-container">

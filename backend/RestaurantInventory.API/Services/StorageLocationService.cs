@@ -122,17 +122,6 @@ public class StorageLocationService : IStorageLocationService
             return false;
         }
 
-        var hasStock = await _context.StockBatches
-            .AnyAsync(b =>
-                b.StorageLocationId == id &&
-                b.Quantity > 0);
-
-        if (hasStock)
-        {
-            throw new InvalidOperationException(
-                "Cannot deactivate a storage location that contains stock.");
-        }
-
         location.IsActive = false;
         location.UpdatedAt = DateTime.UtcNow;
 
