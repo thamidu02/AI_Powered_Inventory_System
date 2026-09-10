@@ -85,6 +85,10 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddScoped<
+    IIngredientCategoryService,
+    IngredientCategoryService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
