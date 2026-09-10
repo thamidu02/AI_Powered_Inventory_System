@@ -89,6 +89,9 @@ builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<
     IIngredientCategoryService,
     IngredientCategoryService>();
+    builder.Services.AddScoped<
+    IStorageLocationService,
+    StorageLocationService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
@@ -119,6 +122,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
 
 // --------------------------------------------------
 // HTTP Pipeline
