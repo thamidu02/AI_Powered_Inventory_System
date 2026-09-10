@@ -1,4 +1,5 @@
 using RestaurantInventory.API.Models;
+using RestaurantInventory.API.Models.Procurement;
 
 namespace RestaurantInventory.API.Models.Inventory;
 
@@ -7,6 +8,11 @@ public class StockBatch : BaseEntity
     public Guid IngredientId { get; set; }
 
     public Guid StorageLocationId { get; set; }
+
+    // The goods receipt that created this stock batch.
+    public Guid? GoodsReceiptId { get; set; }
+
+    public GoodsReceipt? GoodsReceipt { get; set; }
 
     public string BatchNumber { get; set; } = string.Empty;
 
