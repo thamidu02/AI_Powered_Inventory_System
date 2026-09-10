@@ -88,7 +88,6 @@ export interface IngredientResponse {
   unit: string;
   minimumStockLevel: number;
   maximumStockLevel: number;
-  isActive: boolean;
 }
 
 export interface CreateIngredientRequest {
@@ -107,7 +106,6 @@ export interface UpdateIngredientRequest {
   unit: string;
   minimumStockLevel: number;
   maximumStockLevel: number;
-  isActive: boolean;
 }
 
 // Master Data: Category
@@ -191,7 +189,14 @@ export interface TransferStockRequest {
 export type ActiveModal =
   | null
   | { type: 'receive'; ingredientId?: string }
-  | { type: 'consume'; ingredientId?: string }
+  | {
+      type: 'consume';
+      ingredientId?: string;
+      ingredientName?: string;
+      unit?: string;
+      sku?: string;
+      currentStock?: number;
+    }
   | { type: 'waste'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'adjust'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'transfer'; batch?: StockBatchResponse; ingredientName?: string }

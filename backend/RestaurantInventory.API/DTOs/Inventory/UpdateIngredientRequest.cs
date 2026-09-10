@@ -4,6 +4,8 @@ namespace RestaurantInventory.API.DTOs.Inventory;
 
 public class UpdateIngredientRequest
 {
+    public Guid? Id { get; set; }
+
     [Required]
     public Guid CategoryId { get; set; }
 
@@ -24,6 +26,4 @@ public class UpdateIngredientRequest
 
     [Range(0, double.MaxValue)]
     public decimal MaximumStockLevel { get; set; }
-
-    public bool IsActive { get; set; } = true;
 }
