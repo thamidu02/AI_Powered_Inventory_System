@@ -67,6 +67,9 @@ public class IngredientsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}")]
+    [HttpPost("{id:guid}/edit")]
+    [HttpPost("{id:guid}/update")]
     [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
     public async Task<IActionResult> Update(
         Guid id,
@@ -93,6 +96,25 @@ public class IngredientsController : ControllerBase
                 message = ex.Message
             });
         }
+    }
+
+    [HttpPost("edit")]
+    [HttpPost("update")]
+    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    public async Task<IActionResult> UpdateViaPost(
+        [FromQuery] Guid? id,
+        [FromBody] UpdateIngredientRequest request)
+    {
+        var targetId = (id.HasValue && id.Value != Guid.Empty) ? id.Value : (request.Id ?? Guid.Empty);
+        if (targetId == Guid.Empty)
+        {
+            return BadRequest(new
+            {
+                message = "Ingredient ID is required for editing."
+            });
+        }
+
+        return await Update(targetId, request);
     }
 
     [HttpDelete("{id:guid}")]

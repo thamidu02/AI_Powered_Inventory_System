@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  AlertOctagon,
   AlertTriangle,
   ArrowDownUp,
   Boxes,
@@ -10,15 +11,18 @@ import {
   MapPin,
   PackageCheck,
   PackageMinus,
-  PlusCircle,
+  Pencil,
   RefreshCw,
   Search,
   Sliders,
   Trash2,
+  X,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type {
   ActiveModal,
+  CategoryResponse,
+  IngredientResponse,
   InventoryResponse,
   StockBatchResponse,
 } from '../types';
@@ -27,11 +31,13 @@ import { useAuth } from '../context/useAuth';
 interface InventoryViewProps {
   onOpenModal: (modal: ActiveModal) => void;
   refreshTrigger: number;
+  onSuccess?: (msg: string) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
   onOpenModal,
   refreshTrigger,
+  onSuccess,
 }) => {
   const { user } = useAuth();
   const [inventory, setInventory] = useState<InventoryResponse[]>([]);
@@ -41,8 +47,21 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showLowStockOnly, setShowLowStockOnly] = useState<boolean>(false);
   const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({});
 
-  const canReceive = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
+  // Edit ingredient states
+  const [editingIngredient, setEditingIngredient] = useState<IngredientResponse | null>(null);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [editIngName, setEditIngName] = useState('');
+  const [editIngSku, setEditIngSku] = useState('');
+  const [editIngCategoryId, setEditIngCategoryId] = useState('');
+  const [editIngUnit, setEditIngUnit] = useState('');
+  const [editIngMinStock, setEditIngMinStock] = useState('10');
+  const [editIngMaxStock, setEditIngMaxStock] = useState('50');
+  const [editIngIsActive, setEditIngIsActive] = useState<boolean>(true);
+  const [editLoading, setEditLoading] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const canConsume = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
+  const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'INVENTORY_MANAGER';
 
   const fetchData = async () => {
     setLoading(true);
@@ -90,16 +109,73 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }));
   };
 
+  const handleOpenEdit = async (item: InventoryResponse) => {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const [fullIng, allCats] = await Promise.all([
+        api.getIngredient(item.ingredientId),
+        categories.length > 0 ? Promise.resolve(categories) : api.getCategories(),
+      ]);
+      setCategories(allCats);
+      setEditingIngredient(fullIng);
+      setEditIngName(fullIng.name);
+      setEditIngSku(fullIng.sku);
+      setEditIngCategoryId(fullIng.categoryId);
+      setEditIngUnit(fullIng.unit);
+      setEditIngMinStock(fullIng.minimumStockLevel.toString());
+      setEditIngMaxStock(fullIng.maximumStockLevel.toString());
+      setEditIngIsActive(fullIng.isActive);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load ingredient details for editing.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingIngredient) return;
+    if (!editIngCategoryId) {
+      setEditError('Please select a valid category.');
+      return;
+    }
+    setEditError(null);
+    setEditLoading(true);
+    try {
+      await api.updateIngredient(editingIngredient.id, {
+        name: editIngName.trim(),
+        sku: editIngSku.trim().toUpperCase(),
+        categoryId: editIngCategoryId,
+        unit: editIngUnit.trim(),
+        minimumStockLevel: parseFloat(editIngMinStock) || 0,
+        maximumStockLevel: parseFloat(editIngMaxStock) || 0,
+        isActive: editIngIsActive,
+      });
+      if (onSuccess) {
+        onSuccess(`Ingredient "${editIngName}" updated successfully.`);
+      }
+      setEditingIngredient(null);
+      fetchData();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update ingredient.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const outOfStockCount = inventory.filter((i) => i.currentStock <= 0).length;
+  const lowStockCount = inventory.filter((i) => i.currentStock > 0 && i.isLowStock).length;
+  const totalAlerts = outOfStockCount + lowStockCount;
+  const totalBatches = inventory.reduce((acc, curr) => acc + (curr.batches?.length || 0), 0);
+
   const filteredInventory = inventory.filter((item) => {
     const matchesSearch =
       item.ingredientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLowStock = !showLowStockOnly || item.isLowStock;
+    const matchesLowStock = !showLowStockOnly || item.isLowStock || item.currentStock <= 0;
     return matchesSearch && matchesLowStock;
   });
-
-  const lowStockCount = inventory.filter((i) => i.isLowStock).length;
-  const totalBatches = inventory.reduce((acc, curr) => acc + (curr.batches?.length || 0), 0);
 
   return (
     <div className="view-container">
@@ -116,14 +192,24 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         </div>
 
-        <div className={`stat-card ${lowStockCount > 0 ? 'stat-warning' : ''}`}>
-          <div className="stat-icon-wrapper bg-amber-glow">
-            <AlertTriangle size={24} className="text-amber" />
+        <div className={`stat-card ${outOfStockCount > 0 ? 'stat-danger' : lowStockCount > 0 ? 'stat-warning' : ''}`}>
+          <div className={`stat-icon-wrapper ${outOfStockCount > 0 ? 'bg-rose-glow' : 'bg-amber-glow'}`}>
+            {outOfStockCount > 0 ? (
+              <AlertOctagon size={24} className="text-rose" />
+            ) : (
+              <AlertTriangle size={24} className="text-amber" />
+            )}
           </div>
           <div className="stat-content">
-            <span className="stat-label">Low Stock Alerts</span>
-            <span className="stat-value">{lowStockCount}</span>
-            <span className="stat-subtext">Below threshold level</span>
+            <span className="stat-label">Stock Alerts</span>
+            <span className="stat-value">
+              {outOfStockCount > 0 ? `${outOfStockCount} Out / ${lowStockCount} Low` : `${lowStockCount} Low Stock`}
+            </span>
+            <span className="stat-subtext">
+              {outOfStockCount > 0
+                ? `${outOfStockCount} depleted, ${lowStockCount} below minimum`
+                : 'Below minimum safe threshold'}
+            </span>
           </div>
         </div>
 
@@ -169,7 +255,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             onClick={() => setShowLowStockOnly(!showLowStockOnly)}
           >
             <Filter size={16} />
-            <span>Low Stock Only ({lowStockCount})</span>
+            <span>Low / Out of Stock ({totalAlerts})</span>
           </button>
 
           <button
@@ -183,21 +269,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="quick-actions">
-          {canReceive && (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => onOpenModal({ type: 'receive' })}
-            >
-              <PlusCircle size={16} />
-              <span>Receive Stock</span>
-            </button>
-          )}
-
           {canConsume && (
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-primary"
               onClick={() => onOpenModal({ type: 'consume' })}
             >
               <PackageMinus size={16} />
@@ -263,7 +338,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         <div className="ingredient-sku">{item.sku}</div>
                       </td>
                       <td>
-                        <span className={`stock-number ${item.isLowStock ? 'text-amber font-bold' : ''}`}>
+                        <span
+                          className={`stock-number ${
+                            item.currentStock <= 0
+                              ? 'text-rose font-bold'
+                              : item.isLowStock
+                              ? 'text-amber font-bold'
+                              : ''
+                          }`}
+                        >
                           {item.currentStock.toLocaleString(undefined, {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 3,
@@ -277,7 +360,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </span>
                       </td>
                       <td>
-                        {item.isLowStock ? (
+                        {item.currentStock <= 0 ? (
+                          <span className="badge badge-rose">
+                            <AlertOctagon size={12} className="inline-icon" />
+                            OUT OF STOCK
+                          </span>
+                        ) : item.isLowStock ? (
                           <span className="badge badge-amber">
                             <AlertTriangle size={12} className="inline-icon" />
                             LOW STOCK
@@ -293,36 +381,41 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </td>
                       <td className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="action-buttons-row">
-                          {canReceive && (
-                            <button
-                              type="button"
-                              className="btn-table-action"
-                              title="Receive new batch for this item"
-                              onClick={() =>
-                                onOpenModal({
-                                  type: 'receive',
-                                  ingredientId: item.ingredientId,
-                                })
-                              }
-                            >
-                              <PlusCircle size={14} />
-                              <span>Receive</span>
-                            </button>
-                          )}
                           {canConsume && (
                             <button
                               type="button"
                               className="btn-table-action"
-                              title="Consume stock (FEFO)"
+                              title={
+                                item.currentStock <= 0
+                                  ? 'Out of stock (cannot consume)'
+                                  : 'Consume stock (FEFO)'
+                              }
+                              disabled={item.currentStock <= 0}
                               onClick={() =>
                                 onOpenModal({
                                   type: 'consume',
                                   ingredientId: item.ingredientId,
+                                  ingredientName: item.ingredientName,
+                                  unit: item.unit,
+                                  sku: item.sku,
+                                  currentStock: item.currentStock,
                                 })
                               }
                             >
                               <PackageMinus size={14} />
                               <span>Consume</span>
+                            </button>
+                          )}
+                          {canEdit && (
+                            <button
+                              type="button"
+                              className="btn-table-action"
+                              title="Edit ingredient specifications"
+                              disabled={editLoading}
+                              onClick={() => handleOpenEdit(item)}
+                            >
+                              <Pencil size={14} />
+                              <span>Edit</span>
                             </button>
                           )}
                         </div>
@@ -497,6 +590,120 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </table>
         )}
       </div>
+
+      {/* Edit Ingredient Modal */}
+      {editingIngredient && (
+        <div className="modal-overlay" onClick={() => setEditingIngredient(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="modal-close"
+              onClick={() => setEditingIngredient(null)}
+            >
+              <X size={20} />
+            </button>
+
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-amber-glow">
+                <Pencil size={22} className="text-amber" />
+              </div>
+              <div>
+                <h3>Edit Ingredient</h3>
+                <p>Update specifications for {editingIngredient.name}</p>
+              </div>
+            </div>
+
+            {editError && <div className="alert-error mb-4">{editError}</div>}
+
+            <form onSubmit={handleSaveEdit} className="modal-form">
+              <div className="form-group">
+                <label>Ingredient Name</label>
+                <input
+                  type="text"
+                  value={editIngName}
+                  onChange={(e) => setEditIngName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>SKU Code</label>
+                  <input
+                    type="text"
+                    value={editIngSku}
+                    onChange={(e) => setEditIngSku(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Measurement Unit</label>
+                  <input
+                    type="text"
+                    value={editIngUnit}
+                    onChange={(e) => setEditIngUnit(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Category</label>
+                <select
+                  value={editIngCategoryId}
+                  onChange={(e) => setEditIngCategoryId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Choose Category --</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Min Safe Stock</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={editIngMinStock}
+                    onChange={(e) => setEditIngMinStock(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max Safe Stock</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={editIngMaxStock}
+                    onChange={(e) => setEditIngMaxStock(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setEditingIngredient(null)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={editLoading}>
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

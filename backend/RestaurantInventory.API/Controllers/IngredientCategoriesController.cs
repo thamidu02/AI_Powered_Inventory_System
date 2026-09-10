@@ -68,6 +68,9 @@ public class IngredientCategoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HttpPost("{id:guid}")]
+    [HttpPost("{id:guid}/edit")]
+    [HttpPost("{id:guid}/update")]
     [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
     public async Task<IActionResult> Update(
         Guid id,

@@ -14,6 +14,7 @@ import { api } from '../services/api';
 import type {
   ActiveModal,
   IngredientResponse,
+  InventoryResponse,
   StorageLocationResponse,
 } from '../types';
 
@@ -29,6 +30,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
   onSuccess,
 }) => {
   const [ingredients, setIngredients] = useState<IngredientResponse[]>([]);
+  const [inventoryList, setInventoryList] = useState<InventoryResponse[]>([]);
   const [locations, setLocations] = useState<StorageLocationResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +54,12 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   // Consume
   const [consumeIngredientId, setConsumeIngredientId] = useState<string>(initialIngredientId);
-  const [consumeQuantity, setConsumeQuantity] = useState<string>('5');
+  const [consumeQuantity, setConsumeQuantity] = useState<string>(() => {
+    if (modal && modal.type === 'consume' && modal.currentStock && modal.currentStock > 0) {
+      return Math.min(5, modal.currentStock).toString();
+    }
+    return '5';
+  });
   const [consumeReason, setConsumeReason] = useState<string>('Kitchen Lunch Prep');
   const [consumeRefType, setConsumeRefType] = useState<string>('KITCHEN_ORDER');
 
@@ -83,6 +90,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
       if (!ignore) setIngredients(data);
     }).catch(console.error);
 
+    api.getInventory().then((invData) => {
+      if (!ignore) setInventoryList(invData);
+    }).catch(console.error);
+
     api.getStorageLocations().then((locs) => {
       if (!ignore) {
         const active = locs.filter((l) => l.isActive);
@@ -99,6 +110,40 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
   }, []);
 
   if (!modal) return null;
+
+  // Active ingredient item context for consume
+  const targetIngredientId =
+    modal.type === 'consume' && modal.ingredientId
+      ? modal.ingredientId
+      : consumeIngredientId;
+
+  const currentConsumeItem = inventoryList.find(
+    (i) => i.ingredientId === targetIngredientId
+  );
+
+  const availableStock = currentConsumeItem
+    ? currentConsumeItem.currentStock
+    : modal.type === 'consume'
+    ? modal.currentStock
+    : undefined;
+
+  const itemUnit = currentConsumeItem
+    ? currentConsumeItem.unit
+    : modal.type === 'consume' && modal.unit
+    ? modal.unit
+    : ingredients.find((i) => i.id === targetIngredientId)?.unit || '';
+
+  const itemName = currentConsumeItem
+    ? currentConsumeItem.ingredientName
+    : modal.type === 'consume' && modal.ingredientName
+    ? modal.ingredientName
+    : ingredients.find((i) => i.id === targetIngredientId)?.name || '';
+
+  const itemSku = currentConsumeItem
+    ? currentConsumeItem.sku
+    : modal.type === 'consume' && modal.sku
+    ? modal.sku
+    : ingredients.find((i) => i.id === targetIngredientId)?.sku || '';
 
   // Handlers
   const handleReceiveSubmit = async (e: React.FormEvent) => {
@@ -129,7 +174,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleConsumeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!consumeIngredientId) {
+    if (!targetIngredientId) {
       setError('Please select an ingredient to consume.');
       return;
     }
@@ -137,7 +182,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
     setError(null);
     try {
       const res = await api.consumeStock({
-        ingredientId: consumeIngredientId,
+        ingredientId: targetIngredientId,
         quantity: parseFloat(consumeQuantity),
         reason: consumeReason,
         referenceType: consumeRefType,
@@ -290,11 +335,13 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   required
                 >
                   <option value="">-- Select Location --</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} {loc.temperatureType ? `(${loc.temperatureType})` : ''}
-                    </option>
-                  ))}
+                  {locations
+                    .filter((loc) => loc.isActive)
+                    .map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} {loc.temperatureType ? `(${loc.temperatureType})` : ''}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -379,33 +426,130 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
             {error && <div className="alert-error mb-4">{error}</div>}
 
             <form onSubmit={handleConsumeSubmit} className="modal-form">
-              <div className="form-group">
-                <label>Ingredient</label>
-                <select
-                  value={consumeIngredientId}
-                  onChange={(e) => setConsumeIngredientId(e.target.value)}
-                  required
-                >
-                  <option value="">-- Select Ingredient to Deplete --</option>
-                  {ingredients.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name} ({i.sku}) - {i.unit}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {modal.ingredientId ? (
+                <div className="batch-context-summary mb-4">
+                  <div>
+                    <span>Ingredient:</span>{' '}
+                    <strong className="text-white">{itemName || 'Target Ingredient'}</strong>
+                  </div>
+                  {itemSku && (
+                    <div>
+                      <span>SKU:</span>{' '}
+                      <strong className="font-mono text-accent">{itemSku}</strong>
+                    </div>
+                  )}
+                  <div>
+                    <span>Available Stock:</span>{' '}
+                    <strong
+                      className={
+                        availableStock !== undefined && availableStock <= 0
+                          ? 'text-rose font-bold'
+                          : 'text-emerald font-bold'
+                      }
+                    >
+                      {availableStock !== undefined
+                        ? availableStock.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 3,
+                          })
+                        : '—'}{' '}
+                      {itemUnit}
+                    </strong>
+                  </div>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>Select Ingredient</label>
+                  <select
+                    value={consumeIngredientId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      setConsumeIngredientId(nextId);
+                      const item = inventoryList.find((i) => i.ingredientId === nextId);
+                      if (item && item.currentStock > 0) {
+                        setConsumeQuantity((prev) => {
+                          const num = parseFloat(prev);
+                          if (isNaN(num) || num <= 0 || num > item.currentStock) {
+                            return Math.min(5, item.currentStock).toString();
+                          }
+                          return prev;
+                        });
+                      }
+                    }}
+                    required
+                  >
+                    <option value="">-- Select Ingredient to Deplete --</option>
+                    {(inventoryList.length > 0
+                      ? inventoryList
+                      : ingredients.map((i) => ({
+                          ingredientId: i.id,
+                          ingredientName: i.name,
+                          sku: i.sku,
+                          unit: i.unit,
+                          currentStock: 0,
+                          isLowStock: false,
+                        }))
+                    ).map((i) => (
+                      <option key={i.ingredientId} value={i.ingredientId}>
+                        {i.ingredientName} ({i.sku}) — Available: {i.currentStock.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {i.unit}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Live Available Stock Badge Card when selected from dropdown */}
+                  {currentConsumeItem && (
+                    <div className="batch-context-summary mt-2">
+                      <div>
+                        <span>Selected:</span>{' '}
+                        <strong className="text-white">{currentConsumeItem.ingredientName}</strong>
+                      </div>
+                      <div>
+                        <span>SKU:</span>{' '}
+                        <strong className="font-mono text-accent">{currentConsumeItem.sku}</strong>
+                      </div>
+                      <div>
+                        <span>Available Stock:</span>{' '}
+                        <strong
+                          className={
+                            currentConsumeItem.currentStock <= 0
+                              ? 'text-rose font-bold'
+                              : currentConsumeItem.isLowStock
+                              ? 'text-amber font-bold'
+                              : 'text-emerald font-bold'
+                          }
+                        >
+                          {currentConsumeItem.currentStock.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 3,
+                          })}{' '}
+                          {currentConsumeItem.unit}
+                          {currentConsumeItem.currentStock <= 0 && ' (OUT OF STOCK)'}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Quantity to Consume</label>
+                  <label>
+                    Quantity to Consume {itemUnit ? `(${itemUnit})` : ''}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
+                    max={availableStock && availableStock > 0 ? availableStock : undefined}
                     value={consumeQuantity}
                     onChange={(e) => setConsumeQuantity(e.target.value)}
                     required
                   />
+                  {availableStock !== undefined && availableStock <= 0 && (
+                    <span className="text-xs text-rose mt-1 block">
+                      Warning: Available stock is 0. Depletion may fail on the server.
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Reference Type</label>
@@ -649,7 +793,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 >
                   <option value="">-- Select Destination Location --</option>
                   {locations
-                    .filter((l) => l.id !== modal.batch?.storageLocationId)
+                    .filter((l) => l.isActive && l.id !== modal.batch?.storageLocationId)
                     .map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name} ({loc.temperatureType || 'AMBIENT'})
