@@ -84,6 +84,7 @@ builder.Services.AddAuthorization();
 // --------------------------------------------------
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
