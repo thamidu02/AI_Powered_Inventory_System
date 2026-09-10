@@ -84,6 +84,14 @@ builder.Services.AddAuthorization();
 // --------------------------------------------------
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddScoped<
+    IIngredientCategoryService,
+    IngredientCategoryService>();
+    builder.Services.AddScoped<
+    IStorageLocationService,
+    StorageLocationService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
@@ -114,6 +122,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
 
 // --------------------------------------------------
 // HTTP Pipeline
