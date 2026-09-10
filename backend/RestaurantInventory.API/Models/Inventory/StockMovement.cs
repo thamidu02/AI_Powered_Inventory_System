@@ -11,9 +11,11 @@ public class StockMovement : BaseEntity
 
     public Guid StorageLocationId { get; set; }
 
+
     public string MovementType { get; set; } = string.Empty;
 
     public decimal Quantity { get; set; }
+
 
     public string? ReferenceType { get; set; }
 
