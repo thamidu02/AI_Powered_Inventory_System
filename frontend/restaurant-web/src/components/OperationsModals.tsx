@@ -1,0 +1,735 @@
+import React, { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowDownUp,
+  CheckCircle2,
+  Info,
+  PackageCheck,
+  PackageMinus,
+  Sliders,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { api } from '../services/api';
+import type {
+  ActiveModal,
+  IngredientResponse,
+  StorageLocationResponse,
+} from '../types';
+
+interface OperationsModalsProps {
+  modal: ActiveModal;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+}
+
+export const OperationsModals: React.FC<OperationsModalsProps> = ({
+  modal,
+  onClose,
+  onSuccess,
+}) => {
+  const [ingredients, setIngredients] = useState<IngredientResponse[]>([]);
+  const [locations, setLocations] = useState<StorageLocationResponse[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Lazy initial state based on active modal
+  const initialIngredientId = (modal && 'ingredientId' in modal && modal.ingredientId) ? modal.ingredientId : '';
+  const initialBatch = (modal && 'batch' in modal && modal.batch) ? modal.batch : null;
+
+  const [receiveIngredientId, setReceiveIngredientId] = useState<string>(initialIngredientId);
+  const [receiveLocationId, setReceiveLocationId] = useState<string>('');
+  const [receiveBatchNumber, setReceiveBatchNumber] = useState<string>(
+    () => `BAT-${Math.floor(10000 + Math.random() * 90000)}`
+  );
+  const [receiveQuantity, setReceiveQuantity] = useState<string>('20');
+  const [receiveUnitCost, setReceiveUnitCost] = useState<string>('5.50');
+  const [receiveExpiryDate, setReceiveExpiryDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  });
+
+  // Consume
+  const [consumeIngredientId, setConsumeIngredientId] = useState<string>(initialIngredientId);
+  const [consumeQuantity, setConsumeQuantity] = useState<string>('5');
+  const [consumeReason, setConsumeReason] = useState<string>('Kitchen Lunch Prep');
+  const [consumeRefType, setConsumeRefType] = useState<string>('KITCHEN_ORDER');
+
+  // Waste
+  const [wasteQuantity, setWasteQuantity] = useState<string>(
+    initialBatch ? Math.min(1, initialBatch.quantity).toString() : '1'
+  );
+  const [wasteReason, setWasteReason] = useState<string>('Spoiled / damaged during handling');
+
+  // Adjust
+  const [adjustQuantityChange, setAdjustQuantityChange] = useState<string>('5');
+  const [adjustReason, setAdjustReason] = useState<string>('Inventory count discrepancy reconciliation');
+
+  // Transfer
+  const [transferDestinationId, setTransferDestinationId] = useState<string>('');
+  const [transferQuantity, setTransferQuantity] = useState<string>(
+    initialBatch ? Math.min(2, initialBatch.quantity).toString() : '2'
+  );
+
+  // Approval testing
+  const [approvalAdjustmentId, setApprovalAdjustmentId] = useState<string>(
+    modal && modal.type === 'approveAdjustment' ? modal.adjustmentId : ''
+  );
+
+  useEffect(() => {
+    let ignore = false;
+    api.getIngredients().then((data) => {
+      if (!ignore) setIngredients(data);
+    }).catch(console.error);
+
+    api.getStorageLocations().then((locs) => {
+      if (!ignore) {
+        const active = locs.filter((l) => l.isActive);
+        setLocations(active);
+        if (active.length > 0) {
+          setReceiveLocationId((prev) => prev || active[0].id);
+        }
+      }
+    }).catch(console.error);
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  if (!modal) return null;
+
+  // Handlers
+  const handleReceiveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!receiveIngredientId || !receiveLocationId) {
+      setError('Please select an ingredient and storage location.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.receiveStock({
+        ingredientId: receiveIngredientId,
+        storageLocationId: receiveLocationId,
+        batchNumber: receiveBatchNumber.trim(),
+        quantity: parseFloat(receiveQuantity),
+        unitCost: parseFloat(receiveUnitCost),
+        expiryDate: receiveExpiryDate ? new Date(receiveExpiryDate).toISOString() : null,
+      });
+      onSuccess(res.message || 'Stock batch received successfully!');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to receive stock.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConsumeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!consumeIngredientId) {
+      setError('Please select an ingredient to consume.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.consumeStock({
+        ingredientId: consumeIngredientId,
+        quantity: parseFloat(consumeQuantity),
+        reason: consumeReason,
+        referenceType: consumeRefType,
+      });
+      onSuccess(res.message || 'Stock consumed via FEFO algorithm!');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to consume stock.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWasteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (modal.type !== 'waste' || !modal.batch) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.recordWaste({
+        stockBatchId: modal.batch.id,
+        quantity: parseFloat(wasteQuantity),
+        reason: wasteReason,
+      });
+      onSuccess(res.message || 'Waste recorded successfully.');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record waste.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (modal.type !== 'adjust' || !modal.batch) return;
+    const qtyChange = parseFloat(adjustQuantityChange);
+    if (qtyChange === 0) {
+      setError('Adjustment quantity cannot be 0.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.adjustStock({
+        stockBatchId: modal.batch.id,
+        quantityChange: qtyChange,
+        reason: adjustReason,
+      });
+      const thresholdNote =
+        Math.abs(qtyChange) >= 10
+          ? ' (Significant adjustment ≥ 10 marked PENDING_APPROVAL)'
+          : ' (Auto-applied immediately)';
+      onSuccess((res.message || 'Stock adjustment submitted!') + thresholdNote);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit stock adjustment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (modal.type !== 'transfer' || !modal.batch || !transferDestinationId) {
+      setError('Please select a destination storage location.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.transferStock({
+        stockBatchId: modal.batch.id,
+        destinationStorageLocationId: transferDestinationId,
+        quantity: parseFloat(transferQuantity),
+      });
+      onSuccess(res.message || 'Stock transferred to new location successfully.');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to transfer stock.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveAdjustment = async (approve: boolean) => {
+    if (!approvalAdjustmentId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      if (approve) {
+        const res = await api.approveAdjustment(approvalAdjustmentId);
+        onSuccess(res.message || 'Stock adjustment approved and applied.');
+      } else {
+        const res = await api.rejectAdjustment(approvalAdjustmentId);
+        onSuccess(res.message || 'Stock adjustment rejected.');
+      }
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process adjustment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+
+        {/* RECEIVE MODAL */}
+        {modal.type === 'receive' && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-blue-glow">
+                <PackageCheck size={22} className="text-blue" />
+              </div>
+              <div>
+                <h3>Receive Stock Batch</h3>
+                <p>Register incoming inventory shipment into a storage location</p>
+              </div>
+            </div>
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <form onSubmit={handleReceiveSubmit} className="modal-form">
+              <div className="form-group">
+                <label>Ingredient</label>
+                <select
+                  value={receiveIngredientId}
+                  onChange={(e) => setReceiveIngredientId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Ingredient --</option>
+                  {ingredients.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name} ({i.sku}) - {i.unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Storage Location</label>
+                <select
+                  value={receiveLocationId}
+                  onChange={(e) => setReceiveLocationId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Location --</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} {loc.temperatureType ? `(${loc.temperatureType})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Batch Number</label>
+                  <input
+                    type="text"
+                    value={receiveBatchNumber}
+                    onChange={(e) => setReceiveBatchNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={receiveQuantity}
+                    onChange={(e) => setReceiveQuantity(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Unit Cost ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={receiveUnitCost}
+                    onChange={(e) => setReceiveUnitCost(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Expiry Date</label>
+                  <input
+                    type="date"
+                    value={receiveExpiryDate}
+                    onChange={(e) => setReceiveExpiryDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Processing...' : 'Receive Stock'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* CONSUME MODAL */}
+        {modal.type === 'consume' && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-emerald-glow">
+                <PackageMinus size={22} className="text-emerald" />
+              </div>
+              <div>
+                <h3>Consume Stock (FEFO)</h3>
+                <p>Depletes stock using First-Expired, First-Out automatic batch selection</p>
+              </div>
+            </div>
+
+            <div className="info-banner mb-4">
+              <Info size={16} className="text-accent" />
+              <span>
+                The backend automatically selects batches expiring earliest. If an expiry date is
+                missing, oldest received batches are consumed first.
+              </span>
+            </div>
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <form onSubmit={handleConsumeSubmit} className="modal-form">
+              <div className="form-group">
+                <label>Ingredient</label>
+                <select
+                  value={consumeIngredientId}
+                  onChange={(e) => setConsumeIngredientId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Ingredient to Deplete --</option>
+                  {ingredients.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name} ({i.sku}) - {i.unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Quantity to Consume</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={consumeQuantity}
+                    onChange={(e) => setConsumeQuantity(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Reference Type</label>
+                  <select
+                    value={consumeRefType}
+                    onChange={(e) => setConsumeRefType(e.target.value)}
+                  >
+                    <option value="KITCHEN_ORDER">Kitchen Order / Prep</option>
+                    <option value="RECIPE_DISPATCH">Recipe Dispatch</option>
+                    <option value="CATERING_EVENT">Catering Event</option>
+                    <option value="MANUAL_CONSUMPTION">Manual Consumption</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Reason / Kitchen Notes</label>
+                <input
+                  type="text"
+                  value={consumeReason}
+                  onChange={(e) => setConsumeReason(e.target.value)}
+                  placeholder="e.g. Lunch shift burger prep"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Deducting via FEFO...' : 'Confirm Consumption'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* WASTE MODAL */}
+        {modal.type === 'waste' && modal.batch && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-rose-glow">
+                <Trash2 size={22} className="text-rose" />
+              </div>
+              <div>
+                <h3>Record Waste / Spoilage</h3>
+                <p>
+                  Deduct ruined stock from Batch{' '}
+                  <strong className="font-mono text-accent">{modal.batch.batchNumber}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="batch-context-summary">
+              <div>
+                <span>Item:</span> <strong>{modal.ingredientName}</strong>
+              </div>
+              <div>
+                <span>Location:</span> <strong>{modal.batch.storageLocationName}</strong>
+              </div>
+              <div>
+                <span>Available:</span> <strong>{modal.batch.quantity}</strong>
+              </div>
+            </div>
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <form onSubmit={handleWasteSubmit} className="modal-form">
+              <div className="form-group">
+                <label>Quantity Wasted</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={modal.batch.quantity}
+                  value={wasteQuantity}
+                  onChange={(e) => setWasteQuantity(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Reason for Waste</label>
+                <input
+                  type="text"
+                  value={wasteReason}
+                  onChange={(e) => setWasteReason(e.target.value)}
+                  placeholder="e.g. Expired shelf life, temperature fluctuation"
+                  required
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-danger" disabled={loading}>
+                  {loading ? 'Recording Waste...' : 'Confirm Waste Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ADJUST MODAL */}
+        {modal.type === 'adjust' && modal.batch && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-amber-glow">
+                <Sliders size={22} className="text-amber" />
+              </div>
+              <div>
+                <h3>Stock Discrepancy Adjustment</h3>
+                <p>
+                  Adjust count on Batch{' '}
+                  <strong className="font-mono text-accent">{modal.batch.batchNumber}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="batch-context-summary">
+              <div>
+                <span>Item:</span> <strong>{modal.ingredientName}</strong>
+              </div>
+              <div>
+                <span>Current Quantity:</span> <strong>{modal.batch.quantity}</strong>
+              </div>
+            </div>
+
+            {/* Threshold Notice Card */}
+            {Math.abs(parseFloat(adjustQuantityChange) || 0) >= 10 ? (
+              <div className="alert-warning mb-4">
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>Significant Adjustment (≥ 10 units):</strong>
+                  <p className="text-sm">
+                    This adjustment will NOT alter stock immediately. It will be submitted for
+                    Restaurant Manager approval.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="info-banner mb-4">
+                <CheckCircle2 size={18} className="text-emerald" />
+                <div>
+                  <strong>Routine Adjustment (&lt; 10 units):</strong>
+                  <p className="text-sm">
+                    This adjustment will be approved and applied immediately to the batch.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <form onSubmit={handleAdjustSubmit} className="modal-form">
+              <div className="form-group">
+                <label>
+                  Quantity Change (+ to increase, - to decrease)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={adjustQuantityChange}
+                  onChange={(e) => setAdjustQuantityChange(e.target.value)}
+                  required
+                />
+                <span className="text-xs text-muted mt-1">
+                  New resulting batch quantity:{' '}
+                  <strong>
+                    {Math.max(
+                      0,
+                      modal.batch.quantity + (parseFloat(adjustQuantityChange) || 0)
+                    ).toFixed(2)}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label>Mandatory Audit Reason</label>
+                <textarea
+                  rows={2}
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="State reason for discrepancy found during count..."
+                  required
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Submitting...' : 'Submit Adjustment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TRANSFER MODAL */}
+        {modal.type === 'transfer' && modal.batch && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-blue-glow">
+                <ArrowDownUp size={22} className="text-blue" />
+              </div>
+              <div>
+                <h3>Transfer Stock Between Locations</h3>
+                <p>
+                  Move quantity from{' '}
+                  <strong className="text-accent">{modal.batch.storageLocationName}</strong> to
+                  another storage spot
+                </p>
+              </div>
+            </div>
+
+            <div className="batch-context-summary">
+              <div>
+                <span>Item:</span> <strong>{modal.ingredientName}</strong>
+              </div>
+              <div>
+                <span>Source Batch:</span>{' '}
+                <strong className="font-mono">{modal.batch.batchNumber}</strong>
+              </div>
+              <div>
+                <span>Max Available:</span> <strong>{modal.batch.quantity}</strong>
+              </div>
+            </div>
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <form onSubmit={handleTransferSubmit} className="modal-form">
+              <div className="form-group">
+                <label>Destination Storage Location</label>
+                <select
+                  value={transferDestinationId}
+                  onChange={(e) => setTransferDestinationId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Destination Location --</option>
+                  {locations
+                    .filter((l) => l.id !== modal.batch?.storageLocationId)
+                    .map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} ({loc.temperatureType || 'AMBIENT'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Quantity to Transfer</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={modal.batch.quantity}
+                  value={transferQuantity}
+                  onChange={(e) => setTransferQuantity(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Moving Stock...' : 'Confirm Transfer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* APPROVE/REJECT ADJUSTMENT MODAL */}
+        {modal.type === 'approveAdjustment' && (
+          <div>
+            <div className="modal-header">
+              <div className="modal-icon-badge bg-purple-glow">
+                <CheckCircle2 size={22} className="text-accent" />
+              </div>
+              <div>
+                <h3>Manager Adjustment Review</h3>
+                <p>Approve or Reject a pending stock adjustment</p>
+              </div>
+            </div>
+
+            {error && <div className="alert-error mb-4">{error}</div>}
+
+            <div className="form-group">
+              <label>Adjustment ID (GUID)</label>
+              <input
+                type="text"
+                value={approvalAdjustmentId}
+                onChange={(e) => setApprovalAdjustmentId(e.target.value)}
+                placeholder="Enter stock adjustment GUID..."
+                required
+              />
+            </div>
+
+            <div className="modal-actions mt-4">
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={loading || !approvalAdjustmentId}
+                onClick={() => handleApproveAdjustment(false)}
+              >
+                Reject Adjustment
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={loading || !approvalAdjustmentId}
+                onClick={() => handleApproveAdjustment(true)}
+              >
+                Approve & Apply Stock
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
