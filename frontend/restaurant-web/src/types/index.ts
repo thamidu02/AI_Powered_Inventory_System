@@ -56,6 +56,8 @@ export const TEST_ACCOUNTS: { email: string; role: UserRole; name: string; descr
 // Inventory & Batches
 export interface StockBatchResponse {
   id: string;
+  ingredientId: string;
+  ingredientName: string;
   batchNumber: string;
   quantity: number;
   unitCost: number;
@@ -171,6 +173,7 @@ export interface RecordWasteRequest {
   stockBatchId: string;
   quantity: number;
   reason: string;
+  referenceId?: string | null;
 }
 
 export interface AdjustStockRequest {

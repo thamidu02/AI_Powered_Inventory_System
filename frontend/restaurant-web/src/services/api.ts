@@ -23,13 +23,6 @@ import type {
 const TOKEN_KEY = 'restaurant_auth_token';
 const USER_KEY = 'restaurant_auth_user';
 
-// Immediately clear stored session so the app always starts on login
-try {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-} catch {
-  // ignore
-}
 
 export const getStoredToken = (): string | null => {
   const user = getStoredUser();

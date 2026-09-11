@@ -86,6 +86,7 @@ public class InventoryService : IInventoryService
         return await _context.StockBatches
             .AsNoTracking()
             .Include(b => b.StorageLocation)
+            .Include(b => b.Ingredient)
             .Where(b =>
                 (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
                 b.Quantity > 0 &&
@@ -96,6 +97,8 @@ public class InventoryService : IInventoryService
             .Select(b => new StockBatchResponse
             {
                 Id = b.Id,
+                IngredientId = b.IngredientId,
+                IngredientName = b.Ingredient.Name,
                 BatchNumber = b.BatchNumber,
                 Quantity = b.Quantity,
                 UnitCost = b.UnitCost,
@@ -134,6 +137,26 @@ public class InventoryService : IInventoryService
         if (!location.IsActive)
             throw new InvalidOperationException(
                 $"Storage location '{location.Name}' is deactivated. No stock can be received or added into a deactivated storage location.");
+
+        // ── MAX STOCK LEVEL CHECK ──────────────────────────────────────
+        // Load the ingredient with its current batches to compute total stock.
+        var currentStock = await _context.StockBatches
+            .Where(b =>
+                b.IngredientId == request.IngredientId &&
+                (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
+                b.Quantity > 0)
+            .SumAsync(b => b.Quantity);
+
+        if (ingredient.MaximumStockLevel > 0 &&
+            currentStock + request.Quantity > ingredient.MaximumStockLevel)
+        {
+            throw new InvalidOperationException(
+                $"Cannot receive {request.Quantity} {ingredient.Unit} of '{ingredient.Name}'. " +
+                $"Current stock: {currentStock} {ingredient.Unit}. " +
+                $"Maximum allowed: {ingredient.MaximumStockLevel} {ingredient.Unit}. " +
+                $"This would exceed the maximum stock level by " +
+                $"{currentStock + request.Quantity - ingredient.MaximumStockLevel} {ingredient.Unit}.");
+        }
 
         if (request.Quantity <= 0)
             throw new InvalidOperationException(
@@ -469,7 +492,7 @@ public class InventoryService : IInventoryService
 
                 batch.Status = batch.Quantity == 0
                     ? "DEPLETED"
-                    : "PARTIALLY_USED";
+                    : "AVAILABLE";
 
                 var movement = new StockMovement
                 {
@@ -586,7 +609,7 @@ public class InventoryService : IInventoryService
 
             batch.Status = batch.Quantity == 0
                 ? "DEPLETED"
-                : "PARTIALLY_USED";
+                : "AVAILABLE";
 
             adjustment.Status = "APPLIED";
             adjustment.ApprovedById = managerId;
@@ -791,6 +814,8 @@ public class InventoryService : IInventoryService
                 .Select(b => new StockBatchResponse
                 {
                     Id = b.Id,
+                    IngredientId = ingredient.Id,
+                    IngredientName = ingredient.Name,
                     BatchNumber = b.BatchNumber,
                     Quantity = b.Quantity,
                     UnitCost = b.UnitCost,

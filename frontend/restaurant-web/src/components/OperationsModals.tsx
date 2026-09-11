@@ -86,23 +86,31 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   useEffect(() => {
     let ignore = false;
-    api.getIngredients().then((data) => {
-      if (!ignore) setIngredients(data);
-    }).catch(console.error);
 
-    api.getInventory().then((invData) => {
-      if (!ignore) setInventoryList(invData);
-    }).catch(console.error);
-
-    api.getStorageLocations().then((locs) => {
-      if (!ignore) {
-        const active = locs.filter((l) => l.isActive);
+    Promise.all([
+      api.getIngredients(),
+      api.getInventory(),
+      api.getStorageLocations(),
+    ])
+      .then(([ingredientsData, invData, locsData]) => {
+        if (ignore) return;
+        setIngredients(ingredientsData);
+        setInventoryList(invData);
+        const active = locsData.filter((l) => l.isActive);
         setLocations(active);
         if (active.length > 0) {
           setReceiveLocationId((prev) => prev || active[0].id);
         }
-      }
-    }).catch(console.error);
+      })
+      .catch((e: unknown) => {
+        if (!ignore) {
+          setError(
+            e instanceof Error
+              ? `Failed to load form data: ${e.message}`
+              : 'Failed to load form data. Is the backend running?'
+          );
+        }
+      });
 
     return () => {
       ignore = true;

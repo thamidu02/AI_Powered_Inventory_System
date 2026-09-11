@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RestaurantInventory.API.Data;
@@ -14,6 +15,23 @@ var builder = WebApplication.CreateBuilder(args);
 // --------------------------------------------------
 
 builder.Services.AddControllers();
+
+// --------------------------------------------------
+// CORS
+// --------------------------------------------------
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+        policy
+            .WithOrigins(
+                "http://localhost:5173",   // Vite dev server
+                "http://localhost:3000",   // Alternative dev port
+                "https://localhost:5173"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 
 // --------------------------------------------------
 // Database
@@ -134,6 +152,33 @@ using (var scope = app.Services.CreateScope())
 // HTTP Pipeline
 // --------------------------------------------------
 
+// Global exception handler — maps business exceptions to proper HTTP status codes
+// so the frontend receives a JSON { message } body instead of HTTP 500 HTML.
+app.UseExceptionHandler(errApp =>
+{
+    errApp.Run(async ctx =>
+    {
+        var feature = ctx.Features.Get<IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        ctx.Response.ContentType = "application/json";
+        ctx.Response.StatusCode = ex switch
+        {
+            InvalidOperationException => StatusCodes.Status400BadRequest,
+            ArgumentException        => StatusCodes.Status400BadRequest,
+            KeyNotFoundException     => StatusCodes.Status404NotFound,
+            UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        var message = (ctx.Response.StatusCode == 500)
+            ? "An unexpected error occurred."
+            : ex?.Message ?? "An error occurred.";
+
+        await ctx.Response.WriteAsJsonAsync(new { message });
+    });
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -144,6 +189,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+app.UseCors("FrontendPolicy");
 
 // IMPORTANT: Authentication must come before Authorization.
 app.UseAuthentication();
