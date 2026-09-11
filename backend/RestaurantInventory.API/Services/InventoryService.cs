@@ -829,4 +829,79 @@ public class InventoryService : IInventoryService
                 .ToList()
         };
     }
+
+    // ============================================================
+    // STOCK MOVEMENTS / CONSUME HISTORY
+    // ============================================================
+
+    public async Task<List<StockMovementResponse>> GetStockMovementsAsync(
+        Guid? ingredientId = null,
+        Guid? batchId = null,
+        string? movementType = null)
+    {
+        var query = _context.StockMovements
+            .AsNoTracking()
+            .Include(m => m.Ingredient)
+            .Include(m => m.StockBatch)
+            .Include(m => m.StorageLocation)
+            .Include(m => m.CreatedBy)
+            .AsQueryable();
+
+        if (ingredientId.HasValue)
+        {
+            query = query.Where(m => m.IngredientId == ingredientId.Value);
+        }
+
+        if (batchId.HasValue)
+        {
+            query = query.Where(m => m.StockBatchId == batchId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(movementType))
+        {
+            var normalizedType = movementType.Trim().ToUpper();
+            query = query.Where(m => m.MovementType.ToUpper() == normalizedType);
+        }
+
+        return await query
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new StockMovementResponse
+            {
+                Id = m.Id,
+                IngredientId = m.IngredientId,
+                IngredientName = m.Ingredient != null ? m.Ingredient.Name : string.Empty,
+                SKU = m.Ingredient != null ? m.Ingredient.SKU : string.Empty,
+                Unit = m.Ingredient != null ? m.Ingredient.Unit : string.Empty,
+                StockBatchId = m.StockBatchId,
+                BatchNumber = m.StockBatch != null ? m.StockBatch.BatchNumber : string.Empty,
+                StorageLocationId = m.StorageLocationId,
+                StorageLocationName = m.StorageLocation != null ? m.StorageLocation.Name : string.Empty,
+                MovementType = m.MovementType,
+                Quantity = m.Quantity,
+                ReferenceType = m.ReferenceType,
+                ReferenceId = m.ReferenceId,
+                Reason = m.Reason,
+                CreatedById = m.CreatedById,
+                CreatedByName = m.CreatedBy != null
+                    ? (m.CreatedBy.FirstName + " " + m.CreatedBy.LastName).Trim()
+                    : string.Empty,
+                CreatedByEmail = m.CreatedBy != null ? m.CreatedBy.Email : string.Empty,
+                CreatedAt = m.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public Task<List<StockMovementResponse>> GetBatchMovementsAsync(
+        Guid batchId,
+        string? movementType = null)
+    {
+        return GetStockMovementsAsync(null, batchId, movementType);
+    }
+
+    public Task<List<StockMovementResponse>> GetIngredientMovementsAsync(
+        Guid ingredientId,
+        string? movementType = null)
+    {
+        return GetStockMovementsAsync(ingredientId, null, movementType);
+    }
 }

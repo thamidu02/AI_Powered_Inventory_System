@@ -13,6 +13,7 @@ import type {
   AdjustStockRequest,
   StockAdjustmentResponse,
   StockBatchResponse,
+  StockMovementResponse,
   StorageLocationResponse,
   TransferStockRequest,
   UpdateCategoryRequest,
@@ -172,6 +173,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Stock Movements & History
+  getStockMovements: (params?: { ingredientId?: string; batchId?: string; movementType?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.ingredientId) query.set('ingredientId', params.ingredientId);
+    if (params?.batchId) query.set('batchId', params.batchId);
+    if (params?.movementType) query.set('movementType', params.movementType);
+    const qs = query.toString();
+    return request<StockMovementResponse[]>(`/api/Inventory/movements${qs ? `?${qs}` : ''}`);
+  },
+
+  getBatchHistory: (batchId: string, movementType?: string) =>
+    request<StockMovementResponse[]>(
+      `/api/Inventory/batches/${batchId}/history${movementType ? `?movementType=${encodeURIComponent(movementType)}` : ''}`
+    ),
+
+  getIngredientHistory: (ingredientId: string, movementType?: string) =>
+    request<StockMovementResponse[]>(
+      `/api/Inventory/ingredients/${ingredientId}/history${movementType ? `?movementType=${encodeURIComponent(movementType)}` : ''}`
+    ),
 
   // Ingredients Master Data
   getIngredients: () => request<IngredientResponse[]>('/api/Ingredients'),
