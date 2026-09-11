@@ -8,14 +8,11 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  UtensilsCrossed,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import type {
   CreateSaleRequest,
-  CreateMenuItemRequest,
-  IngredientResponse,
   InventoryResponse,
   MenuItemResponse,
   RecipeResponse,
@@ -24,6 +21,11 @@ import type {
   WasteRecordResponse,
   WasteSummaryResponse,
 } from '../types';
+
+const formatQuantity = (quantity: number) =>
+  Number.isInteger(quantity)
+    ? quantity.toString()
+    : quantity.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
 
 export const SalesWasteDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -34,7 +36,6 @@ export const SalesWasteDashboard: React.FC = () => {
   const [salesSummary, setSalesSummary] = useState<SalesSummaryResponse | null>(null);
   const [wasteSummary, setWasteSummary] = useState<WasteSummaryResponse | null>(null);
   const [inventory, setInventory] = useState<InventoryResponse[]>([]);
-  const [ingredients, setIngredients] = useState<IngredientResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -44,19 +45,10 @@ export const SalesWasteDashboard: React.FC = () => {
   const [wasteQuantity, setWasteQuantity] = useState('1');
   const [wasteReason, setWasteReason] = useState('Spoilage');
   const [busy, setBusy] = useState(false);
-  const [menuName, setMenuName] = useState('');
-  const [menuDescription, setMenuDescription] = useState('');
-  const [menuPrice, setMenuPrice] = useState('');
-  const [recipeMenuItemId, setRecipeMenuItemId] = useState('');
-  const [recipeVersion, setRecipeVersion] = useState('1');
-  const [recipeRows, setRecipeRows] = useState([
-    { ingredientId: '', quantityRequired: '', unit: '' },
-  ]);
 
   const canRecordSale = ['SYSTEM_ADMIN', 'RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF'].includes(user?.role ?? '');
   const canRecordWaste = ['SYSTEM_ADMIN', 'INVENTORY_MANAGER', 'SALES_KITCHEN_STAFF', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
   const canConfirmWaste = ['INVENTORY_MANAGER', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
-  const canManageMenu = ['SYSTEM_ADMIN', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
 
   const batches = useMemo(
     () => inventory.flatMap((item) => item.batches.map((batch) => ({
@@ -71,7 +63,7 @@ export const SalesWasteDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [menu, recipeData, salesData, salesStats, wasteData, wasteStats, inventoryData, ingredientData] =
+      const [menu, recipeData, salesData, salesStats, wasteData, wasteStats, inventoryData] =
         await Promise.all([
           api.getMenuItems(),
           api.getRecipes(),
@@ -80,7 +72,6 @@ export const SalesWasteDashboard: React.FC = () => {
           api.getWasteRecords(),
           api.getWasteSummary(),
           api.getInventory(),
-          api.getIngredients(),
         ]);
       setMenuItems(menu);
       setRecipes(recipeData);
@@ -89,7 +80,6 @@ export const SalesWasteDashboard: React.FC = () => {
       setWasteRecords(wasteData);
       setWasteSummary(wasteStats);
       setInventory(inventoryData);
-      setIngredients(ingredientData);
       setSaleMenuItemId((current) => current || menu.find((item) => item.isActive)?.id || '');
       const firstBatch = inventoryData
         .flatMap((item) => item.batches)
@@ -164,60 +154,6 @@ export const SalesWasteDashboard: React.FC = () => {
     }
   };
 
-  const submitMenuItem = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const price = Number(menuPrice);
-    if (!menuName.trim() || !Number.isFinite(price) || price < 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const request: CreateMenuItemRequest = {
-        name: menuName.trim(),
-        description: menuDescription.trim() || null,
-        sellingPrice: price,
-      };
-      await api.createMenuItem(request);
-      setNotice('Menu item created.');
-      setMenuName('');
-      setMenuDescription('');
-      setMenuPrice('');
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create menu item.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitRecipe = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const ingredientsForRecipe = recipeRows
-      .filter((row) => row.ingredientId && Number(row.quantityRequired) > 0)
-      .map((row) => ({
-        ingredientId: row.ingredientId,
-        quantityRequired: Number(row.quantityRequired),
-        unit: row.unit.trim() || null,
-      }));
-    if (!recipeMenuItemId || ingredientsForRecipe.length !== recipeRows.length) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.createRecipe({
-        menuItemId: recipeMenuItemId,
-        version: Number(recipeVersion),
-        isActive: true,
-        ingredients: ingredientsForRecipe,
-      });
-      setNotice('Recipe created with its ingredient quantities.');
-      setRecipeRows([{ ingredientId: '', quantityRequired: '', unit: '' }]);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create recipe.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="view-container">
       <div className="hub-hero">
@@ -262,77 +198,6 @@ export const SalesWasteDashboard: React.FC = () => {
           </form>
         </section>
 
-        <section className="table-card dashboard-panel menu-recipe-section">
-          <div className="panel-heading">
-            <div>
-              <h3><UtensilsCrossed size={18} className="inline-icon" /> Menu & Recipes</h3>
-              <p className="text-sm text-muted">Manage the menu catalogue and define the ingredients consumed by each recipe.</p>
-            </div>
-            <span className="badge badge-purple">{menuItems.length} menu items</span>
-          </div>
-
-          <div className="dashboard-two-column">
-            <div>
-              <h4 className="subsection-title">Menu catalogue</h4>
-              <div className="dashboard-list">
-                {menuItems.map((item) => (
-                  <div className="dashboard-list-row" key={item.id}>
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span className="text-xs text-muted">{item.description || 'No description'} · {item.recipeCount} recipe(s)</span>
-                    </div>
-                    <div className="menu-price-status">
-                      <strong className="text-emerald">${item.sellingPrice.toFixed(2)}</strong>
-                      <span className={`badge ${item.isActive ? 'badge-emerald' : 'badge-default'}`}>{item.isActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                    </div>
-                  </div>
-                ))}
-                {menuItems.length === 0 && <p className="empty-state">No menu items configured yet.</p>}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="subsection-title">Create menu item</h4>
-              <form className="stack-form" onSubmit={submitMenuItem}>
-                <label>Name<input value={menuName} onChange={(event) => setMenuName(event.target.value)} maxLength={200} disabled={!canManageMenu} required /></label>
-                <label>Description<textarea value={menuDescription} onChange={(event) => setMenuDescription(event.target.value)} maxLength={1000} disabled={!canManageMenu} rows={2} /></label>
-                <label>Selling price<input type="number" min="0" step="0.01" value={menuPrice} onChange={(event) => setMenuPrice(event.target.value)} disabled={!canManageMenu} required /></label>
-                <button className="btn-primary" type="submit" disabled={!canManageMenu || busy}><Plus size={16} />Create menu item</button>
-                {!canManageMenu && <span className="text-xs text-rose">Only managers and system administrators can manage menu items.</span>}
-              </form>
-            </div>
-          </div>
-
-          <div className="recipe-builder">
-            <div className="panel-heading">
-              <div>
-                <h4>Recipe builder</h4>
-                <p className="text-sm text-muted">Every recipe ingredient requires a positive quantity and uses the existing inventory ingredient.</p>
-              </div>
-            </div>
-            <form className="stack-form" onSubmit={submitRecipe}>
-              <div className="recipe-header-fields">
-                <label>Menu item<select value={recipeMenuItemId} onChange={(event) => setRecipeMenuItemId(event.target.value)} disabled={!canManageMenu} required><option value="">Select menu item</option>{menuItems.filter((item) => item.isActive).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                <label>Version<input type="number" min="1" step="1" value={recipeVersion} onChange={(event) => setRecipeVersion(event.target.value)} disabled={!canManageMenu} /></label>
-              </div>
-              {recipeRows.map((row, index) => (
-                <div className="recipe-ingredient-row" key={index}>
-                  <select value={row.ingredientId} onChange={(event) => setRecipeRows((rows) => rows.map((current, rowIndex) => rowIndex === index ? { ...current, ingredientId: event.target.value } : current))} disabled={!canManageMenu} required>
-                    <option value="">Ingredient</option>
-                    {ingredients.map((ingredient) => <option key={ingredient.id} value={ingredient.id}>{ingredient.name} ({ingredient.unit})</option>)}
-                  </select>
-                  <input type="number" min="0.000001" step="0.001" placeholder="Quantity" value={row.quantityRequired} onChange={(event) => setRecipeRows((rows) => rows.map((current, rowIndex) => rowIndex === index ? { ...current, quantityRequired: event.target.value } : current))} disabled={!canManageMenu} required />
-                  <input placeholder="Unit" value={row.unit} onChange={(event) => setRecipeRows((rows) => rows.map((current, rowIndex) => rowIndex === index ? { ...current, unit: event.target.value } : current))} disabled={!canManageMenu} maxLength={50} />
-                  <button type="button" className="btn-icon" onClick={() => setRecipeRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))} disabled={!canManageMenu || recipeRows.length === 1} aria-label="Remove ingredient">−</button>
-                </div>
-              ))}
-              <div className="recipe-actions">
-                <button type="button" className="btn-secondary" onClick={() => setRecipeRows((rows) => [...rows, { ingredientId: '', quantityRequired: '', unit: '' }])} disabled={!canManageMenu}><Plus size={16} />Add ingredient</button>
-                <button className="btn-primary" type="submit" disabled={!canManageMenu || busy}><CheckCircle2 size={16} />Create recipe</button>
-              </div>
-            </form>
-          </div>
-        </section>
       </div>
 
       <div className="dashboard-two-column">
@@ -348,8 +213,8 @@ export const SalesWasteDashboard: React.FC = () => {
       </div>
 
       <section className="table-card dashboard-panel">
-        <div className="panel-heading"><h3>Recipe Coverage</h3><span className="text-sm text-muted">{ingredients.length} ingredients available</span></div>
-        <div className="dashboard-list">{recipes.slice(0, 8).map((recipe) => <div className="dashboard-list-row" key={recipe.id}><div><strong>{recipe.menuItemName}</strong><span className="text-xs text-muted">v{recipe.version} · {recipe.ingredients.map((ingredient) => `${ingredient.ingredientName} ${ingredient.quantityRequired}${ingredient.unit}`).join(', ')}</span></div><span className={`badge ${recipe.isActive ? 'badge-emerald' : 'badge-default'}`}>{recipe.isActive ? 'ACTIVE' : 'INACTIVE'}</span></div>)}{recipes.length === 0 && <p className="empty-state">No recipes configured yet.</p>}</div>
+        <div className="panel-heading"><h3>Recipe Coverage</h3></div>
+        <div className="dashboard-list">{recipes.slice(0, 8).map((recipe) => <div className="dashboard-list-row" key={recipe.id}><div><strong>{recipe.menuItemName}</strong><span className="text-xs text-muted">v{recipe.version} · {recipe.ingredients.map((ingredient) => `${ingredient.ingredientName} ${formatQuantity(ingredient.quantityRequired)}${ingredient.unit}`).join(', ')}</span></div><span className={`badge ${recipe.isActive ? 'badge-emerald' : 'badge-default'}`}>{recipe.isActive ? 'ACTIVE' : 'INACTIVE'}</span></div>)}{recipes.length === 0 && <p className="empty-state">No recipes configured yet.</p>}</div>
       </section>
     </div>
   );
