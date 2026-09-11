@@ -89,9 +89,10 @@ builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<
     IIngredientCategoryService,
     IngredientCategoryService>();
-    builder.Services.AddScoped<
+builder.Services.AddScoped<
     IStorageLocationService,
     StorageLocationService>();
+builder.Services.AddScoped<ISalesService, SalesService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
@@ -123,6 +124,11 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    await DatabaseSeeder.SeedAsync(services, builder.Configuration);
+}
 
 // --------------------------------------------------
 // HTTP Pipeline
