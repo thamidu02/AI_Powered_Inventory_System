@@ -11,6 +11,7 @@ import type {
   ReceiveStockRequest,
   RecordWasteRequest,
   AdjustStockRequest,
+  StockAdjustmentResponse,
   StockBatchResponse,
   StorageLocationResponse,
   TransferStockRequest,
@@ -22,13 +23,6 @@ import type {
 const TOKEN_KEY = 'restaurant_auth_token';
 const USER_KEY = 'restaurant_auth_user';
 
-// Immediately clear stored session so the app always starts on login
-try {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-} catch {
-  // ignore
-}
 
 export const getStoredToken = (): string | null => {
   const user = getStoredUser();
@@ -153,10 +147,15 @@ export const api = {
     }),
 
   adjustStock: (data: AdjustStockRequest) =>
-    request<{ message: string }>('/api/Inventory/adjust', {
+    request<{ message: string; adjustmentId?: string }>('/api/Inventory/adjust', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getAdjustments: (status?: string) =>
+    request<StockAdjustmentResponse[]>(
+      `/api/Inventory/adjustments${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
 
   approveAdjustment: (adjustmentId: string) =>
     request<{ message: string }>(`/api/Inventory/adjustments/${adjustmentId}/approve`, {

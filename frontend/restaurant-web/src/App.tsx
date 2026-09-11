@@ -50,15 +50,12 @@ const MainAppContent: React.FC = () => {
           <InventoryView
             onOpenModal={setActiveModal}
             refreshTrigger={refreshTrigger}
-            onSuccess={(msg) => {
-              addToast(msg, 'success');
-              setRefreshTrigger((prev) => prev + 1);
-            }}
+            onSuccess={handleModalSuccess}
           />
         )}
 
         {activeTab === 'operations' && (
-          <OperationsHub onOpenModal={setActiveModal} />
+          <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
         )}
 
         {activeTab === 'masterData' && (

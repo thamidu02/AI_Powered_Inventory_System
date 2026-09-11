@@ -170,14 +170,30 @@ public class InventoryController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        await _inventoryService.AdjustStockAsync(
+        var adjustmentId = await _inventoryService.AdjustStockAsync(
             request,
             userId);
 
         return Ok(new
         {
-            message = "Stock adjustment submitted successfully."
+            message = "Stock adjustment submitted successfully.",
+            adjustmentId
         });
+    }
+
+
+    // ============================================================
+    // GET ADJUSTMENTS
+    // ============================================================
+
+    [HttpGet("adjustments")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    public async Task<IActionResult> GetAdjustments(
+        [FromQuery] string? status = null)
+    {
+        var result = await _inventoryService.GetAdjustmentsAsync(status);
+
+        return Ok(result);
     }
 
 

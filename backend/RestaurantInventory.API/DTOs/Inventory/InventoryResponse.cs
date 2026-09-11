@@ -25,6 +25,11 @@ public class StockBatchResponse
 {
     public Guid Id { get; set; }
 
+    // Ingredient context (populated by expiring-stock and mapping helpers)
+    public Guid IngredientId { get; set; }
+
+    public string IngredientName { get; set; } = string.Empty;
+
     public string BatchNumber { get; set; } = string.Empty;
 
     public decimal Quantity { get; set; }

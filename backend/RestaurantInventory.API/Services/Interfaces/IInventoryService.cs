@@ -26,9 +26,12 @@ public interface IInventoryService
         RecordWasteRequest request,
         Guid userId);
 
-    Task AdjustStockAsync(
+    Task<Guid> AdjustStockAsync(
         AdjustStockRequest request,
         Guid userId);
+
+    Task<List<StockAdjustmentResponse>> GetAdjustmentsAsync(
+        string? status = null);
 
     Task ApproveAdjustmentAsync(
         Guid adjustmentId,
