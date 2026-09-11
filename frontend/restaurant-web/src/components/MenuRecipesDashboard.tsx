@@ -32,7 +32,7 @@ export const MenuRecipesDashboard: React.FC = () => {
     { ingredientId: '', quantityRequired: '', unit: '' },
   ]);
 
-  const canManageMenu = ['SYSTEM_ADMIN', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
+  const canManageMenu = ['RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF'].includes(user?.role ?? '');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -154,7 +154,7 @@ export const MenuRecipesDashboard: React.FC = () => {
             <label>Description<textarea value={menuDescription} onChange={(event) => setMenuDescription(event.target.value)} maxLength={1000} disabled={!canManageMenu} rows={2} /></label>
             <label>Selling price<input type="number" min="0" step="0.01" value={menuPrice} onChange={(event) => setMenuPrice(event.target.value)} disabled={!canManageMenu} required /></label>
             <button className="btn-primary" type="submit" disabled={!canManageMenu || busy}><Plus size={16} />Create menu item</button>
-            {!canManageMenu && <span className="text-xs text-rose">Only managers and system administrators can manage menu items.</span>}
+            {!canManageMenu && <span className="text-xs text-rose">Only restaurant managers and kitchen staff can manage menu items and recipes.</span>}
           </form>
         </div>
       </section>
