@@ -7,6 +7,8 @@ import { InventoryView } from './components/InventoryView';
 import { OperationsHub } from './components/OperationsHub';
 import { MasterDataView } from './components/MasterDataView';
 import { OperationsModals } from './components/OperationsModals';
+import { SalesWasteDashboard } from './components/SalesWasteDashboard';
+import { MenuRecipesDashboard } from './components/MenuRecipesDashboard';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import './App.css';
@@ -19,7 +21,7 @@ interface Toast {
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste'>('inventory');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -58,6 +60,8 @@ const MainAppContent: React.FC = () => {
           <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
         )}
 
+        {activeTab === 'salesWaste' && <SalesWasteDashboard />}
+
         {activeTab === 'masterData' && (
           <MasterDataView
             onOpenModal={setActiveModal}
@@ -67,6 +71,8 @@ const MainAppContent: React.FC = () => {
             }}
           />
         )}
+
+        {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
       </main>
 
       {/* Global Stock Operations Modal Suite */}

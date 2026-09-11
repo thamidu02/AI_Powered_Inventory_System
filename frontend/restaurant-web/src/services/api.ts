@@ -18,6 +18,15 @@ import type {
   UpdateCategoryRequest,
   UpdateIngredientRequest,
   UpdateStorageLocationRequest,
+  CreateRecipeRequest,
+  CreateMenuItemRequest,
+  CreateSaleRequest,
+  MenuItemResponse,
+  RecipeResponse,
+  SaleResponse,
+  SalesSummaryResponse,
+  WasteRecordResponse,
+  WasteSummaryResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -115,6 +124,43 @@ export const api = {
     setStoredAuth(data);
     return data;
   },
+
+  // Sales, recipes, and waste
+  getSales: () => request<SaleResponse[]>('/api/Sales'),
+  createSale: (data: CreateSaleRequest) =>
+    request<SaleResponse>('/api/Sales', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getSalesSummary: () =>
+    request<SalesSummaryResponse>('/api/Sales/summary'),
+  getWasteRecords: () =>
+    request<WasteRecordResponse[]>('/api/WasteRecords'),
+  getWasteSummary: () =>
+    request<WasteSummaryResponse>('/api/WasteRecords/summary'),
+  createWasteRecord: (data: RecordWasteRequest) =>
+    request<WasteRecordResponse>('/api/WasteRecords', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  confirmWaste: (wasteRecordId: string) =>
+    request<WasteRecordResponse>(`/api/WasteRecords/${wasteRecordId}/confirm`, {
+      method: 'POST',
+    }),
+  getMenuItems: () =>
+    request<MenuItemResponse[]>('/api/MenuItems'),
+  createMenuItem: (data: CreateMenuItemRequest) =>
+    request<MenuItemResponse>('/api/MenuItems', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getRecipes: () =>
+    request<RecipeResponse[]>('/api/Recipes'),
+  createRecipe: (data: CreateRecipeRequest) =>
+    request<RecipeResponse>('/api/Recipes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   logout: () => {
     setStoredAuth(null);

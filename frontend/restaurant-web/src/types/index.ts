@@ -225,3 +225,101 @@ export type ActiveModal =
   | { type: 'createLocation' }
   | { type: 'approveAdjustment'; adjustmentId: string; adjustment?: StockAdjustmentResponse };
 
+// Sales, recipes, and waste
+export interface MenuItemResponse {
+  id: string;
+  name: string;
+  description?: string | null;
+  sellingPrice: number;
+  isActive: boolean;
+  recipeCount: number;
+}
+
+export interface RecipeIngredientResponse {
+  ingredientId: string;
+  ingredientName: string;
+  unit: string;
+  quantityRequired: number;
+}
+
+export interface RecipeResponse {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  version: number;
+  isActive: boolean;
+  ingredients: RecipeIngredientResponse[];
+}
+
+export interface SaleItemResponse {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface SaleResponse {
+  id: string;
+  recordedById: string;
+  recordedByName: string;
+  saleDate: string;
+  totalAmount: number;
+  status: string;
+  items: SaleItemResponse[];
+}
+
+export interface SalesSummaryResponse {
+  totalSales: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  totalItemsSold: number;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface WasteRecordResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  stockBatchId: string;
+  stockBatchNumber: string;
+  quantity: number;
+  reason: string;
+  reportedById: string;
+  reportedByName: string;
+  status: string;
+  recordedAt: string;
+  confirmedById?: string | null;
+  confirmedByName?: string | null;
+  confirmedAt?: string | null;
+}
+
+export interface WasteSummaryResponse {
+  totalWasteRecords: number;
+  totalWasteQuantity: number;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface CreateSaleRequest {
+  items: { menuItemId: string; quantity: number }[];
+}
+
+export interface CreateMenuItemRequest {
+  name: string;
+  description?: string | null;
+  sellingPrice: number;
+}
+
+export interface CreateRecipeRequest {
+  menuItemId: string;
+  version: number;
+  isActive: boolean;
+  ingredients: {
+    ingredientId: string;
+    quantityRequired: number;
+    unit?: string | null;
+  }[];
+}
