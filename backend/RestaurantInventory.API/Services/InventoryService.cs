@@ -86,6 +86,7 @@ public class InventoryService : IInventoryService
         return await _context.StockBatches
             .AsNoTracking()
             .Include(b => b.StorageLocation)
+            .Include(b => b.Ingredient)
             .Where(b =>
                 (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
                 b.Quantity > 0 &&
@@ -96,6 +97,8 @@ public class InventoryService : IInventoryService
             .Select(b => new StockBatchResponse
             {
                 Id = b.Id,
+                IngredientId = b.IngredientId,
+                IngredientName = b.Ingredient.Name,
                 BatchNumber = b.BatchNumber,
                 Quantity = b.Quantity,
                 UnitCost = b.UnitCost,
@@ -134,6 +137,26 @@ public class InventoryService : IInventoryService
         if (!location.IsActive)
             throw new InvalidOperationException(
                 $"Storage location '{location.Name}' is deactivated. No stock can be received or added into a deactivated storage location.");
+
+        // ── MAX STOCK LEVEL CHECK ──────────────────────────────────────
+        // Load the ingredient with its current batches to compute total stock.
+        var currentStock = await _context.StockBatches
+            .Where(b =>
+                b.IngredientId == request.IngredientId &&
+                (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
+                b.Quantity > 0)
+            .SumAsync(b => b.Quantity);
+
+        if (ingredient.MaximumStockLevel > 0 &&
+            currentStock + request.Quantity > ingredient.MaximumStockLevel)
+        {
+            throw new InvalidOperationException(
+                $"Cannot receive {request.Quantity} {ingredient.Unit} of '{ingredient.Name}'. " +
+                $"Current stock: {currentStock} {ingredient.Unit}. " +
+                $"Maximum allowed: {ingredient.MaximumStockLevel} {ingredient.Unit}. " +
+                $"This would exceed the maximum stock level by " +
+                $"{currentStock + request.Quantity - ingredient.MaximumStockLevel} {ingredient.Unit}.");
+        }
 
         if (request.Quantity <= 0)
             throw new InvalidOperationException(
@@ -411,7 +434,7 @@ public class InventoryService : IInventoryService
     // ADJUST STOCK
     // ============================================================
 
-    public async Task AdjustStockAsync(
+    public async Task<Guid> AdjustStockAsync(
         AdjustStockRequest request,
         Guid userId)
     {
@@ -469,7 +492,7 @@ public class InventoryService : IInventoryService
 
                 batch.Status = batch.Quantity == 0
                     ? "DEPLETED"
-                    : "PARTIALLY_USED";
+                    : "AVAILABLE";
 
                 var movement = new StockMovement
                 {
@@ -496,12 +519,58 @@ public class InventoryService : IInventoryService
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            return adjustment.Id;
         }
         catch
         {
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+
+    // ============================================================
+    // GET ADJUSTMENTS
+    // ============================================================
+
+    public async Task<List<StockAdjustmentResponse>> GetAdjustmentsAsync(
+        string? status = null)
+    {
+        var query = _context.StockAdjustments
+            .AsNoTracking()
+            .Include(a => a.Ingredient)
+            .Include(a => a.StockBatch)
+            .Include(a => a.RequestedBy)
+            .Include(a => a.ApprovedBy)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var upper = status.Trim().ToUpper();
+            query = query.Where(a => a.Status == upper);
+        }
+
+        return await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Select(a => new StockAdjustmentResponse
+            {
+                Id = a.Id,
+                IngredientId = a.IngredientId,
+                IngredientName = a.Ingredient.Name,
+                StockBatchId = a.StockBatchId,
+                BatchNumber = a.StockBatch.BatchNumber,
+                QuantityChange = a.QuantityChange,
+                Reason = a.Reason,
+                Status = a.Status,
+                RequestedById = a.RequestedById,
+                RequestedByName = $"{a.RequestedBy.FirstName} {a.RequestedBy.LastName}",
+                ApprovedById = a.ApprovedById,
+                ApprovedByName = a.ApprovedBy != null ? $"{a.ApprovedBy.FirstName} {a.ApprovedBy.LastName}" : null,
+                ApprovedAt = a.ApprovedAt,
+                CreatedAt = a.CreatedAt
+            })
+            .ToListAsync();
     }
 
 
@@ -540,7 +609,7 @@ public class InventoryService : IInventoryService
 
             batch.Status = batch.Quantity == 0
                 ? "DEPLETED"
-                : "PARTIALLY_USED";
+                : "AVAILABLE";
 
             adjustment.Status = "APPLIED";
             adjustment.ApprovedById = managerId;
@@ -650,6 +719,8 @@ public class InventoryService : IInventoryService
 
             if (sourceBatch.Quantity == 0)
                 sourceBatch.Status = "DEPLETED";
+            else
+                sourceBatch.Status = "PARTIALLY_USED";
 
             // Create a new batch at the destination.
             var destinationBatch = new StockBatch
@@ -743,6 +814,8 @@ public class InventoryService : IInventoryService
                 .Select(b => new StockBatchResponse
                 {
                     Id = b.Id,
+                    IngredientId = ingredient.Id,
+                    IngredientName = ingredient.Name,
                     BatchNumber = b.BatchNumber,
                     Quantity = b.Quantity,
                     UnitCost = b.UnitCost,

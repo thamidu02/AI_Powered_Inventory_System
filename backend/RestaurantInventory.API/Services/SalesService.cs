@@ -208,6 +208,16 @@ public class SalesService : ISalesService
         if (!menuItem.IsActive)
             throw new InvalidOperationException("Recipe cannot be created for an inactive menu item.");
 
+        // BUG 3 FIX: Enforce version uniqueness per MenuItemId
+        var versionExists = await _context.Recipes
+            .AnyAsync(r =>
+                r.MenuItemId == request.MenuItemId &&
+                r.Version == request.Version);
+
+        if (versionExists)
+            throw new InvalidOperationException(
+                $"Recipe version {request.Version} already exists for menu item '{menuItem.Name}'. Use a different version number.");
+
         var ingredientInputs = await ValidateRecipeIngredientsAsync(request.Ingredients);
         var recipe = new Recipe
         {
@@ -267,6 +277,17 @@ public class SalesService : ISalesService
         if (!menuItem.IsActive)
             throw new InvalidOperationException("Recipe cannot belong to an inactive menu item.");
 
+        // BUG 4 FIX: Enforce version uniqueness per MenuItemId (excluding self)
+        var versionConflict = await _context.Recipes
+            .AnyAsync(r =>
+                r.Id != recipeId &&
+                r.MenuItemId == request.MenuItemId &&
+                r.Version == request.Version);
+
+        if (versionConflict)
+            throw new InvalidOperationException(
+                $"Recipe version {request.Version} already exists for menu item '{menuItem.Name}'. Use a different version number.");
+
         var ingredientInputs = await ValidateRecipeIngredientsAsync(request.Ingredients);
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -314,6 +335,18 @@ public class SalesService : ISalesService
 
         if (recipe == null)
             return false;
+
+        // DESIGN 2 FIX: Prevent deleting the last active recipe for a menu item
+        if (recipe.IsActive)
+        {
+            var activeRecipeCount = await _context.Recipes
+                .CountAsync(r => r.MenuItemId == recipe.MenuItemId && r.IsActive);
+
+            if (activeRecipeCount <= 1)
+                throw new InvalidOperationException(
+                    "Cannot delete the only active recipe for this menu item. " +
+                    "Deactivate the recipe first, or ensure another active recipe exists.");
+        }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -458,6 +491,27 @@ public class SalesService : ISalesService
         if (user == null)
             throw new InvalidOperationException("User not found.");
 
+        // BUG 7 FIX: Pre-load all menu items and their active recipes in one batch
+        var menuItemIds = request.Items.Select(i => i.MenuItemId).Distinct().ToList();
+
+        var menuItems = await _context.MenuItems
+            .Where(mi => menuItemIds.Contains(mi.Id))
+            .ToDictionaryAsync(mi => mi.Id);
+
+        // Load the active recipes for each menu item (latest version)
+        var allRecipes = await _context.Recipes
+            .Include(r => r.Ingredients)
+                .ThenInclude(ri => ri.Ingredient)
+            .Where(r => menuItemIds.Contains(r.MenuItemId) && r.IsActive)
+            .ToListAsync();
+
+        // Keep only the highest-version active recipe per menu item
+        var activeRecipes = allRecipes
+            .GroupBy(r => r.MenuItemId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.Version).First());
+
         var sale = new Sale
         {
             RecordedById = userId,
@@ -474,24 +528,13 @@ public class SalesService : ISalesService
             if (itemRequest.Quantity <= 0)
                 throw new InvalidOperationException("Sale quantities must be greater than zero.");
 
-            var menuItem = await _context.MenuItems
-                .Include(mi => mi.Recipes)
-                .FirstOrDefaultAsync(mi => mi.Id == itemRequest.MenuItemId);
-
-            if (menuItem == null)
+            if (!menuItems.TryGetValue(itemRequest.MenuItemId, out var menuItem))
                 throw new InvalidOperationException($"Menu item {itemRequest.MenuItemId} was not found.");
 
             if (!menuItem.IsActive)
                 throw new InvalidOperationException($"Menu item '{menuItem.Name}' is not active.");
 
-            var recipe = await _context.Recipes
-                .Include(r => r.Ingredients)
-                    .ThenInclude(ri => ri.Ingredient)
-                .Where(r => r.MenuItemId == itemRequest.MenuItemId && r.IsActive)
-                .OrderByDescending(r => r.Version)
-                .FirstOrDefaultAsync();
-
-            if (recipe == null)
+            if (!activeRecipes.TryGetValue(itemRequest.MenuItemId, out var recipe))
                 throw new InvalidOperationException($"Menu item '{menuItem.Name}' does not have a valid active recipe.");
 
             if (recipe.Ingredients.Count == 0 ||
@@ -526,31 +569,34 @@ public class SalesService : ISalesService
             }
         }
 
-        foreach (var (ingredientId, neededQuantity) in consumptionPlan)
-        {
-            var ingredient = await _context.Ingredients
-                .FirstOrDefaultAsync(i => i.Id == ingredientId);
-
-            if (ingredient == null)
-                throw new InvalidOperationException("One or more recipe ingredients are missing from inventory.");
-
-            var availableQuantity = await _context.StockBatches
-                .Where(b =>
-                    b.IngredientId == ingredientId &&
-                    (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
-                    b.Quantity > 0 &&
-                    (!b.ExpiryDate.HasValue || b.ExpiryDate.Value.Date >= DateTime.UtcNow.Date))
-                .SumAsync(b => b.Quantity);
-
-            if (availableQuantity < neededQuantity)
-                throw new InvalidOperationException(
-                    $"Insufficient stock for ingredient '{ingredient.Name}'. Available: {availableQuantity}, Required: {neededQuantity}.");
-        }
-
+        // BUG 1 FIX: Move the stock availability check inside the transaction
+        // so no other concurrent request can deplete stock between our check and consume.
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
+            // Pre-validate stock inside the transaction (prevents TOCTOU race).
+            foreach (var (ingredientId, neededQuantity) in consumptionPlan)
+            {
+                var ingredient = await _context.Ingredients
+                    .FirstOrDefaultAsync(i => i.Id == ingredientId);
+
+                if (ingredient == null)
+                    throw new InvalidOperationException("One or more recipe ingredients are missing from inventory.");
+
+                var availableQuantity = await _context.StockBatches
+                    .Where(b =>
+                        b.IngredientId == ingredientId &&
+                        (b.Status == "AVAILABLE" || b.Status == "PARTIALLY_USED") &&
+                        b.Quantity > 0 &&
+                        (!b.ExpiryDate.HasValue || b.ExpiryDate.Value.Date >= DateTime.UtcNow.Date))
+                    .SumAsync(b => b.Quantity);
+
+                if (availableQuantity < neededQuantity)
+                    throw new InvalidOperationException(
+                        $"Insufficient stock for ingredient '{ingredient.Name}'. Available: {availableQuantity}, Required: {neededQuantity}.");
+            }
+
             _context.Sales.Add(sale);
             sale.Items = saleItems;
             await _context.SaveChangesAsync();
@@ -707,6 +753,11 @@ public class SalesService : ISalesService
         if (batch == null)
             throw new InvalidOperationException("Stock batch not found.");
 
+        // BUG 2 FIX: Check batch status before allowing waste recording
+        if (batch.Status != "AVAILABLE" && batch.Status != "PARTIALLY_USED")
+            throw new InvalidOperationException(
+                $"Stock batch '{batch.BatchNumber}' is not available for waste recording (status: {batch.Status}).");
+
         if (batch.Quantity < request.Quantity)
             throw new InvalidOperationException($"Insufficient stock. Available: {batch.Quantity}, Requested waste: {request.Quantity}.");
 
@@ -838,6 +889,8 @@ public class SalesService : ISalesService
             MenuItemName = recipe.MenuItem?.Name ?? string.Empty,
             Version = recipe.Version,
             IsActive = recipe.IsActive,
+            CreatedAt = recipe.CreatedAt,
+            UpdatedAt = recipe.UpdatedAt,
             Ingredients = recipe.Ingredients
                 .Select(ri => new RecipeIngredientResponse
                 {
