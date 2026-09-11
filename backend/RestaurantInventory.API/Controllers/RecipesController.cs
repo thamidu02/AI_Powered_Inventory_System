@@ -35,7 +35,7 @@ public class RecipesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> Create([FromBody] CreateRecipeRequest request)
     {
         try
@@ -50,7 +50,7 @@ public class RecipesController : ControllerBase
     }
 
     [HttpPut("{recipeId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> Update(
         Guid recipeId,
         [FromBody] UpdateRecipeRequest request)
@@ -69,7 +69,7 @@ public class RecipesController : ControllerBase
     }
 
     [HttpDelete("{recipeId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> Delete(Guid recipeId)
     {
         var deleted = await _salesService.DeleteRecipeAsync(recipeId);
