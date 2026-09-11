@@ -7,6 +7,7 @@ import { InventoryView } from './components/InventoryView';
 import { OperationsHub } from './components/OperationsHub';
 import { MasterDataView } from './components/MasterDataView';
 import { OperationsModals } from './components/OperationsModals';
+import { SalesWasteDashboard } from './components/SalesWasteDashboard';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import './App.css';
@@ -19,7 +20,7 @@ interface Toast {
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'salesWaste' | 'masterData'>('inventory');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -60,6 +61,8 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'operations' && (
           <OperationsHub onOpenModal={setActiveModal} />
         )}
+
+        {activeTab === 'salesWaste' && <SalesWasteDashboard />}
 
         {activeTab === 'masterData' && (
           <MasterDataView

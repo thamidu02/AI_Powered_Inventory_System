@@ -14,6 +14,145 @@
   margin: 0 auto;
 }
 
+.dashboard-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-panel {
+  padding: 1.25rem;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-heading h3 {
+  font-size: 1rem;
+}
+
+.stack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.stack-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.dashboard-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-list-row:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-list-row > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dashboard-list-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  color: var(--text-muted);
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.menu-recipe-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.subsection-title {
+  color: var(--text-main);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.menu-price-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.recipe-builder {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+
+.recipe-header-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr);
+  gap: 0.85rem;
+}
+
+.recipe-header-fields label,
+.recipe-ingredient-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.recipe-ingredient-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) auto;
+  align-items: center;
+}
+
+.recipe-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .dashboard-two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-ingredient-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .recipe-ingredient-row .btn-icon {
+    justify-self: start;
+  }
+}
+
 .view-container {
   display: flex;
   flex-direction: column;

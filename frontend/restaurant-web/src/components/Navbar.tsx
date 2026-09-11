@@ -5,14 +5,15 @@ import {
   LogOut,
   ShieldCheck,
   Sliders,
+  ReceiptText,
   Utensils,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
-  activeTab: 'inventory' | 'operations' | 'masterData';
-  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData') => void;
+  activeTab: 'inventory' | 'operations' | 'salesWaste' | 'masterData';
+  setActiveTab: (tab: 'inventory' | 'operations' | 'salesWaste' | 'masterData') => void;
 }
 
 const getRoleBadgeColor = (role?: string) => {
@@ -117,6 +118,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
         >
           <Layers size={18} />
           <span>Master Catalog</span>
+        </button>
+
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'salesWaste' ? 'active' : ''}`}
+          onClick={() => setActiveTab('salesWaste')}
+        >
+          <ReceiptText size={18} />
+          <span>Sales & Waste</span>
         </button>
       </nav>
     </header>
