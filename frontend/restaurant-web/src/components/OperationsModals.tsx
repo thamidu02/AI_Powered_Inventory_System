@@ -232,9 +232,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
         quantityChange: qtyChange,
         reason: adjustReason,
       });
+      const adjIdNote = res.adjustmentId ? ` [ID: ${res.adjustmentId.slice(0, 8)}...]` : '';
       const thresholdNote =
         Math.abs(qtyChange) >= 10
-          ? ' (Significant adjustment ≥ 10 marked PENDING_APPROVAL)'
+          ? ` (Significant adjustment ≥ 10 marked PENDING_APPROVAL${adjIdNote})`
           : ' (Auto-applied immediately)';
       onSuccess((res.message || 'Stock adjustment submitted!') + thresholdNote);
       onClose();
@@ -841,6 +842,47 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
             </div>
 
             {error && <div className="alert-error mb-4">{error}</div>}
+
+            {modal.adjustment && (
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  marginBottom: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 600 }}>{modal.adjustment.ingredientName}</span>
+                  <span
+                    style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '999px',
+                      background: modal.adjustment.quantityChange > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: modal.adjustment.quantityChange > 0 ? 'var(--emerald, #10b981)' : 'var(--rose, #ef4444)',
+                      border: `1px solid ${modal.adjustment.quantityChange > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                    }}
+                  >
+                    {modal.adjustment.quantityChange > 0 ? `+${modal.adjustment.quantityChange}` : modal.adjustment.quantityChange} units
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Batch: <strong style={{ color: 'var(--text-main, #e2e8f0)', fontFamily: 'monospace' }}>{modal.adjustment.batchNumber}</strong>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Reason: <span style={{ color: 'var(--text-main, #e2e8f0)' }}>&ldquo;{modal.adjustment.reason}&rdquo;</span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Requested by: <strong>{modal.adjustment.requestedByName}</strong> • {new Date(modal.adjustment.createdAt).toLocaleString()}
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Adjustment ID (GUID)</label>

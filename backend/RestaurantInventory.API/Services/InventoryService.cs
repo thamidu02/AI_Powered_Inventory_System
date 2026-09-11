@@ -374,7 +374,7 @@ public class InventoryService : IInventoryService
     // ADJUST STOCK
     // ============================================================
 
-    public async Task AdjustStockAsync(
+    public async Task<Guid> AdjustStockAsync(
         AdjustStockRequest request,
         Guid userId)
     {
@@ -459,12 +459,58 @@ public class InventoryService : IInventoryService
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            return adjustment.Id;
         }
         catch
         {
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+
+    // ============================================================
+    // GET ADJUSTMENTS
+    // ============================================================
+
+    public async Task<List<StockAdjustmentResponse>> GetAdjustmentsAsync(
+        string? status = null)
+    {
+        var query = _context.StockAdjustments
+            .AsNoTracking()
+            .Include(a => a.Ingredient)
+            .Include(a => a.StockBatch)
+            .Include(a => a.RequestedBy)
+            .Include(a => a.ApprovedBy)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var upper = status.Trim().ToUpper();
+            query = query.Where(a => a.Status == upper);
+        }
+
+        return await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Select(a => new StockAdjustmentResponse
+            {
+                Id = a.Id,
+                IngredientId = a.IngredientId,
+                IngredientName = a.Ingredient.Name,
+                StockBatchId = a.StockBatchId,
+                BatchNumber = a.StockBatch.BatchNumber,
+                QuantityChange = a.QuantityChange,
+                Reason = a.Reason,
+                Status = a.Status,
+                RequestedById = a.RequestedById,
+                RequestedByName = $"{a.RequestedBy.FirstName} {a.RequestedBy.LastName}",
+                ApprovedById = a.ApprovedById,
+                ApprovedByName = a.ApprovedBy != null ? $"{a.ApprovedBy.FirstName} {a.ApprovedBy.LastName}" : null,
+                ApprovedAt = a.ApprovedAt,
+                CreatedAt = a.CreatedAt
+            })
+            .ToListAsync();
     }
 
 
@@ -613,6 +659,8 @@ public class InventoryService : IInventoryService
 
             if (sourceBatch.Quantity == 0)
                 sourceBatch.Status = "DEPLETED";
+            else
+                sourceBatch.Status = "PARTIALLY_USED";
 
             // Create a new batch at the destination.
             var destinationBatch = new StockBatch

@@ -185,6 +185,23 @@ export interface TransferStockRequest {
   quantity: number;
 }
 
+export interface StockAdjustmentResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  stockBatchId: string;
+  batchNumber: string;
+  quantityChange: number;
+  reason: string;
+  status: string;
+  requestedById: string;
+  requestedByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
+}
+
 // Operation Modals State
 export type ActiveModal =
   | null
@@ -203,4 +220,5 @@ export type ActiveModal =
   | { type: 'createIngredient' }
   | { type: 'createCategory' }
   | { type: 'createLocation' }
-  | { type: 'approveAdjustment'; adjustmentId: string };
+  | { type: 'approveAdjustment'; adjustmentId: string; adjustment?: StockAdjustmentResponse };
+

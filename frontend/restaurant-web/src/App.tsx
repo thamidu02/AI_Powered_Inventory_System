@@ -58,7 +58,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {activeTab === 'operations' && (
-          <OperationsHub onOpenModal={setActiveModal} />
+          <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
         )}
 
         {activeTab === 'masterData' && (

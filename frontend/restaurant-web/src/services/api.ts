@@ -11,6 +11,7 @@ import type {
   ReceiveStockRequest,
   RecordWasteRequest,
   AdjustStockRequest,
+  StockAdjustmentResponse,
   StockBatchResponse,
   StorageLocationResponse,
   TransferStockRequest,
@@ -153,10 +154,15 @@ export const api = {
     }),
 
   adjustStock: (data: AdjustStockRequest) =>
-    request<{ message: string }>('/api/Inventory/adjust', {
+    request<{ message: string; adjustmentId?: string }>('/api/Inventory/adjust', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getAdjustments: (status?: string) =>
+    request<StockAdjustmentResponse[]>(
+      `/api/Inventory/adjustments${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
 
   approveAdjustment: (adjustmentId: string) =>
     request<{ message: string }>(`/api/Inventory/adjustments/${adjustmentId}/approve`, {
