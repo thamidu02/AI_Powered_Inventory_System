@@ -244,8 +244,12 @@ public class InventoryService : IInventoryService
                 $"Requested: {request.Quantity}.");
         }
 
-        await using var transaction =
-            await _context.Database.BeginTransactionAsync();
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+
+        if (_context.Database.CurrentTransaction is null)
+        {
+            transaction = await _context.Database.BeginTransactionAsync();
+        }
 
         try
         {
@@ -287,12 +291,26 @@ public class InventoryService : IInventoryService
 
             await _context.SaveChangesAsync();
 
-            await transaction.CommitAsync();
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
         }
         catch
         {
-            await transaction.RollbackAsync();
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync();
+            }
+
             throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
         }
     }
 
@@ -332,8 +350,12 @@ public class InventoryService : IInventoryService
                 $"Requested waste: {request.Quantity}.");
         }
 
-        await using var transaction =
-            await _context.Database.BeginTransactionAsync();
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+
+        if (_context.Database.CurrentTransaction is null)
+        {
+            transaction = await _context.Database.BeginTransactionAsync();
+        }
 
         try
         {
@@ -352,6 +374,7 @@ public class InventoryService : IInventoryService
                 MovementType = "WASTE",
                 Quantity = request.Quantity,
                 ReferenceType = "WASTE",
+                ReferenceId = request.ReferenceId,
                 Reason = request.Reason.Trim(),
                 CreatedById = userId
             };
@@ -360,12 +383,26 @@ public class InventoryService : IInventoryService
 
             await _context.SaveChangesAsync();
 
-            await transaction.CommitAsync();
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
         }
         catch
         {
-            await transaction.RollbackAsync();
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync();
+            }
+
             throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
         }
     }
 

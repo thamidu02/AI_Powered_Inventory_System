@@ -13,4 +13,6 @@ public class RecordWasteRequest
     [Required]
     [StringLength(100)]
     public string Reason { get; set; } = string.Empty;
+
+    public Guid? ReferenceId { get; set; }
 }
