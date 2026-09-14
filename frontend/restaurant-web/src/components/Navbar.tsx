@@ -9,13 +9,14 @@ import {
   UtensilsCrossed,
   Utensils,
   Truck,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
-  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement';
-  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement') => void;
+  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder';
+  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder') => void;
 }
 
 const getRoleBadgeColor = (role?: string) => {
@@ -146,8 +147,20 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           onClick={() => setActiveTab('procurement')}
         >
           <Truck size={18} />
-          <span>Procurement & Suppliers</span>
+          <span>Procurement &amp; Suppliers</span>
         </button>
+
+        {(['SALES_KITCHEN_STAFF', 'RESTAURANT_MANAGER', 'SYSTEM_ADMIN'].includes(user?.role ?? '')) && (
+          <button
+            type="button"
+            id="nav-kitchen-order"
+            className={`nav-tab nav-tab--highlight ${activeTab === 'kitchenOrder' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kitchenOrder')}
+          >
+            <ShoppingCart size={18} />
+            <span>Kitchen Orders</span>
+          </button>
+        )}
       </nav>
     </header>
   );

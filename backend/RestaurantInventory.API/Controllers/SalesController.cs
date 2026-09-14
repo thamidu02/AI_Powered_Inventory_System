@@ -85,7 +85,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> CreateSale([FromBody] CreateSaleRequest request)
     {
         try
