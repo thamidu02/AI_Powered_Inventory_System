@@ -18,6 +18,14 @@ public class PlanningService : IPlanningService
         DateTime periodStart,
         DateTime periodEnd)
     {
+        periodStart = DateTime.SpecifyKind(
+            periodStart,
+            DateTimeKind.Utc);
+
+        periodEnd = DateTime.SpecifyKind(
+            periodEnd,
+            DateTimeKind.Utc);
+
         var ingredients = await _context.Ingredients
             .ToListAsync();
 
@@ -25,17 +33,22 @@ public class PlanningService : IPlanningService
 
         foreach (var ingredient in ingredients)
         {
-            var consumption = await CalculateIngredientConsumptionAsync(
-                ingredient.Id,
-                periodStart,
-                periodEnd);
+            var (weekdayDemand, weekendDemand) =
+                await CalculateDemandPatternAsync(
+                    ingredient.Id,
+                    periodStart,
+                    periodEnd);
+
+            var predictedDemand = weekendDemand > 0
+                ? weekendDemand
+                : weekdayDemand;
 
             var plan = new DemandPlan
             {
                 IngredientId = ingredient.Id,
                 PeriodStart = periodStart,
                 PeriodEnd = periodEnd,
-                PredictedDemand = consumption,
+                PredictedDemand = predictedDemand,
                 ConfidenceScore = 0,
                 GeneratedBy = "RULE_BASED"
             };
@@ -43,15 +56,20 @@ public class PlanningService : IPlanningService
             demandPlans.Add(plan);
         }
 
+        _context.DemandPlans.AddRange(demandPlans);
+
+        await _context.SaveChangesAsync();
+
         return demandPlans;
     }
 
-    private async Task<decimal> CalculateIngredientConsumptionAsync(
-        Guid ingredientId,
-        DateTime periodStart,
-        DateTime periodEnd)
+    private async Task<(decimal weekdayDemand, decimal weekendDemand)>
+        CalculateDemandPatternAsync(
+            Guid ingredientId,
+            DateTime periodStart,
+            DateTime periodEnd)
     {
-        var consumption = await _context.SaleItems
+        var consumptionRecords = await _context.SaleItems
             .Where(si =>
                 si.Sale.CreatedAt >= periodStart &&
                 si.Sale.CreatedAt < periodEnd)
@@ -62,13 +80,30 @@ public class PlanningService : IPlanningService
                 (saleItem, recipeIngredient) => new
                 {
                     recipeIngredient.IngredientId,
-                    QuantitySold = saleItem.Quantity,
-                    QuantityRequired = recipeIngredient.QuantityRequired
+                    Date = saleItem.Sale.CreatedAt,
+                    QuantityConsumed =
+                        saleItem.Quantity *
+                        recipeIngredient.QuantityRequired
                 })
             .Where(x => x.IngredientId == ingredientId)
-            .Select(x => x.QuantitySold * x.QuantityRequired)
-            .SumAsync();
+            .ToListAsync();
 
-        return consumption;
+        decimal weekdayDemand = 0;
+        decimal weekendDemand = 0;
+
+        foreach (var record in consumptionRecords)
+        {
+            if (record.Date.DayOfWeek == DayOfWeek.Saturday ||
+                record.Date.DayOfWeek == DayOfWeek.Sunday)
+            {
+                weekendDemand += record.QuantityConsumed;
+            }
+            else
+            {
+                weekdayDemand += record.QuantityConsumed;
+            }
+        }
+
+        return (weekdayDemand, weekendDemand);
     }
 }
