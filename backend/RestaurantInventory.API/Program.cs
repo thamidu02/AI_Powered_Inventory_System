@@ -124,6 +124,7 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
