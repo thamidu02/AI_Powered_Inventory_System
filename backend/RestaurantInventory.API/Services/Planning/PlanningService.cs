@@ -33,15 +33,25 @@ public class PlanningService : IPlanningService
 
         foreach (var ingredient in ingredients)
         {
-            var (weekdayDemand, weekendDemand) =
+            var (weekdayDemand, weekendDemand, weekdayCount, weekendCount) =
                 await CalculateDemandPatternAsync(
                     ingredient.Id,
                     periodStart,
                     periodEnd);
 
-            var predictedDemand = weekendDemand > 0
-                ? weekendDemand
-                : weekdayDemand;
+            var averageWeekdayDemand = weekdayCount > 0
+                ? weekdayDemand / weekdayCount
+                : 0;
+
+            var averageWeekendDemand = weekendCount > 0
+                ? weekendDemand / weekendCount
+                : 0;
+
+            var predictedDemand = Math.Round(
+                Math.Max(
+                    averageWeekdayDemand,
+                    averageWeekendDemand),
+                2);
 
             var plan = new DemandPlan
             {
@@ -63,7 +73,12 @@ public class PlanningService : IPlanningService
         return demandPlans;
     }
 
-    private async Task<(decimal weekdayDemand, decimal weekendDemand)>
+    private async Task<(
+        decimal weekdayDemand, 
+        decimal weekendDemand,
+        int weekdayCount,
+        int weekendCount)>
+
         CalculateDemandPatternAsync(
             Guid ingredientId,
             DateTime periodStart,
@@ -91,19 +106,29 @@ public class PlanningService : IPlanningService
         decimal weekdayDemand = 0;
         decimal weekendDemand = 0;
 
+        int weekdayCount = 0;
+        int weekendCount = 0;
+
         foreach (var record in consumptionRecords)
         {
             if (record.Date.DayOfWeek == DayOfWeek.Saturday ||
                 record.Date.DayOfWeek == DayOfWeek.Sunday)
             {
                 weekendDemand += record.QuantityConsumed;
+                weekendCount++;
             }
             else
             {
                 weekdayDemand += record.QuantityConsumed;
+                weekdayCount++;
             }
         }
 
-        return (weekdayDemand, weekendDemand);
+        return (
+            weekdayDemand,
+            weekendDemand,
+            weekdayCount,
+            weekendCount);
+
     }
 }
