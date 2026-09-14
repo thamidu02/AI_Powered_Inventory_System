@@ -192,15 +192,10 @@ public class PurchaseRequestService : IPurchaseRequestService
             throw new KeyNotFoundException("Purchase request not found.");
         }
 
-        if (purchaseRequest.Status == "APPROVED")
-        {
-            throw new InvalidOperationException("Purchase request is already approved.");
-        }
-
-        if (purchaseRequest.Status == "REJECTED" || purchaseRequest.Status == "CANCELLED")
+        if (purchaseRequest.Status != "PENDING_APPROVAL")
         {
             throw new InvalidOperationException(
-                $"Cannot approve a purchase request with status '{purchaseRequest.Status}'.");
+                $"Cannot approve a purchase request with status '{purchaseRequest.Status}'. Only PENDING_APPROVAL purchase requests can be approved.");
         }
 
         if (purchaseRequest.Items.Count == 0)
