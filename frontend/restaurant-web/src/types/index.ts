@@ -473,3 +473,46 @@ export interface UpdatePurchaseOrderRequest {
 export interface RejectPurchaseOrderRequest {
 }
 
+// Procurement: Goods Receipts
+export interface CreateGoodsReceiptItemRequest {
+  purchaseOrderItemId: string;
+  storageLocationId: string;
+  receivedQuantity: number;
+  unitCost?: number | null;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+}
+
+export interface CreateGoodsReceiptRequest {
+  purchaseOrderId: string;
+  notes?: string | null;
+  items: CreateGoodsReceiptItemRequest[];
+}
+
+export interface GoodsReceiptItemResponse {
+  id: string;
+  goodsReceiptId: string;
+  purchaseOrderItemId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  storageLocationId: string;
+  storageLocationName: string;
+  batchNumber: string;
+  receivedQuantity: number;
+  unitCost: number;
+  expiryDate?: string | null;
+  createdAt: string;
+}
+
+export interface GoodsReceiptResponse {
+  id: string;
+  purchaseOrderId: string;
+  receivedById: string;
+  receivedByName: string;
+  receiptDate: string;
+  notes?: string | null;
+  items: GoodsReceiptItemResponse[];
+  createdAt: string;
+}
+

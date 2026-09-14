@@ -18,6 +18,7 @@ import {
   UserCheck,
   Building2,
   Plus,
+  PackageCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type {
@@ -27,6 +28,7 @@ import type {
   SupplierResponse,
 } from '../types';
 import { useAuth } from '../context/useAuth';
+import { ReceiveGoodsModal } from './ReceiveGoodsModal';
 
 interface PurchaseOrdersViewProps {
   onSuccess?: (msg: string) => void;
@@ -75,6 +77,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     user?.role === 'SYSTEM_ADMIN' ||
     user?.role === 'RESTAURANT_MANAGER' ||
     user?.role === 'PROCUREMENT_OFFICER';
+  const canReceive =
+    user?.role === 'SYSTEM_ADMIN' ||
+    user?.role === 'RESTAURANT_MANAGER' ||
+    user?.role === 'INVENTORY_MANAGER' ||
+    user?.role === 'PROCUREMENT_OFFICER';
 
   // Data states
   const [orders, setOrders] = useState<PurchaseOrderResponse[]>([]);
@@ -87,7 +94,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   // Filters
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<
-    'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'ORDERED' | 'REJECTED' | 'CANCELLED'
+    'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
   >('ALL');
 
   // Modal states
@@ -97,6 +104,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   const [cancellingOrder, setCancellingOrder] = useState<PurchaseOrderResponse | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<PurchaseOrderResponse | null>(null);
   const [rejectingOrder, setRejectingOrder] = useState<PurchaseOrderResponse | null>(null);
+  const [receivingOrder, setReceivingOrder] = useState<PurchaseOrderResponse | null>(null);
 
   const [formBusy, setFormBusy] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -175,6 +183,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   const pendingCount = orders.filter((o) => o.status === 'PENDING_APPROVAL').length;
   const approvedCount = orders.filter((o) => o.status === 'APPROVED').length;
   const orderedCount = orders.filter((o) => o.status === 'ORDERED').length;
+  const partiallyReceivedCount = orders.filter((o) => o.status === 'PARTIALLY_RECEIVED').length;
+  const completedCount = orders.filter((o) => o.status === 'COMPLETED').length;
   const draftCount = orders.filter((o) => o.status === 'DRAFT').length;
 
   // Calculate live total preview
@@ -582,6 +592,20 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
           </button>
           <button
             type="button"
+            className={`btn-filter ${statusFilter === 'PARTIALLY_RECEIVED' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('PARTIALLY_RECEIVED')}
+          >
+            Partially Received ({partiallyReceivedCount})
+          </button>
+          <button
+            type="button"
+            className={`btn-filter ${statusFilter === 'COMPLETED' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('COMPLETED')}
+          >
+            Completed ({completedCount})
+          </button>
+          <button
+            type="button"
             className={`btn-filter ${statusFilter === 'REJECTED' ? 'active' : ''}`}
             onClick={() => setStatusFilter('REJECTED')}
           >
@@ -798,6 +822,20 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                         >
                           <Truck size={13} />
                           <span>Order</span>
+                        </button>
+                      )}
+
+                      {/* Receive Goods (ORDERED and PARTIALLY_RECEIVED only) */}
+                      {(po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') && canReceive && (
+                        <button
+                          type="button"
+                          className="btn-table-action btn-batch-receive"
+                          onClick={() => setReceivingOrder(po)}
+                          title="Receive Goods"
+                          disabled={formBusy}
+                        >
+                          <PackageCheck size={13} />
+                          <span>Receive</span>
                         </button>
                       )}
 
@@ -1524,6 +1562,22 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                 </button>
               )}
 
+              {(viewingOrder.status === 'ORDERED' || viewingOrder.status === 'PARTIALLY_RECEIVED') && canReceive && (
+                <button
+                  type="button"
+                  className="btn-primary btn-batch-receive"
+                  onClick={() => {
+                    const ord = viewingOrder;
+                    setViewingOrder(null);
+                    setReceivingOrder(ord);
+                  }}
+                  disabled={formBusy}
+                >
+                  <PackageCheck size={14} />
+                  <span>Receive Goods</span>
+                </button>
+              )}
+
               {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED'].includes(viewingOrder.status) &&
                 canCancel && (
                   <button
@@ -1746,6 +1800,18 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
             </div>
           </div>
         </div>
+      )}
+
+      {/* RECEIVE GOODS MODAL */}
+      {receivingOrder && (
+        <ReceiveGoodsModal
+          order={receivingOrder}
+          onClose={() => setReceivingOrder(null)}
+          onSuccess={(msg) => {
+            notify(msg);
+            loadOrders();
+          }}
+        />
       )}
     </div>
   );

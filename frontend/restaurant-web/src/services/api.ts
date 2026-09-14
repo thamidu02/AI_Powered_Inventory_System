@@ -38,6 +38,8 @@ import type {
   UpdatePurchaseOrderRequest,
   RejectPurchaseOrderRequest,
   PurchaseOrderResponse,
+  CreateGoodsReceiptRequest,
+  GoodsReceiptResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -387,5 +389,18 @@ export const api = {
   deletePurchaseOrder: (id: string) =>
     request<void>(`/api/PurchaseOrders/${id}`, {
       method: 'DELETE',
+    }),
+
+  // Goods Receipts (Component 2 - Procurement)
+  getGoodsReceipts: (purchaseOrderId?: string) =>
+    request<GoodsReceiptResponse[]>(
+      `/api/GoodsReceipts${purchaseOrderId ? `?purchaseOrderId=${encodeURIComponent(purchaseOrderId)}` : ''}`
+    ),
+  getGoodsReceipt: (id: string) =>
+    request<GoodsReceiptResponse>(`/api/GoodsReceipts/${id}`),
+  createGoodsReceipt: (data: CreateGoodsReceiptRequest) =>
+    request<GoodsReceiptResponse>('/api/GoodsReceipts', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };
