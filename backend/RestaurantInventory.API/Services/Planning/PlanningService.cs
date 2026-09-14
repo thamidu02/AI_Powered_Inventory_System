@@ -19,20 +19,24 @@ public class PlanningService : IPlanningService
         DateTime periodEnd)
     {
         var ingredients = await _context.Ingredients
-            .Where(i => i.IsActive)
             .ToListAsync();
 
         var demandPlans = new List<DemandPlan>();
 
         foreach (var ingredient in ingredients)
         {
+            var consumption = await CalculateIngredientConsumptionAsync(
+                ingredient.Id,
+                periodStart,
+                periodEnd);
+
             var plan = new DemandPlan
             {
                 IngredientId = ingredient.Id,
                 PeriodStart = periodStart,
                 PeriodEnd = periodEnd,
-                PredictedDemand = 0,   // guys this is only for now - After Adding AI Part we can change
-                ConfidenceScore = 0,   
+                PredictedDemand = consumption,
+                ConfidenceScore = 0,
                 GeneratedBy = "RULE_BASED"
             };
 
@@ -40,5 +44,31 @@ public class PlanningService : IPlanningService
         }
 
         return demandPlans;
+    }
+
+    private async Task<decimal> CalculateIngredientConsumptionAsync(
+        Guid ingredientId,
+        DateTime periodStart,
+        DateTime periodEnd)
+    {
+        var consumption = await _context.SaleItems
+            .Where(si =>
+                si.Sale.CreatedAt >= periodStart &&
+                si.Sale.CreatedAt < periodEnd)
+            .Join(
+                _context.RecipeIngredients,
+                saleItem => saleItem.MenuItemId,
+                recipeIngredient => recipeIngredient.Recipe.MenuItemId,
+                (saleItem, recipeIngredient) => new
+                {
+                    recipeIngredient.IngredientId,
+                    QuantitySold = saleItem.Quantity,
+                    QuantityRequired = recipeIngredient.QuantityRequired
+                })
+            .Where(x => x.IngredientId == ingredientId)
+            .Select(x => x.QuantitySold * x.QuantityRequired)
+            .SumAsync();
+
+        return consumption;
     }
 }
