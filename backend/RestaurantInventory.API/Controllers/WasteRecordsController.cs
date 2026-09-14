@@ -70,7 +70,7 @@ public class WasteRecordsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> CreateWasteRecord([FromBody] RecordWasteRequest request)
     {
         try
