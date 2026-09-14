@@ -30,6 +30,10 @@ import type {
   SalesSummaryResponse,
   WasteRecordResponse,
   WasteSummaryResponse,
+  CreatePurchaseRequestRequest,
+  UpdatePurchaseRequestRequest,
+  RejectPurchaseRequestRequest,
+  PurchaseRequestResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -296,6 +300,45 @@ export const api = {
     }),
   deleteSupplier: (id: string) =>
     request<void>(`/api/Suppliers/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Purchase Requests (Component 2 - Procurement)
+  getPurchaseRequests: (status?: string) =>
+    request<PurchaseRequestResponse[]>(
+      `/api/PurchaseRequests${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
+  getPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}`),
+  createPurchaseRequest: (data: CreatePurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>('/api/PurchaseRequests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePurchaseRequest: (id: string, data: UpdatePurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  submitPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/submit`, {
+      method: 'POST',
+    }),
+  approvePurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/approve`, {
+      method: 'POST',
+    }),
+  rejectPurchaseRequest: (id: string, data?: RejectPurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/reject`, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  cancelPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/cancel`, {
+      method: 'POST',
+    }),
+  deletePurchaseRequest: (id: string) =>
+    request<void>(`/api/PurchaseRequests/${id}`, {
       method: 'DELETE',
     }),
 };

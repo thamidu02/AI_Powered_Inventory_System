@@ -16,10 +16,12 @@ import {
   CheckCircle2,
   X,
   Users,
+  ClipboardList,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { SupplierResponse } from '../types';
 import { useAuth } from '../context/useAuth';
+import { PurchaseRequestsView } from './PurchaseRequestsView';
 
 interface ProcurementDashboardProps {
   onSuccess?: (msg: string) => void;
@@ -27,6 +29,7 @@ interface ProcurementDashboardProps {
 
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSuccess }) => {
   const { user } = useAuth();
+  const [subTab, setSubTab] = useState<'requests' | 'suppliers'>('requests');
 
   // Data states
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -256,7 +259,33 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
 
   return (
     <div className="view-container">
-      {/* Header Banner */}
+      {/* Subtabs: Purchase Requests vs Suppliers */}
+      <div className="catalog-header">
+        <div className="catalog-tabs">
+          <button
+            type="button"
+            className={`catalog-tab ${subTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setSubTab('requests')}
+          >
+            <ClipboardList size={16} />
+            <span>Purchase Requests</span>
+          </button>
+          <button
+            type="button"
+            className={`catalog-tab ${subTab === 'suppliers' ? 'active' : ''}`}
+            onClick={() => setSubTab('suppliers')}
+          >
+            <Building2 size={16} />
+            <span>Suppliers ({suppliers.length})</span>
+          </button>
+        </div>
+      </div>
+
+      {subTab === 'requests' ? (
+        <PurchaseRequestsView onSuccess={onSuccess} />
+      ) : (
+        <>
+          {/* Header Banner */}
       <div className="hub-hero">
         <div className="hub-hero-text">
           <h2>Procurement & Supplier Management</h2>
@@ -873,6 +902,8 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -356,3 +356,62 @@ export interface CreateRecipeRequest {
     unit?: string | null;
   }[];
 }
+
+// Procurement: Purchase Requests
+export interface PurchaseRequestItemResponse {
+  id: string;
+  purchaseRequestId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  suggestedSupplierName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseRequestResponse {
+  id: string;
+  status: string; // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, CANCELLED
+  reason?: string | null;
+  requestedAt: string;
+  requestedById: string;
+  requestedByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  items: PurchaseRequestItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface CreatePurchaseRequestRequest {
+  reason?: string | null;
+  items: CreatePurchaseRequestItemRequest[];
+}
+
+export interface UpdatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdatePurchaseRequestRequest {
+  reason?: string | null;
+  items: UpdatePurchaseRequestItemRequest[];
+}
+
+export interface RejectPurchaseRequestRequest {
+  reason?: string | null;
+}
+
