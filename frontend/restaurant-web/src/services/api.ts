@@ -18,6 +18,9 @@ import type {
   UpdateCategoryRequest,
   UpdateIngredientRequest,
   UpdateStorageLocationRequest,
+  CreateSupplierRequest,
+  UpdateSupplierRequest,
+  SupplierResponse,
   CreateRecipeRequest,
   CreateMenuItemRequest,
   CreateSaleRequest,
@@ -27,6 +30,16 @@ import type {
   SalesSummaryResponse,
   WasteRecordResponse,
   WasteSummaryResponse,
+  CreatePurchaseRequestRequest,
+  UpdatePurchaseRequestRequest,
+  RejectPurchaseRequestRequest,
+  PurchaseRequestResponse,
+  CreatePurchaseOrderRequest,
+  UpdatePurchaseOrderRequest,
+  RejectPurchaseOrderRequest,
+  PurchaseOrderResponse,
+  CreateGoodsReceiptRequest,
+  GoodsReceiptResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -82,6 +95,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers,
   });
 
+  const responseText = await res.text();
+
   if (!res.ok) {
     if (res.status === 401) {
       if (!endpoint.includes('/api/Auth/login')) {
@@ -91,27 +106,32 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
 
     let errorMessage = `Request failed (${res.status})`;
-    try {
-      const errorJson = await res.json();
-      if (errorJson.message) {
-        errorMessage = errorJson.message;
-      } else if (errorJson.errors) {
-        errorMessage = Object.values(errorJson.errors).flat().join(' ');
-      } else if (errorJson.title) {
-        errorMessage = errorJson.title;
+
+    if (responseText) {
+      try {
+        const errorJson = JSON.parse(responseText);
+        if (errorJson.message) {
+          errorMessage = errorJson.message;
+        } else if (errorJson.errors) {
+          errorMessage = Object.values(errorJson.errors).flat().join(' ');
+        } else if (errorJson.title) {
+          errorMessage = errorJson.title;
+        } else {
+          errorMessage = responseText;
+        }
+      } catch {
+        errorMessage = responseText;
       }
-    } catch {
-      const text = await res.text();
-      if (text) errorMessage = text;
     }
+
     throw new Error(errorMessage);
   }
 
-  if (res.status === 204) {
+  if (res.status === 204 || !responseText) {
     return {} as T;
   }
 
-  return res.json();
+  return JSON.parse(responseText) as T;
 }
 
 export const api = {
@@ -269,5 +289,118 @@ export const api = {
   deleteStorageLocation: (id: string) =>
     request<void>(`/api/StorageLocations/${id}`, {
       method: 'DELETE',
+    }),
+
+  // Suppliers Master Data (Component 2 - Procurement)
+  getSuppliers: () => request<SupplierResponse[]>('/api/Suppliers'),
+  getSupplier: (id: string) => request<SupplierResponse>(`/api/Suppliers/${id}`),
+  createSupplier: (data: CreateSupplierRequest) =>
+    request<SupplierResponse>('/api/Suppliers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateSupplier: (id: string, data: UpdateSupplierRequest) =>
+    request<SupplierResponse>(`/api/Suppliers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteSupplier: (id: string) =>
+    request<void>(`/api/Suppliers/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Purchase Requests (Component 2 - Procurement)
+  getPurchaseRequests: (status?: string) =>
+    request<PurchaseRequestResponse[]>(
+      `/api/PurchaseRequests${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
+  getPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}`),
+  createPurchaseRequest: (data: CreatePurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>('/api/PurchaseRequests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePurchaseRequest: (id: string, data: UpdatePurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  submitPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/submit`, {
+      method: 'POST',
+    }),
+  approvePurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/approve`, {
+      method: 'POST',
+    }),
+  rejectPurchaseRequest: (id: string, data?: RejectPurchaseRequestRequest) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/reject`, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  cancelPurchaseRequest: (id: string) =>
+    request<PurchaseRequestResponse>(`/api/PurchaseRequests/${id}/cancel`, {
+      method: 'POST',
+    }),
+  deletePurchaseRequest: (id: string) =>
+    request<void>(`/api/PurchaseRequests/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Purchase Orders (Component 2 - Procurement)
+  getPurchaseOrders: (status?: string) =>
+    request<PurchaseOrderResponse[]>(
+      `/api/PurchaseOrders${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
+  getPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}`),
+  createPurchaseOrder: (data: CreatePurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>('/api/PurchaseOrders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePurchaseOrder: (id: string, data: UpdatePurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  submitPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/submit`, {
+      method: 'POST',
+    }),
+  approvePurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/approve`, {
+      method: 'POST',
+    }),
+  rejectPurchaseOrder: (id: string, data?: RejectPurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/reject`, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  markAsOrdered: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/order`, {
+      method: 'POST',
+    }),
+  cancelPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/cancel`, {
+      method: 'POST',
+    }),
+  deletePurchaseOrder: (id: string) =>
+    request<void>(`/api/PurchaseOrders/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Goods Receipts (Component 2 - Procurement)
+  getGoodsReceipts: (purchaseOrderId?: string) =>
+    request<GoodsReceiptResponse[]>(
+      `/api/GoodsReceipts${purchaseOrderId ? `?purchaseOrderId=${encodeURIComponent(purchaseOrderId)}` : ''}`
+    ),
+  getGoodsReceipt: (id: string) =>
+    request<GoodsReceiptResponse>(`/api/GoodsReceipts/${id}`),
+  createGoodsReceipt: (data: CreateGoodsReceiptRequest) =>
+    request<GoodsReceiptResponse>('/api/GoodsReceipts', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };

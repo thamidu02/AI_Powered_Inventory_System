@@ -150,6 +150,39 @@ export interface UpdateStorageLocationRequest {
   isActive: boolean;
 }
 
+// Master Data: Supplier
+export interface SupplierResponse {
+  id: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+}
+
+export interface UpdateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+}
+
 // Stock Operations Requests
 export interface ReceiveStockRequest {
   ingredientId: string;
@@ -323,3 +356,163 @@ export interface CreateRecipeRequest {
     unit?: string | null;
   }[];
 }
+
+// Procurement: Purchase Requests
+export interface PurchaseRequestItemResponse {
+  id: string;
+  purchaseRequestId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  suggestedSupplierName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseRequestResponse {
+  id: string;
+  status: string; // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, CANCELLED
+  reason?: string | null;
+  requestedAt: string;
+  requestedById: string;
+  requestedByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  items: PurchaseRequestItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface CreatePurchaseRequestRequest {
+  reason?: string | null;
+  items: CreatePurchaseRequestItemRequest[];
+}
+
+export interface UpdatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdatePurchaseRequestRequest {
+  reason?: string | null;
+  items: UpdatePurchaseRequestItemRequest[];
+}
+
+export interface RejectPurchaseRequestRequest {
+  reason?: string | null;
+}
+
+// Procurement: Purchase Orders
+export interface PurchaseOrderItemResponse {
+  id: string;
+  purchaseOrderId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  orderedQuantity: number;
+  unitPrice: number;
+  receivedQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderResponse {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  orderDate?: string | null;
+  expectedDeliveryDate?: string | null;
+  totalAmount: number;
+  createdById: string;
+  createdByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  items: PurchaseOrderItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: CreatePurchaseOrderItemRequest[];
+}
+
+export interface UpdatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface UpdatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: UpdatePurchaseOrderItemRequest[];
+}
+
+export interface RejectPurchaseOrderRequest {
+}
+
+// Procurement: Goods Receipts
+export interface CreateGoodsReceiptItemRequest {
+  purchaseOrderItemId: string;
+  storageLocationId: string;
+  receivedQuantity: number;
+  unitCost?: number | null;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+}
+
+export interface CreateGoodsReceiptRequest {
+  purchaseOrderId: string;
+  notes?: string | null;
+  items: CreateGoodsReceiptItemRequest[];
+}
+
+export interface GoodsReceiptItemResponse {
+  id: string;
+  goodsReceiptId: string;
+  purchaseOrderItemId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  storageLocationId: string;
+  storageLocationName: string;
+  batchNumber: string;
+  receivedQuantity: number;
+  unitCost: number;
+  expiryDate?: string | null;
+  createdAt: string;
+}
+
+export interface GoodsReceiptResponse {
+  id: string;
+  purchaseOrderId: string;
+  receivedById: string;
+  receivedByName: string;
+  receiptDate: string;
+  notes?: string | null;
+  items: GoodsReceiptItemResponse[];
+  createdAt: string;
+}
+

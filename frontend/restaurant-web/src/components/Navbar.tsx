@@ -8,13 +8,14 @@ import {
   ReceiptText,
   UtensilsCrossed,
   Utensils,
+  Truck,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
-  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste';
-  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste') => void;
+  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement';
+  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement') => void;
 }
 
 const getRoleBadgeColor = (role?: string) => {
@@ -137,6 +138,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
         >
           <ReceiptText size={18} />
           <span>Sales & Waste</span>
+        </button>
+
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'procurement' ? 'active' : ''}`}
+          onClick={() => setActiveTab('procurement')}
+        >
+          <Truck size={18} />
+          <span>Procurement & Suppliers</span>
         </button>
       </nav>
     </header>

@@ -9,6 +9,7 @@ import { MasterDataView } from './components/MasterDataView';
 import { OperationsModals } from './components/OperationsModals';
 import { SalesWasteDashboard } from './components/SalesWasteDashboard';
 import { MenuRecipesDashboard } from './components/MenuRecipesDashboard';
+import { ProcurementDashboard } from './components/ProcurementDashboard';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import './App.css';
@@ -21,7 +22,7 @@ interface Toast {
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement'>('inventory');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -73,6 +74,10 @@ const MainAppContent: React.FC = () => {
         )}
 
         {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
+
+        {activeTab === 'procurement' && (
+          <ProcurementDashboard onSuccess={handleModalSuccess} />
+        )}
       </main>
 
       {/* Global Stock Operations Modal Suite */}
