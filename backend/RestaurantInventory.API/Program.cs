@@ -123,6 +123,7 @@ builder.Services.AddScoped<
     StorageLocationService>();
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
+builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
