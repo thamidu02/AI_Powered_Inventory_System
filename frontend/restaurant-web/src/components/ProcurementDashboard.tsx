@@ -17,11 +17,13 @@ import {
   X,
   Users,
   ClipboardList,
+  ShoppingBag,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { SupplierResponse } from '../types';
 import { useAuth } from '../context/useAuth';
 import { PurchaseRequestsView } from './PurchaseRequestsView';
+import { PurchaseOrdersView } from './PurchaseOrdersView';
 
 interface ProcurementDashboardProps {
   onSuccess?: (msg: string) => void;
@@ -29,7 +31,7 @@ interface ProcurementDashboardProps {
 
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const [subTab, setSubTab] = useState<'requests' | 'suppliers'>('requests');
+  const [subTab, setSubTab] = useState<'requests' | 'orders' | 'suppliers'>('requests');
 
   // Data states
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -259,7 +261,7 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
 
   return (
     <div className="view-container">
-      {/* Subtabs: Purchase Requests vs Suppliers */}
+      {/* Subtabs: Purchase Requests vs Purchase Orders vs Suppliers */}
       <div className="catalog-header">
         <div className="catalog-tabs">
           <button
@@ -272,6 +274,14 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
           </button>
           <button
             type="button"
+            className={`catalog-tab ${subTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setSubTab('orders')}
+          >
+            <ShoppingBag size={16} />
+            <span>Purchase Orders</span>
+          </button>
+          <button
+            type="button"
             className={`catalog-tab ${subTab === 'suppliers' ? 'active' : ''}`}
             onClick={() => setSubTab('suppliers')}
           >
@@ -281,9 +291,9 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
         </div>
       </div>
 
-      {subTab === 'requests' ? (
-        <PurchaseRequestsView onSuccess={onSuccess} />
-      ) : (
+      {subTab === 'requests' && <PurchaseRequestsView onSuccess={onSuccess} />}
+      {subTab === 'orders' && <PurchaseOrdersView onSuccess={onSuccess} />}
+      {subTab === 'suppliers' && (
         <>
           {/* Header Banner */}
       <div className="hub-hero">

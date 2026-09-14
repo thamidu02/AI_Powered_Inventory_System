@@ -415,3 +415,61 @@ export interface RejectPurchaseRequestRequest {
   reason?: string | null;
 }
 
+// Procurement: Purchase Orders
+export interface PurchaseOrderItemResponse {
+  id: string;
+  purchaseOrderId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  orderedQuantity: number;
+  unitPrice: number;
+  receivedQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderResponse {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  orderDate?: string | null;
+  expectedDeliveryDate?: string | null;
+  totalAmount: number;
+  createdById: string;
+  createdByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  items: PurchaseOrderItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: CreatePurchaseOrderItemRequest[];
+}
+
+export interface UpdatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface UpdatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: UpdatePurchaseOrderItemRequest[];
+}
+
+export interface RejectPurchaseOrderRequest {
+}
+

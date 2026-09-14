@@ -34,6 +34,10 @@ import type {
   UpdatePurchaseRequestRequest,
   RejectPurchaseRequestRequest,
   PurchaseRequestResponse,
+  CreatePurchaseOrderRequest,
+  UpdatePurchaseOrderRequest,
+  RejectPurchaseOrderRequest,
+  PurchaseOrderResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -339,6 +343,49 @@ export const api = {
     }),
   deletePurchaseRequest: (id: string) =>
     request<void>(`/api/PurchaseRequests/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Purchase Orders (Component 2 - Procurement)
+  getPurchaseOrders: (status?: string) =>
+    request<PurchaseOrderResponse[]>(
+      `/api/PurchaseOrders${status ? `?status=${encodeURIComponent(status)}` : ''}`
+    ),
+  getPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}`),
+  createPurchaseOrder: (data: CreatePurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>('/api/PurchaseOrders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePurchaseOrder: (id: string, data: UpdatePurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  submitPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/submit`, {
+      method: 'POST',
+    }),
+  approvePurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/approve`, {
+      method: 'POST',
+    }),
+  rejectPurchaseOrder: (id: string, data?: RejectPurchaseOrderRequest) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/reject`, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  markAsOrdered: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/order`, {
+      method: 'POST',
+    }),
+  cancelPurchaseOrder: (id: string) =>
+    request<PurchaseOrderResponse>(`/api/PurchaseOrders/${id}/cancel`, {
+      method: 'POST',
+    }),
+  deletePurchaseOrder: (id: string) =>
+    request<void>(`/api/PurchaseOrders/${id}`, {
       method: 'DELETE',
     }),
 };
