@@ -44,4 +44,17 @@ public interface IInventoryService
     Task TransferStockAsync(
         TransferStockRequest request,
         Guid userId);
+
+    Task<List<StockMovementResponse>> GetStockMovementsAsync(
+        Guid? ingredientId = null,
+        Guid? batchId = null,
+        string? movementType = null);
+
+    Task<List<StockMovementResponse>> GetBatchMovementsAsync(
+        Guid batchId,
+        string? movementType = null);
+
+    Task<List<StockMovementResponse>> GetIngredientMovementsAsync(
+        Guid ingredientId,
+        string? movementType = null);
 }

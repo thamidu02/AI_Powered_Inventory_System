@@ -1267,3 +1267,179 @@ input:focus, select:focus, textarea:focus {
 .toast-item.error {
   border-left-color: var(--rose);
 }
+
+/* ============================================================ */
+/* STOCK HISTORY MODAL & BATCH AUDIT LOG */
+/* ============================================================ */
+
+.btn-batch-history {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.3);
+}
+
+.btn-batch-history:hover {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #a855f7;
+}
+
+.text-purple {
+  color: #c084fc;
+}
+
+.bg-purple-glow {
+  background: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.25);
+}
+
+.pill-batch-code {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.modal-history-wide {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.history-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .history-kpis-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.history-kpi-card {
+  background: rgba(23, 32, 51, 0.6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.history-kpi-card.kpi-purple {
+  border-color: rgba(168, 85, 247, 0.3);
+}
+.history-kpi-card.kpi-emerald {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+.history-kpi-card.kpi-rose {
+  border-color: rgba(244, 63, 94, 0.3);
+}
+.history-kpi-card.kpi-blue {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.kpi-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.kpi-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpi-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.kpi-unit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.history-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.history-filter-tabs {
+  display: flex;
+  gap: 0.35rem;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.history-tab-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.history-tab-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.history-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-search {
+  min-width: 220px;
+}
+
+.history-table-container {
+  overflow-y: auto;
+  max-height: 400px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.history-table th {
+  position: sticky;
+  top: 0;
+  background: #111827;
+  z-index: 10;
+}
+

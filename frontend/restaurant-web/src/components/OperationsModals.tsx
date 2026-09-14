@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { StockHistoryModal } from './StockHistoryModal';
 import type {
   ActiveModal,
   IngredientResponse,
@@ -296,6 +297,19 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
       setLoading(false);
     }
   };
+
+  if (modal && modal.type === 'history') {
+    return (
+      <StockHistoryModal
+        batch={modal.batch}
+        ingredientId={modal.ingredientId}
+        ingredientName={modal.ingredientName}
+        unit={modal.unit}
+        sku={modal.sku}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>

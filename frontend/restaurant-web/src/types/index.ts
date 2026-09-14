@@ -238,6 +238,27 @@ export interface StockAdjustmentResponse {
   createdAt: string;
 }
 
+export interface StockMovementResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  stockBatchId: string;
+  batchNumber: string;
+  storageLocationId: string;
+  storageLocationName: string;
+  movementType: string;
+  quantity: number;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  reason?: string | null;
+  createdById: string;
+  createdByName: string;
+  createdByEmail: string;
+  createdAt: string;
+}
+
 // Operation Modals State
 export type ActiveModal =
   | null
@@ -253,6 +274,14 @@ export type ActiveModal =
   | { type: 'waste'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'adjust'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'transfer'; batch?: StockBatchResponse; ingredientName?: string }
+  | {
+      type: 'history';
+      batch?: StockBatchResponse;
+      ingredientId?: string;
+      ingredientName?: string;
+      unit?: string;
+      sku?: string;
+    }
   | { type: 'createIngredient' }
   | { type: 'createCategory' }
   | { type: 'createLocation' }
