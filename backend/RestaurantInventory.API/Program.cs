@@ -8,6 +8,8 @@ using RestaurantInventory.API.Security;
 using RestaurantInventory.API.Services;
 using RestaurantInventory.API.Services.Interfaces;
 
+using RestaurantInventory.API.Services.Planning;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------
@@ -102,6 +104,7 @@ builder.Services.AddAuthorization();
 // --------------------------------------------------
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPlanningService, PlanningService>();  // added the planning service
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<
