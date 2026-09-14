@@ -150,6 +150,39 @@ export interface UpdateStorageLocationRequest {
   isActive: boolean;
 }
 
+// Master Data: Supplier
+export interface SupplierResponse {
+  id: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+}
+
+export interface UpdateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+}
+
 // Stock Operations Requests
 export interface ReceiveStockRequest {
   ingredientId: string;
