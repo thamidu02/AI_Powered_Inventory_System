@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Filter,
+  History,
   MapPin,
   PackageCheck,
   PackageMinus,
@@ -415,6 +416,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                               <span>Edit</span>
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="btn-table-action"
+                            title="View full consume and movement history for this ingredient"
+                            onClick={() =>
+                              onOpenModal({
+                                type: 'history',
+                                ingredientId: item.ingredientId,
+                                ingredientName: item.ingredientName,
+                                unit: item.unit,
+                                sku: item.sku,
+                              })
+                            }
+                          >
+                            <History size={14} />
+                            <span>History</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -564,6 +582,26 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                                 <span>Transfer</span>
                                               </button>
                                             )}
+
+                                            {/* History button */}
+                                            <button
+                                              type="button"
+                                              className="btn-batch-action btn-batch-history"
+                                              title="View consume and movement history for this specific batch"
+                                              onClick={() =>
+                                                onOpenModal({
+                                                  type: 'history',
+                                                  batch,
+                                                  ingredientId: item.ingredientId,
+                                                  ingredientName: item.ingredientName,
+                                                  unit: item.unit,
+                                                  sku: item.sku,
+                                                })
+                                              }
+                                            >
+                                              <History size={12} />
+                                              <span>History</span>
+                                            </button>
                                           </div>
                                         </td>
                                       </tr>

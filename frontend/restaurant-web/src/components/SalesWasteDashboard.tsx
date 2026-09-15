@@ -46,8 +46,8 @@ export const SalesWasteDashboard: React.FC = () => {
   const [wasteReason, setWasteReason] = useState('Spoilage');
   const [busy, setBusy] = useState(false);
 
-  const canRecordSale = ['SYSTEM_ADMIN', 'RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF'].includes(user?.role ?? '');
-  const canRecordWaste = ['SYSTEM_ADMIN', 'INVENTORY_MANAGER', 'SALES_KITCHEN_STAFF', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
+  const canRecordSale = ['RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF'].includes(user?.role ?? '');
+  const canRecordWaste = ['SALES_KITCHEN_STAFF', 'RESTAURANT_MANAGER', 'INVENTORY_MANAGER'].includes(user?.role ?? '');
   const canConfirmWaste = ['INVENTORY_MANAGER', 'RESTAURANT_MANAGER'].includes(user?.role ?? '');
 
   const batches = useMemo(

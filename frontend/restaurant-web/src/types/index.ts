@@ -150,6 +150,39 @@ export interface UpdateStorageLocationRequest {
   isActive: boolean;
 }
 
+// Master Data: Supplier
+export interface SupplierResponse {
+  id: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+}
+
+export interface UpdateSupplierRequest {
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  paymentTerms?: string | null;
+  isActive: boolean;
+}
+
 // Stock Operations Requests
 export interface ReceiveStockRequest {
   ingredientId: string;
@@ -205,6 +238,27 @@ export interface StockAdjustmentResponse {
   createdAt: string;
 }
 
+export interface StockMovementResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  stockBatchId: string;
+  batchNumber: string;
+  storageLocationId: string;
+  storageLocationName: string;
+  movementType: string;
+  quantity: number;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  reason?: string | null;
+  createdById: string;
+  createdByName: string;
+  createdByEmail: string;
+  createdAt: string;
+}
+
 // Operation Modals State
 export type ActiveModal =
   | null
@@ -220,6 +274,14 @@ export type ActiveModal =
   | { type: 'waste'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'adjust'; batch?: StockBatchResponse; ingredientName?: string }
   | { type: 'transfer'; batch?: StockBatchResponse; ingredientName?: string }
+  | {
+      type: 'history';
+      batch?: StockBatchResponse;
+      ingredientId?: string;
+      ingredientName?: string;
+      unit?: string;
+      sku?: string;
+    }
   | { type: 'createIngredient' }
   | { type: 'createCategory' }
   | { type: 'createLocation' }
@@ -323,3 +385,244 @@ export interface CreateRecipeRequest {
     unit?: string | null;
   }[];
 }
+
+// Procurement: Purchase Requests
+export interface PurchaseRequestItemResponse {
+  id: string;
+  purchaseRequestId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  suggestedSupplierName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseRequestResponse {
+  id: string;
+  status: string; // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, CANCELLED
+  reason?: string | null;
+  requestedAt: string;
+  requestedById: string;
+  requestedByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  items: PurchaseRequestItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface CreatePurchaseRequestRequest {
+  reason?: string | null;
+  items: CreatePurchaseRequestItemRequest[];
+}
+
+export interface UpdatePurchaseRequestItemRequest {
+  ingredientId: string;
+  requestedQuantity: number;
+  suggestedSupplierId?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdatePurchaseRequestRequest {
+  reason?: string | null;
+  items: UpdatePurchaseRequestItemRequest[];
+}
+
+export interface RejectPurchaseRequestRequest {
+  reason?: string | null;
+}
+
+// Procurement: Purchase Orders
+export interface PurchaseOrderItemResponse {
+  id: string;
+  purchaseOrderId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  orderedQuantity: number;
+  unitPrice: number;
+  receivedQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderResponse {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  orderDate?: string | null;
+  expectedDeliveryDate?: string | null;
+  totalAmount: number;
+  createdById: string;
+  createdByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  items: PurchaseOrderItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: CreatePurchaseOrderItemRequest[];
+}
+
+export interface UpdatePurchaseOrderItemRequest {
+  ingredientId: string;
+  orderedQuantity: number;
+  unitPrice: number;
+}
+
+export interface UpdatePurchaseOrderRequest {
+  supplierId: string;
+  expectedDeliveryDate?: string | null;
+  items: UpdatePurchaseOrderItemRequest[];
+}
+
+export interface RejectPurchaseOrderRequest {
+}
+
+// Procurement: Goods Receipts
+export interface CreateGoodsReceiptItemRequest {
+  purchaseOrderItemId: string;
+  storageLocationId: string;
+  receivedQuantity: number;
+  unitCost?: number | null;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+}
+
+export interface CreateGoodsReceiptRequest {
+  purchaseOrderId: string;
+  notes?: string | null;
+  items: CreateGoodsReceiptItemRequest[];
+}
+
+export interface GoodsReceiptItemResponse {
+  id: string;
+  goodsReceiptId: string;
+  purchaseOrderItemId: string;
+  ingredientId: string;
+  ingredientName: string;
+  ingredientUnit: string;
+  storageLocationId: string;
+  storageLocationName: string;
+  batchNumber: string;
+  receivedQuantity: number;
+  unitCost: number;
+  expiryDate?: string | null;
+  createdAt: string;
+}
+
+export interface GoodsReceiptResponse {
+  id: string;
+  purchaseOrderId: string;
+  receivedById: string;
+  receivedByName: string;
+  receiptDate: string;
+  notes?: string | null;
+  items: GoodsReceiptItemResponse[];
+  createdAt: string;
+}
+
+// ─── AI Assistant ──────────────────────────────────────────────────────────
+
+export type AiEventType =
+  | 'thinking'
+  | 'intent'
+  | 'tool_call'
+  | 'tool_result'
+  | 'message'
+  | 'approval_required'
+  | 'done'
+  | 'error';
+
+export interface AiEvent {
+  type: AiEventType;
+  text?: string;
+  intent?: string;
+  workflow_id?: string;
+  workflow_type?: string;
+  step?: number;
+  tool?: string;
+  input?: Record<string, unknown>;
+  output?: unknown;
+  proposal?: AiProposal;
+  data?: unknown;
+}
+
+export interface AiProposal {
+  workflow_id:    string;
+  workflow_type:  string;
+  proposal_type:  'PURCHASE_REQUEST' | 'OPTIMIZATION';
+  total_cost?:    number;
+  item_count?:    number;
+  items?:         AiProposalItem[];
+  optimizations?: AiOptimization[];
+  reasoning:      string;
+}
+
+export interface AiProposalItem {
+  ingredient_id:   string;
+  ingredient_name: string;
+  supplier_id:     string;
+  supplier_name:   string;
+  quantity:        number;
+  unit_price:      number;
+  lead_time_days:  number;
+  reasoning?:      string;
+}
+
+export interface AiOptimization {
+  ingredient_id:   string;
+  ingredient_name: string;
+  current_min:     number;
+  current_max:     number;
+  new_minimum:     number;
+  new_maximum:     number;
+  reason:          string;
+}
+
+export interface AiChatMessage {
+  id:          string;
+  role:        'user' | 'assistant';
+  content:     string;
+  timestamp:   Date;
+  events?:     AiEvent[];
+  proposal?:   AiProposal;
+  workflowId?: string;
+  isStreaming? : boolean;
+}
+
+export interface AiWorkflowSummary {
+  id:           string;
+  workflowType: string;
+  status:       string;
+  objective:    string;
+  startedAt:    string;
+  completedAt?: string;
+  finalOutcome?: string;
+  stepCount:    number;
+}
+
+

@@ -8,8 +8,6 @@ using RestaurantInventory.API.Security;
 using RestaurantInventory.API.Services;
 using RestaurantInventory.API.Services.Interfaces;
 
-using RestaurantInventory.API.Services.Planning;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------
@@ -29,7 +27,8 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://localhost:5173",   // Vite dev server
                 "http://localhost:3000",   // Alternative dev port
-                "https://localhost:5173"
+                "https://localhost:5173",
+                "http://localhost:8000"    // Python AI service
             )
             .AllowAnyHeader()
             .AllowAnyMethod());
@@ -47,11 +46,22 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // JWT Settings
 // --------------------------------------------------
 
+var jwtSecretKey = builder.Configuration["Jwt:SecretKey"];
+
+if (string.IsNullOrWhiteSpace(jwtSecretKey) && builder.Environment.IsDevelopment())
+{
+    jwtSecretKey = "DevelopmentSecretKey_ChangeMe_1234567890!";
+}
+
+if (string.IsNullOrWhiteSpace(jwtSecretKey))
+{
+    throw new InvalidOperationException(
+        "JWT SecretKey is not configured.");
+}
+
 var jwtSettings = new JwtSettings
 {
-    SecretKey = builder.Configuration["Jwt:SecretKey"]
-        ?? throw new InvalidOperationException(
-            "JWT SecretKey is not configured."),
+    SecretKey = jwtSecretKey,
 
     Issuer = builder.Configuration["Jwt:Issuer"]
         ?? throw new InvalidOperationException(
@@ -104,7 +114,6 @@ builder.Services.AddAuthorization();
 // --------------------------------------------------
 
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IPlanningService, PlanningService>();  // added the planning service
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<
@@ -114,6 +123,12 @@ builder.Services.AddScoped<
     IStorageLocationService,
     StorageLocationService>();
 builder.Services.AddScoped<ISalesService, SalesService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
+builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+builder.Services.AddScoped<IPlanningService, PlanningService>();
+builder.Services.AddHttpClient<IAiProxyService, AiProxyService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 
