@@ -625,4 +625,54 @@ export interface AiWorkflowSummary {
   stepCount:    number;
 }
 
+export interface DemandPlanResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  periodStart: string;
+  periodEnd: string;
+  weeklyForecast: number;
+  dailyAverageDemand: number;
+  currentStock: number;
+  minimumStockLevel: number;
+  maximumStockLevel: number;
+  projectedStock: number;
+  projectedShortage: number;
+  stockCoverageDays: number;
+  reorderRequired: boolean;
+  recommendedOrderQuantity: number;
+  recommendation: string;
+  riskStatus: string;
+  confidenceScore?: number;
+  generatedBy: string;
+  reason: string;
+}
+
+export interface PlanningRecommendationResponse {
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  currentStock: number;
+  weeklyForecast: number;
+  minimumStockLevel: number;
+  maximumStockLevel: number;
+  projectedStock: number;
+  shortage: number;
+  recommendedOrderQuantity: number;
+  recommendation: string;
+  reason: string;
+}
+
+export interface PlanningRiskSummaryResponse {
+  totalIngredients: number;
+  stockRiskCount: number;
+  highDemandCount: number;
+  overstockRiskCount: number;
+  reorderRequiredCount: number;
+  riskItems: DemandPlanResponse[];
+}
+
 
