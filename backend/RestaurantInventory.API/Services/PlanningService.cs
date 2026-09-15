@@ -121,7 +121,8 @@ public class PlanningService : IPlanningService
 
         var demandPlans = new List<DemandPlan>(ingredients.Count);
 
-        // 7. Calculate daily averages and highest average demand prediction.
+        // 7. Calculate daily averages and 7-day weekly demand forecast.
+        // Weekly Forecast = (average weekday demand * 5) + (average weekend demand * 2)
         foreach (var ingredient in ingredients)
         {
             var totalWeekday = weekdayConsumption.GetValueOrDefault(ingredient.Id, 0m);
@@ -130,7 +131,26 @@ public class PlanningService : IPlanningService
             var avgWeekday = weekdayDays > 0 ? totalWeekday / weekdayDays : 0m;
             var avgWeekend = weekendDays > 0 ? totalWeekend / weekendDays : 0m;
 
-            var predictedDemand = Math.Round(Math.Max(avgWeekday, avgWeekend), 2);
+            // Handle edge cases where historical window only has weekdays or weekends
+            if (weekdayDays > 0 && weekendDays == 0)
+            {
+                avgWeekend = avgWeekday;
+            }
+            else if (weekendDays > 0 && weekdayDays == 0)
+            {
+                avgWeekday = avgWeekend;
+            }
+            else if (totalWeekday > 0 && totalWeekend == 0)
+            {
+                avgWeekend = avgWeekday;
+            }
+            else if (totalWeekend > 0 && totalWeekday == 0)
+            {
+                avgWeekday = avgWeekend;
+            }
+
+            var weeklyForecast = (avgWeekday * 5m) + (avgWeekend * 2m);
+            var predictedDemand = Math.Round(weeklyForecast, 2);
             var totalConsumed = totalWeekday + totalWeekend;
 
             demandPlans.Add(new DemandPlan
