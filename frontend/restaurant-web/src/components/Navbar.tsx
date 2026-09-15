@@ -10,13 +10,14 @@ import {
   Utensils,
   Truck,
   ShoppingCart,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
-  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder';
-  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder') => void;
+  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant';
+  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant') => void;
 }
 
 const getRoleBadgeColor = (role?: string) => {
@@ -159,6 +160,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           >
             <ShoppingCart size={18} />
             <span>Kitchen Orders</span>
+          </button>
+        )}
+
+        {user?.role === 'INVENTORY_MANAGER' && (
+          <button
+            type="button"
+            id="nav-ai-assistant"
+            className={`nav-tab nav-tab--ai ${activeTab === 'aiAssistant' ? 'active' : ''}`}
+            onClick={() => setActiveTab('aiAssistant')}
+          >
+            <Sparkles size={18} />
+            <span>AI Assistant</span>
           </button>
         )}
       </nav>
