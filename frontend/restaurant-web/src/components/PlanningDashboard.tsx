@@ -7,7 +7,7 @@ import {
   RefreshCw,
   Search,
   Filter,
-  CheckCircle,
+  CheckCircle2,
   AlertCircle,
   BarChart3,
   ShoppingCart,
@@ -81,164 +81,183 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
     });
   }, [plans, searchQuery, statusFilter]);
 
-  const getRiskBadge = (riskStatus: string, reorderRequired: boolean) => {
+  const renderRiskBadge = (riskStatus: string, reorderRequired: boolean) => {
     if (riskStatus === 'STOCK_RISK' || reorderRequired) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-          <AlertTriangle className="w-3.5 h-3.5" />
+        <span className="badge badge-rose inline-flex items-center gap-1">
+          <AlertTriangle size={12} />
           Stock Risk
         </span>
       );
     }
     if (riskStatus === 'HIGH_DEMAND') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          <TrendingUp className="w-3.5 h-3.5" />
+        <span className="badge badge-amber inline-flex items-center gap-1">
+          <TrendingUp size={12} />
           High Demand
         </span>
       );
     }
     if (riskStatus === 'OVERSTOCK_RISK') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <Package className="w-3.5 h-3.5" />
+        <span className="badge badge-blue inline-flex items-center gap-1">
+          <Package size={12} />
           Overstock Risk
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        <CheckCircle className="w-3.5 h-3.5" />
+      <span className="badge badge-emerald inline-flex items-center gap-1">
+        <CheckCircle2 size={12} />
         Normal
       </span>
     );
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Top Header & Period Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <BarChart3 className="w-7 h-7 text-indigo-400" />
-            Component 4 — Demand & Inventory Planning
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Automated rule-based 7-day demand forecasting, stock risk assessment, and procurement recommendations.
-          </p>
-        </div>
+  const reorderCount = riskSummary?.reorderRequiredCount ?? plans.filter((p) => p.reorderRequired).length;
+  const stockRiskCount = riskSummary?.stockRiskCount ?? plans.filter((p) => p.riskStatus === 'STOCK_RISK').length;
+  const highDemandCount = riskSummary?.highDemandCount ?? plans.filter((p) => p.riskStatus === 'HIGH_DEMAND').length;
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-2 rounded-xl border border-slate-700">
-            <Calendar className="w-4 h-4 text-indigo-400" />
-            <input
-              type="date"
-              value={periodStart}
-              onChange={(e) => setPeriodStart(e.target.value)}
-              className="bg-transparent text-xs text-white outline-none cursor-pointer"
-            />
-            <span className="text-slate-500 text-xs">to</span>
-            <input
-              type="date"
-              value={periodEnd}
-              onChange={(e) => setPeriodEnd(e.target.value)}
-              className="bg-transparent text-xs text-white outline-none cursor-pointer"
-            />
+  return (
+    <div className="view-container">
+      {/* Top Header Card */}
+      <div className="table-card p-6" style={{ padding: '1.25rem 1.5rem' }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="stat-icon-wrapper bg-purple-glow" style={{ width: 38, height: 38 }}>
+                <BarChart3 size={20} className="text-purple" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-main" style={{ fontSize: '1.25rem', margin: 0 }}>
+                  Demand &amp; Inventory Planning
+                </h1>
+                <p className="text-muted text-xs" style={{ margin: '0.2rem 0 0 0' }}>
+                  Rule-based 7-day demand forecasting, stock risk assessment, and replenishment recommendations.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={() => {
-              fetchPlanningData();
-              if (onSuccess) onSuccess('Refreshed demand forecast data.');
-            }}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Recalculate
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="input-with-icon px-3 py-1.5 rounded-lg border border-border bg-input flex items-center gap-2">
+              <Calendar size={14} className="text-secondary" />
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                className="bg-transparent text-xs text-main border-none outline-none cursor-pointer"
+              />
+              <span className="text-muted text-xs">to</span>
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                className="bg-transparent text-xs text-main border-none outline-none cursor-pointer"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                fetchPlanningData();
+                if (onSuccess) onSuccess('Refreshed demand forecast & risk calculations.');
+              }}
+              disabled={loading}
+              className="btn-action btn-action-primary flex items-center gap-2"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span>Recalculate</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
+        <div className="glass-card p-4 flex items-center gap-3 border-rose-500/30 text-rose-400" style={{ background: 'rgba(244, 63, 94, 0.08)' }}>
+          <AlertCircle size={18} className="flex-shrink-0" />
+          <span className="text-sm">{error}</span>
         </div>
       )}
 
-      {/* Analytics KPI Summary Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-400">Total Tracked Ingredients</p>
-            <p className="text-2xl font-bold text-white mt-1">
-              {riskSummary?.totalIngredients ?? plans.length}
-            </p>
+      {/* KPI Stat Cards Grid */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon-wrapper bg-purple-glow">
+            <Package size={24} style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
-            <Package className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-400">Reorder Required</p>
-            <p className="text-2xl font-bold text-red-400 mt-1">
-              {riskSummary?.reorderRequiredCount ?? plans.filter((p) => p.reorderRequired).length}
-            </p>
-          </div>
-          <div className="p-3 bg-red-500/10 text-red-400 rounded-xl">
-            <ShoppingCart className="w-6 h-6" />
+          <div className="stat-content">
+            <span className="stat-label">Total Ingredients</span>
+            <span className="stat-value">{riskSummary?.totalIngredients ?? plans.length}</span>
+            <span className="stat-subtext">Catalog items analyzed</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-400">High Demand Items</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">
-              {riskSummary?.highDemandCount ?? plans.filter((p) => p.riskStatus === 'HIGH_DEMAND').length}
-            </p>
+        <div className={`stat-card ${reorderCount > 0 ? 'stat-danger' : ''}`}>
+          <div className="stat-icon-wrapper bg-rose-glow">
+            <ShoppingCart size={24} className="text-rose" />
           </div>
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
-            <TrendingUp className="w-6 h-6" />
+          <div className="stat-content">
+            <span className="stat-label">Reorder Required</span>
+            <span className="stat-value">{reorderCount}</span>
+            <span className="stat-subtext">Below minimum / safe stock</span>
           </div>
         </div>
 
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-400">Stock Risk Warning</p>
-            <p className="text-2xl font-bold text-red-400 mt-1">
-              {riskSummary?.stockRiskCount ?? plans.filter((p) => p.riskStatus === 'STOCK_RISK').length}
-            </p>
+        <div className={`stat-card ${stockRiskCount > 0 ? 'stat-warning' : ''}`}>
+          <div className="stat-icon-wrapper bg-amber-glow">
+            <ShieldAlert size={24} className="text-amber" />
           </div>
-          <div className="p-3 bg-red-500/10 text-red-400 rounded-xl">
-            <ShieldAlert className="w-6 h-6" />
+          <div className="stat-content">
+            <span className="stat-label">Stock Out Risk</span>
+            <span className="stat-value">{stockRiskCount}</span>
+            <span className="stat-subtext">Projected shortage this week</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon-wrapper bg-blue-glow">
+            <TrendingUp size={24} className="text-blue" />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">High Demand Items</span>
+            <span className="stat-value">{highDemandCount}</span>
+            <span className="stat-subtext">Surpassing safety thresholds</span>
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search ingredient or SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950/60 border border-slate-800 text-slate-200 text-sm pl-9 pr-4 py-2 rounded-xl focus:outline-none focus:border-indigo-500"
-          />
+      {/* Controls & Filter Bar */}
+      <div className="controls-bar">
+        <div className="search-group">
+          <div className="input-with-icon search-input">
+            <Search size={18} className="input-icon" />
+            <input
+              type="text"
+              placeholder="Search by ingredient name or SKU..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <button
+            type="button"
+            className={`btn-filter ${statusFilter === 'REORDER' ? 'active' : ''}`}
+            onClick={() => setStatusFilter(statusFilter === 'REORDER' ? 'ALL' : 'REORDER')}
+          >
+            <Filter size={16} />
+            <span>Reorder Required ({reorderCount})</span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
+        <div className="quick-actions">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-950/60 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-indigo-500"
+            className="btn-filter"
+            style={{ cursor: 'pointer', paddingRight: '1rem' }}
           >
-            <option value="ALL">All Items ({plans.length})</option>
+            <option value="ALL">All Statuses ({plans.length})</option>
             <option value="REORDER">Reorder Required</option>
             <option value="STOCK_RISK">Stock Out Risk</option>
             <option value="HIGH_DEMAND">High Demand</option>
@@ -247,106 +266,104 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
         </div>
       </div>
 
-      {/* Demand Forecast & Replenishment Table */}
-      <div className="bg-slate-900/60 rounded-2xl border border-slate-800 overflow-hidden backdrop-blur-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-800/40 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-4">Ingredient / SKU</th>
-                <th className="py-3.5 px-4">Current Stock</th>
-                <th className="py-3.5 px-4">7-Day Demand Forecast</th>
-                <th className="py-3.5 px-4">Projected Stock</th>
-                <th className="py-3.5 px-4">Stock Coverage</th>
-                <th className="py-3.5 px-4">Recommendation</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Reason</th>
+      {/* Custom Data Table Container */}
+      <div className="table-card">
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>Ingredient / SKU</th>
+              <th>Current Stock</th>
+              <th>7-Day Demand Forecast</th>
+              <th>Projected Stock</th>
+              <th>Coverage</th>
+              <th>Recommendation</th>
+              <th>Status</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-muted">
+                  <div className="flex items-center justify-center gap-2">
+                    <RefreshCw size={18} className="animate-spin text-accent" />
+                    <span>Calculating ingredient demand & inventory position...</span>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-400 mb-2" />
-                    Calculating ingredient demand forecasts & inventory position...
+            ) : filteredPlans.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-muted">
+                  No ingredient demand records match your current criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredPlans.map((plan) => (
+                <tr key={plan.id} className="row-clickable">
+                  <td>
+                    <div className="ingredient-title">{plan.ingredientName}</div>
+                    <div className="ingredient-sku">{plan.sku}</div>
                   </td>
-                </tr>
-              ) : filteredPlans.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
-                    No ingredient demand records match your current filter.
+                  <td>
+                    <div className="stock-number">
+                      {plan.currentStock} <span className="text-xs text-muted">{plan.unit}</span>
+                    </div>
+                    <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                      Min: {plan.minimumStockLevel} | Max: {plan.maximumStockLevel}
+                    </div>
                   </td>
-                </tr>
-              ) : (
-                filteredPlans.map((plan) => (
-                  <tr key={plan.id} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="py-4 px-4 font-medium text-white">
-                      <div>{plan.ingredientName}</div>
-                      <div className="text-xs font-mono text-slate-400 mt-0.5">{plan.sku}</div>
-                    </td>
-                    <td className="py-4 px-4 text-slate-200">
-                      <span className="font-semibold text-white">
-                        {plan.currentStock} {plan.unit}
-                      </span>
-                      <div className="text-xs text-slate-400">
-                        Min: {plan.minimumStockLevel} | Max: {plan.maximumStockLevel}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-indigo-300 font-semibold">
+                  <td>
+                    <div className="font-semibold text-accent" style={{ color: 'var(--accent)' }}>
                       {plan.weeklyForecast} {plan.unit}
-                      <div className="text-xs text-slate-400">
-                        (~{plan.dailyAverageDemand} {plan.unit}/day)
+                    </div>
+                    <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                      (~{plan.dailyAverageDemand} {plan.unit}/day)
+                    </div>
+                  </td>
+                  <td>
+                    <div
+                      className={`font-semibold ${
+                        plan.projectedStock < 0
+                          ? 'text-rose'
+                          : plan.projectedStock < plan.minimumStockLevel
+                          ? 'text-amber'
+                          : 'text-emerald'
+                      }`}
+                    >
+                      {plan.projectedStock} {plan.unit}
+                    </div>
+                    {plan.projectedShortage > 0 && (
+                      <div className="text-xs text-rose font-medium" style={{ fontSize: '0.7rem' }}>
+                        Shortage: {plan.projectedShortage} {plan.unit}
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span
-                        className={`font-semibold ${
-                          plan.projectedStock < 0
-                            ? 'text-red-400'
-                            : plan.projectedStock < plan.minimumStockLevel
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
-                        }`}
-                      >
-                        {plan.projectedStock} {plan.unit}
-                      </span>
-                      {plan.projectedShortage > 0 && (
-                        <div className="text-xs text-red-400">Shortage: {plan.projectedShortage} {plan.unit}</div>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300">
-                      {plan.stockCoverageDays > 300
-                        ? '30+ Days'
-                        : `${plan.stockCoverageDays} Days`}
-                    </td>
-                    <td className="py-4 px-4">
-                      {plan.reorderRequired ? (
-                        <div>
-                          <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded">
-                            REORDER
-                          </span>
-                          <div className="text-xs font-semibold text-indigo-300 mt-1">
-                            Order +{plan.recommendedOrderQuantity} {plan.unit}
-                          </div>
+                    )}
+                  </td>
+                  <td className="text-secondary text-sm">
+                    {plan.stockCoverageDays > 300 ? '30+ Days' : `${plan.stockCoverageDays} Days`}
+                  </td>
+                  <td>
+                    {plan.reorderRequired ? (
+                      <div>
+                        <span className="badge badge-rose">REORDER</span>
+                        <div className="text-xs font-semibold text-accent mt-0.5" style={{ fontSize: '0.72rem' }}>
+                          Order +{plan.recommendedOrderQuantity} {plan.unit}
                         </div>
-                      ) : (
-                        <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">
-                          NO REORDER
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4">
-                      {getRiskBadge(plan.riskStatus, plan.reorderRequired)}
-                    </td>
-                    <td className="py-4 px-4 text-xs text-slate-400 max-w-xs leading-relaxed">
-                      {plan.reason}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </div>
+                    ) : (
+                      <span className="badge badge-purple" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)' }}>
+                        NO REORDER
+                      </span>
+                    )}
+                  </td>
+                  <td>{renderRiskBadge(plan.riskStatus, plan.reorderRequired)}</td>
+                  <td className="text-xs text-muted max-w-xs leading-relaxed" style={{ fontSize: '0.75rem' }}>
+                    {plan.reason}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
