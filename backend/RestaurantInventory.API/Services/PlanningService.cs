@@ -29,39 +29,85 @@ public class PlanningService : IPlanningService
         DateTime periodStart,
         DateTime periodEnd)
     {
-        // Ensure dates are UTC so EF/Npgsql comparisons work correctly.
+        // 1. Ensure dates are UTC so EF/Npgsql comparisons work correctly.
         periodStart = DateTime.SpecifyKind(periodStart, DateTimeKind.Utc);
         periodEnd   = DateTime.SpecifyKind(periodEnd,   DateTimeKind.Utc);
 
-        var periodDays = (decimal)(periodEnd - periodStart).TotalDays;
-        if (periodDays <= 0) periodDays = 1;
+        // 2. Count weekday (Mon-Fri) and weekend (Sat-Sun) days in the analysis window.
+        int weekdayDays = 0;
+        int weekendDays = 0;
+        for (var dt = periodStart.Date; dt < periodEnd.Date; dt = dt.AddDays(1))
+        {
+            if (dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday)
+            {
+                weekendDays++;
+            }
+            else
+            {
+                weekdayDays++;
+            }
+        }
+
+        if (weekdayDays == 0 && weekendDays == 0)
+        {
+            var totalDays = (int)Math.Ceiling((periodEnd - periodStart).TotalDays);
+            weekdayDays = Math.Max(1, totalDays);
+        }
 
         var ingredients = await _context.Ingredients.ToListAsync();
-        var demandPlans = new List<DemandPlan>(ingredients.Count);
 
-        // Load all relevant consumption in a single query instead of N+1.
-        var consumptionByIngredient = await _context.SaleItems
+        // 3. Load active recipes and their ingredients.
+        var activeRecipes = await _context.Recipes
+            .Where(r => r.IsActive)
+            .Include(r => r.Ingredients)
+            .ToListAsync();
+
+        var recipeIngredientsByMenuItem = activeRecipes
+            .GroupBy(r => r.MenuItemId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.Version).First().Ingredients
+            );
+
+        // 4. Query sale items within the requested window.
+        var saleItems = await _context.SaleItems
+            .Include(si => si.Sale)
             .Where(si =>
-                si.Sale.CreatedAt >= periodStart &&
-                si.Sale.CreatedAt <  periodEnd)
-            .Join(
-                _context.RecipeIngredients,
-                si => si.MenuItemId,
-                ri => ri.Recipe.MenuItemId,
-                (si, ri) => new
-                {
-                    ri.IngredientId,
-                    QuantityConsumed = si.Quantity * ri.QuantityRequired
-                })
-            .GroupBy(x => x.IngredientId)
-            .Select(g => new
-            {
-                IngredientId = g.Key,
-                TotalConsumed = g.Sum(x => x.QuantityConsumed)
-            })
-            .ToDictionaryAsync(x => x.IngredientId, x => x.TotalConsumed);
+                (si.Sale.SaleDate >= periodStart && si.Sale.SaleDate < periodEnd) ||
+                (si.Sale.CreatedAt >= periodStart && si.Sale.CreatedAt < periodEnd))
+            .ToListAsync();
 
-        // Remove existing plans for this exact period to avoid duplicates.
+        // 5. Aggregate weekday and weekend ingredient consumption.
+        var weekdayConsumption = new Dictionary<Guid, decimal>();
+        var weekendConsumption = new Dictionary<Guid, decimal>();
+
+        foreach (var si in saleItems)
+        {
+            if (!recipeIngredientsByMenuItem.TryGetValue(si.MenuItemId, out var recipeIngredients))
+            {
+                continue;
+            }
+
+            var saleDate = si.Sale.SaleDate != default ? si.Sale.SaleDate : si.Sale.CreatedAt;
+            bool isWeekend = saleDate.DayOfWeek == DayOfWeek.Saturday || saleDate.DayOfWeek == DayOfWeek.Sunday;
+
+            foreach (var ri in recipeIngredients)
+            {
+                var quantityConsumed = si.Quantity * ri.QuantityRequired;
+                if (isWeekend)
+                {
+                    weekendConsumption[ri.IngredientId] =
+                        weekendConsumption.GetValueOrDefault(ri.IngredientId, 0m) + quantityConsumed;
+                }
+                else
+                {
+                    weekdayConsumption[ri.IngredientId] =
+                        weekdayConsumption.GetValueOrDefault(ri.IngredientId, 0m) + quantityConsumed;
+                }
+            }
+        }
+
+        // 6. Remove existing plans for this exact period to avoid duplicate rows.
         var existingPlans = await _context.DemandPlans
             .Where(dp =>
                 dp.PeriodStart == periodStart &&
@@ -73,23 +119,28 @@ public class PlanningService : IPlanningService
             _context.DemandPlans.RemoveRange(existingPlans);
         }
 
+        var demandPlans = new List<DemandPlan>(ingredients.Count);
+
+        // 7. Calculate daily averages and highest average demand prediction.
         foreach (var ingredient in ingredients)
         {
-            var totalConsumed = consumptionByIngredient.TryGetValue(
-                ingredient.Id, out var consumed) ? consumed : 0m;
+            var totalWeekday = weekdayConsumption.GetValueOrDefault(ingredient.Id, 0m);
+            var totalWeekend = weekendConsumption.GetValueOrDefault(ingredient.Id, 0m);
 
-            // Normalise: average daily demand × period length gives a comparable forecast.
-            var dailyAverage    = totalConsumed / periodDays;
-            var predictedDemand = Math.Round(dailyAverage * periodDays, 4);
+            var avgWeekday = weekdayDays > 0 ? totalWeekday / weekdayDays : 0m;
+            var avgWeekend = weekendDays > 0 ? totalWeekend / weekendDays : 0m;
+
+            var predictedDemand = Math.Round(Math.Max(avgWeekday, avgWeekend), 2);
+            var totalConsumed = totalWeekday + totalWeekend;
 
             demandPlans.Add(new DemandPlan
             {
-                IngredientId     = ingredient.Id,
-                PeriodStart      = periodStart,
-                PeriodEnd        = periodEnd,
-                PredictedDemand  = predictedDemand,
-                ConfidenceScore  = totalConsumed > 0 ? 0.7m : 0.1m,
-                GeneratedBy      = "RULE_BASED"
+                IngredientId    = ingredient.Id,
+                PeriodStart     = periodStart,
+                PeriodEnd       = periodEnd,
+                PredictedDemand = predictedDemand,
+                ConfidenceScore = totalConsumed > 0 ? 0.7m : 0.1m,
+                GeneratedBy     = "RULE_BASED"
             });
         }
 
