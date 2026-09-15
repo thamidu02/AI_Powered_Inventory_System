@@ -27,7 +27,8 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://localhost:5173",   // Vite dev server
                 "http://localhost:3000",   // Alternative dev port
-                "https://localhost:5173"
+                "https://localhost:5173",
+                "http://localhost:8000"    // Python AI service
             )
             .AllowAnyHeader()
             .AllowAnyMethod());
@@ -127,6 +128,7 @@ builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 builder.Services.AddScoped<IPlanningService, PlanningService>();
+builder.Services.AddHttpClient<IAiProxyService, AiProxyService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 

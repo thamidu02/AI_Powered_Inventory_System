@@ -11,6 +11,7 @@ import { SalesWasteDashboard } from './components/SalesWasteDashboard';
 import { MenuRecipesDashboard } from './components/MenuRecipesDashboard';
 import { ProcurementDashboard } from './components/ProcurementDashboard';
 import { KitchenOrderPanel } from './components/KitchenOrderPanel';
+import { AiAssistantChat } from './components/AiAssistantChat';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import './App.css';
@@ -23,7 +24,7 @@ interface Toast {
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant'>('inventory');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -77,6 +78,8 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
 
         {activeTab === 'kitchenOrder' && <KitchenOrderPanel />}
+
+        {activeTab === 'aiAssistant' && <AiAssistantChat />}
 
         {activeTab === 'procurement' && (
           <ProcurementDashboard onSuccess={handleModalSuccess} />

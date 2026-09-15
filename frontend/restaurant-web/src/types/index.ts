@@ -545,3 +545,84 @@ export interface GoodsReceiptResponse {
   createdAt: string;
 }
 
+// ─── AI Assistant ──────────────────────────────────────────────────────────
+
+export type AiEventType =
+  | 'thinking'
+  | 'intent'
+  | 'tool_call'
+  | 'tool_result'
+  | 'message'
+  | 'approval_required'
+  | 'done'
+  | 'error';
+
+export interface AiEvent {
+  type: AiEventType;
+  text?: string;
+  intent?: string;
+  workflow_id?: string;
+  workflow_type?: string;
+  step?: number;
+  tool?: string;
+  input?: Record<string, unknown>;
+  output?: unknown;
+  proposal?: AiProposal;
+  data?: unknown;
+}
+
+export interface AiProposal {
+  workflow_id:    string;
+  workflow_type:  string;
+  proposal_type:  'PURCHASE_REQUEST' | 'OPTIMIZATION';
+  total_cost?:    number;
+  item_count?:    number;
+  items?:         AiProposalItem[];
+  optimizations?: AiOptimization[];
+  reasoning:      string;
+}
+
+export interface AiProposalItem {
+  ingredient_id:   string;
+  ingredient_name: string;
+  supplier_id:     string;
+  supplier_name:   string;
+  quantity:        number;
+  unit_price:      number;
+  lead_time_days:  number;
+  reasoning?:      string;
+}
+
+export interface AiOptimization {
+  ingredient_id:   string;
+  ingredient_name: string;
+  current_min:     number;
+  current_max:     number;
+  new_minimum:     number;
+  new_maximum:     number;
+  reason:          string;
+}
+
+export interface AiChatMessage {
+  id:          string;
+  role:        'user' | 'assistant';
+  content:     string;
+  timestamp:   Date;
+  events?:     AiEvent[];
+  proposal?:   AiProposal;
+  workflowId?: string;
+  isStreaming? : boolean;
+}
+
+export interface AiWorkflowSummary {
+  id:           string;
+  workflowType: string;
+  status:       string;
+  objective:    string;
+  startedAt:    string;
+  completedAt?: string;
+  finalOutcome?: string;
+  stepCount:    number;
+}
+
+
