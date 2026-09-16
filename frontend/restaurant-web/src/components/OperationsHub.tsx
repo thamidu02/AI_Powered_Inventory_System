@@ -80,6 +80,7 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
           <div className="ops-footer">
             <button
               type="button"
+              data-guide-id="receive-stock-button"
               className="btn-primary w-full"
               disabled={!canReceive}
               onClick={() => onOpenModal({ type: 'receive' })}
@@ -107,6 +108,7 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
           <div className="ops-footer">
             <button
               type="button"
+              data-guide-id="consume-stock-button"
               className="btn-primary w-full"
               disabled={!canConsume}
               onClick={() => onOpenModal({ type: 'consume' })}

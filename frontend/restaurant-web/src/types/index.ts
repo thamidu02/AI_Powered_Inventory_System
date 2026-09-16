@@ -554,6 +554,7 @@ export type AiEventType =
   | 'tool_result'
   | 'message'
   | 'approval_required'
+  | 'guided_workflow'
   | 'done'
   | 'error';
 
@@ -563,6 +564,9 @@ export interface AiEvent {
   intent?: string;
   workflow_id?: string;
   workflow_type?: string;
+  title?: string;
+  description?: string;
+  steps?: unknown[];
   step?: number;
   tool?: string;
   input?: Record<string, unknown>;
@@ -603,6 +607,13 @@ export interface AiOptimization {
   reason:          string;
 }
 
+export interface AiGuidedWorkflowPayload {
+  workflow_type: string;
+  title: string;
+  description: string;
+  steps: any[];
+}
+
 export interface AiChatMessage {
   id:          string;
   role:        'user' | 'assistant';
@@ -610,6 +621,7 @@ export interface AiChatMessage {
   timestamp:   Date;
   events?:     AiEvent[];
   proposal?:   AiProposal;
+  guidedWorkflow?: AiGuidedWorkflowPayload;
   workflowId?: string;
   isStreaming? : boolean;
 }
@@ -623,6 +635,56 @@ export interface AiWorkflowSummary {
   completedAt?: string;
   finalOutcome?: string;
   stepCount:    number;
+}
+
+export interface DemandPlanResponse {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  periodStart: string;
+  periodEnd: string;
+  weeklyForecast: number;
+  dailyAverageDemand: number;
+  currentStock: number;
+  minimumStockLevel: number;
+  maximumStockLevel: number;
+  projectedStock: number;
+  projectedShortage: number;
+  stockCoverageDays: number;
+  reorderRequired: boolean;
+  recommendedOrderQuantity: number;
+  recommendation: string;
+  riskStatus: string;
+  confidenceScore?: number;
+  generatedBy: string;
+  reason: string;
+}
+
+export interface PlanningRecommendationResponse {
+  ingredientId: string;
+  ingredientName: string;
+  sku: string;
+  unit: string;
+  currentStock: number;
+  weeklyForecast: number;
+  minimumStockLevel: number;
+  maximumStockLevel: number;
+  projectedStock: number;
+  shortage: number;
+  recommendedOrderQuantity: number;
+  recommendation: string;
+  reason: string;
+}
+
+export interface PlanningRiskSummaryResponse {
+  totalIngredients: number;
+  stockRiskCount: number;
+  highDemandCount: number;
+  overstockRiskCount: number;
+  reorderRequiredCount: number;
+  riskItems: DemandPlanResponse[];
 }
 
 

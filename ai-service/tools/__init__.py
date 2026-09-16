@@ -1,16 +1,27 @@
-"""Tool registry shared by the Component 1 and Component 3 agents."""
+"""Tool registry shared by the inventory and guided workflow agents."""
 
 import asyncio
 from typing import Any
 
 from google.generativeai.types import Tool
 
-from .inventory import TOOL_DEFINITIONS as INVENTORY_TOOL_DEFINITIONS
-from .inventory import TOOL_DISPATCH as INVENTORY_TOOL_DISPATCH
+from .inventory import (
+    TOOL_DEFINITIONS as INVENTORY_TOOL_DEFINITIONS,
+    TOOL_DISPATCH as INVENTORY_TOOL_DISPATCH,
+    list_all_ingredients,
+    get_ingredient_details,
+    list_all_stocks,
+    get_stock_details,
+)
 from .sales import (
     COMPONENT3_READ_ONLY_TOOLS,
     TOOL_DEFINITIONS as SALES_TOOL_DEFINITIONS,
     TOOL_DISPATCH as SALES_TOOL_DISPATCH,
+)
+from .guided_workflows import (
+    get_available_guided_workflows,
+    plan_guided_workflow,
+    validate_guided_workflow_plan,
 )
 
 TOOL_DEFINITIONS = Tool(function_declarations=[
@@ -20,6 +31,9 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
 TOOL_DISPATCH: dict[str, Any] = {
     **INVENTORY_TOOL_DISPATCH,
     **SALES_TOOL_DISPATCH,
+    "get_available_guided_workflows": get_available_guided_workflows,
+    "plan_guided_workflow": plan_guided_workflow,
+    "validate_guided_workflow_plan": validate_guided_workflow_plan,
 }
 
 async def call_tool(

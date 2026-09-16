@@ -41,6 +41,9 @@ import type {
   PurchaseOrderResponse,
   CreateGoodsReceiptRequest,
   GoodsReceiptResponse,
+  DemandPlanResponse,
+  PlanningRecommendationResponse,
+  PlanningRiskSummaryResponse,
 } from '../types';
 
 const TOKEN_KEY = 'restaurant_auth_token';
@@ -424,4 +427,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Component 4 - Demand, Analytics & Inventory Planning
+  getPlanningForecast: (periodStart: string, periodEnd: string) =>
+    request<DemandPlanResponse[]>(
+      `/api/Planning/forecast?periodStart=${encodeURIComponent(periodStart)}&periodEnd=${encodeURIComponent(periodEnd)}`
+    ),
+  getPlanningRecommendations: (periodStart: string, periodEnd: string) =>
+    request<PlanningRecommendationResponse[]>(
+      `/api/Planning/recommendations?periodStart=${encodeURIComponent(periodStart)}&periodEnd=${encodeURIComponent(periodEnd)}`
+    ),
+  getPlanningRisks: (periodStart: string, periodEnd: string) =>
+    request<PlanningRiskSummaryResponse>(
+      `/api/Planning/risks?periodStart=${encodeURIComponent(periodStart)}&periodEnd=${encodeURIComponent(periodEnd)}`
+    ),
 };

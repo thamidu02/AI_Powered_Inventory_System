@@ -337,6 +337,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
               <div className="form-group">
                 <label>Ingredient</label>
                 <select
+                  data-guide-id="receive-ingredient-select"
                   value={receiveIngredientId}
                   onChange={(e) => setReceiveIngredientId(e.target.value)}
                   required
@@ -353,6 +354,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
               <div className="form-group">
                 <label>Storage Location</label>
                 <select
+                  data-guide-id="receive-location-select"
                   value={receiveLocationId}
                   onChange={(e) => setReceiveLocationId(e.target.value)}
                   required
@@ -373,6 +375,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   <label>Batch Number</label>
                   <input
                     type="text"
+                    data-guide-id="receive-batch-input"
                     value={receiveBatchNumber}
                     onChange={(e) => setReceiveBatchNumber(e.target.value)}
                     required
@@ -382,6 +385,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   <label>Quantity</label>
                   <input
                     type="number"
+                    data-guide-id="receive-quantity-input"
                     step="0.01"
                     min="0.01"
                     value={receiveQuantity}
@@ -396,6 +400,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   <label>Unit Cost ($)</label>
                   <input
                     type="number"
+                    data-guide-id="receive-unit-cost-input"
                     step="0.01"
                     min="0"
                     value={receiveUnitCost}
@@ -407,6 +412,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   <label>Expiry Date</label>
                   <input
                     type="date"
+                    data-guide-id="receive-expiry-input"
                     value={receiveExpiryDate}
                     onChange={(e) => setReceiveExpiryDate(e.target.value)}
                   />
@@ -417,7 +423,12 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <button type="button" className="btn-secondary" onClick={onClose}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button
+                  type="submit"
+                  data-guide-id="receive-submit-button"
+                  className="btn-primary"
+                  disabled={loading}
+                >
                   {loading ? 'Processing...' : 'Receive Stock'}
                 </button>
               </div>
@@ -484,6 +495,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <div className="form-group">
                   <label>Select Ingredient</label>
                   <select
+                    data-guide-id="consume-ingredient-select"
                     value={consumeIngredientId}
                     onChange={(e) => {
                       const nextId = e.target.value;
@@ -561,6 +573,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   </label>
                   <input
                     type="number"
+                    data-guide-id="consume-quantity-input"
                     step="0.01"
                     min="0.01"
                     max={availableStock && availableStock > 0 ? availableStock : undefined}
@@ -602,7 +615,12 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <button type="button" className="btn-secondary" onClick={onClose}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button
+                  type="submit"
+                  data-guide-id="consume-submit-button"
+                  className="btn-primary"
+                  disabled={loading}
+                >
                   {loading ? 'Deducting via FEFO...' : 'Confirm Consumption'}
                 </button>
               </div>

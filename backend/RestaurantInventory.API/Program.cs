@@ -128,6 +128,7 @@ builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 builder.Services.AddScoped<IPlanningService, PlanningService>();
+builder.Services.AddScoped<IGuidedWorkflowService, GuidedWorkflowService>();
 builder.Services.AddHttpClient<IAiProxyService, AiProxyService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
