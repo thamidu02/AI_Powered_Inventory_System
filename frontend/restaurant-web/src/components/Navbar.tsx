@@ -11,13 +11,14 @@ import {
   Truck,
   ShoppingCart,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
-  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant';
-  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant') => void;
+  activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant' | 'planning';
+  setActiveTab: (tab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant' | 'planning') => void;
 }
 
 const getRoleBadgeColor = (role?: string) => {
@@ -149,6 +150,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
         >
           <Truck size={18} />
           <span>Procurement &amp; Suppliers</span>
+        </button>
+
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'planning' ? 'active' : ''}`}
+          onClick={() => setActiveTab('planning')}
+        >
+          <BarChart3 size={18} />
+          <span>Demand &amp; Planning</span>
         </button>
 
         {(['SALES_KITCHEN_STAFF', 'RESTAURANT_MANAGER', 'SYSTEM_ADMIN'].includes(user?.role ?? '')) && (

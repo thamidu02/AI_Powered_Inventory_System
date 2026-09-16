@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Trash2,
   X,
-  Zap,
   Search,
   Receipt,
 } from 'lucide-react';

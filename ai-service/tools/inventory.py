@@ -170,33 +170,56 @@ async def get_expiring_batches(days_ahead: int = 7) -> dict:
 async def get_demand_forecast(ingredient_id: str, days: int = 14) -> dict:
     """Get demand forecast for an ingredient over the next N days based on historical sales."""
     try:
-        data = await _get("/api/planning/demand-forecast", {
-            "ingredientId": ingredient_id,
-            "days": days,
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        start_str = start_date.strftime("%Y-%m-%d")
+        end_str = end_date.strftime("%Y-%m-%d")
+
+        data = await _get("/api/Planning/forecast", {
+            "periodStart": start_str,
+            "periodEnd": end_str,
         })
-        return {
-            "ingredient_id":    ingredient_id,
-            "forecast_days":    days,
-            "predicted_demand": data.get("predictedDemand", 0),
-            "daily_average":    data.get("dailyAverage", 0),
-            "confidence":       data.get("confidenceScore", 0.5),
-            "method":           data.get("method", "HISTORICAL_AVERAGE"),
-            "period_start":     data.get("periodStart"),
-            "period_end":       data.get("periodEnd"),
-        }
+
+        target = None
+        if isinstance(data, list):
+            for item in data:
+                if item.get("ingredientId") == ingredient_id:
+                    target = item
+                    break
+
+        if target:
+            return {
+                "ingredient_id":             target.get("ingredientId"),
+                "name":                      target.get("ingredientName"),
+                "forecast_days":             days,
+                "weekly_forecast":           target.get("weeklyForecast", 0),
+                "daily_average":             target.get("dailyAverageDemand", 0),
+                "current_stock":             target.get("currentStock", 0),
+                "projected_stock":           target.get("projectedStock", 0),
+                "projected_shortage":        target.get("projectedShortage", 0),
+                "reorder_required":          target.get("reorderRequired", False),
+                "recommended_order_quantity": target.get("recommendedOrderQuantity", 0),
+                "recommendation":            target.get("recommendation", "NO_REORDER"),
+                "risk_status":               target.get("riskStatus", "NORMAL"),
+                "confidence":                target.get("confidenceScore", 0.7),
+                "method":                    target.get("generatedBy", "RULE_BASED"),
+                "reason":                    target.get("reason", ""),
+            }
     except Exception:
-        # Endpoint not yet implemented — use stock movements as proxy
-        movements = await get_stock_movements(ingredient_id, days=30)
-        daily_avg = movements["total_consumed"] / 30 if movements["total_consumed"] else 0
-        return {
-            "ingredient_id":    ingredient_id,
-            "forecast_days":    days,
-            "predicted_demand": round(daily_avg * days, 3),
-            "daily_average":    round(daily_avg, 3),
-            "confidence":       0.4,
-            "method":           "MOVEMENT_HISTORY_PROXY",
-            "note":             "Demand forecast endpoint unavailable; estimate based on 30-day movement history.",
-        }
+        pass
+
+    # Fallback to stock movement estimate if request fails
+    movements = await get_stock_movements(ingredient_id, days=30)
+    daily_avg = movements["total_consumed"] / 30 if movements["total_consumed"] else 0
+    return {
+        "ingredient_id":    ingredient_id,
+        "forecast_days":    days,
+        "predicted_demand": round(daily_avg * days, 3),
+        "daily_average":    round(daily_avg, 3),
+        "confidence":       0.4,
+        "method":           "MOVEMENT_HISTORY_PROXY",
+        "note":             "Demand forecast endpoint unavailable; estimate based on 30-day movement history.",
+    }
 
 
 async def get_supplier_options(ingredient_id: str, required_quantity: float) -> dict:

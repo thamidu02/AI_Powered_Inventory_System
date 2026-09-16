@@ -36,4 +36,64 @@ public class PlanningController : ControllerBase
 
         return Ok(demandPlans);
     }
+
+    /// <summary>
+    /// Get detailed inventory-aware forecast including current stock, projected shortage, and recommendations.
+    /// </summary>
+    [HttpGet("forecast")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    public async Task<IActionResult> GetDetailedForecast(
+        [FromQuery] DateTime periodStart,
+        [FromQuery] DateTime periodEnd)
+    {
+        if (periodEnd <= periodStart)
+        {
+            return BadRequest(new { message = "periodEnd must be later than periodStart." });
+        }
+
+        var forecast =
+            await _planningService.GetDetailedDemandPlansAsync(periodStart, periodEnd);
+
+        return Ok(forecast);
+    }
+
+    /// <summary>
+    /// Get reorder recommendations for items needing replenishment based on min/max stock rules.
+    /// </summary>
+    [HttpGet("recommendations")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    public async Task<IActionResult> GetRecommendations(
+        [FromQuery] DateTime periodStart,
+        [FromQuery] DateTime periodEnd)
+    {
+        if (periodEnd <= periodStart)
+        {
+            return BadRequest(new { message = "periodEnd must be later than periodStart." });
+        }
+
+        var recommendations =
+            await _planningService.GetRecommendationsAsync(periodStart, periodEnd);
+
+        return Ok(recommendations);
+    }
+
+    /// <summary>
+    /// Get risk analytics summary (stock risk, overstock, high demand) for inventory management.
+    /// </summary>
+    [HttpGet("risks")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    public async Task<IActionResult> GetRisks(
+        [FromQuery] DateTime periodStart,
+        [FromQuery] DateTime periodEnd)
+    {
+        if (periodEnd <= periodStart)
+        {
+            return BadRequest(new { message = "periodEnd must be later than periodStart." });
+        }
+
+        var risks =
+            await _planningService.GetRiskAnalyticsAsync(periodStart, periodEnd);
+
+        return Ok(risks);
+    }
 }
