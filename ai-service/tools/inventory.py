@@ -297,6 +297,175 @@ async def get_ingredient_stock(ingredient_id: str) -> dict:
     }
 
 
+async def list_all_stocks(
+    low_stock_only: bool = False,
+    out_of_stock_only: bool = False,
+    storage_location: str | None = None,
+    search: str | None = None,
+) -> dict:
+    """
+    List stock levels and inventory details for all ingredients with batch breakdown,
+    stock values, thresholds, deficit calculations, and storage location tracking.
+    """
+    try:
+        inv_data = await _get("/api/inventory")
+    except Exception as exc:
+        return {"error": f"Failed to fetch stock data: {str(exc)}"}
+
+    if not isinstance(inv_data, list):
+        return {"error": "Invalid inventory response from backend"}
+
+    search_filter = search.strip().lower() if search else None
+    loc_filter = storage_location.strip().lower() if storage_location else None
+
+    stocks = []
+    total_val = 0.0
+    low_count = 0
+    out_count = 0
+    over_count = 0
+    optimal_count = 0
+
+    for item in inv_data:
+        name = item.get("ingredientName", "")
+        sku = item.get("sku", "")
+
+        # Search filter
+        if search_filter and (search_filter not in name.lower() and search_filter not in sku.lower()):
+            continue
+
+        current = float(item.get("currentStock", item.get("totalQuantity", 0)))
+        min_level = float(item.get("minimumStockLevel", 0))
+        max_level = float(item.get("maximumStockLevel", 0))
+        is_low = bool(item.get("isLowStock", False) or current < min_level)
+        is_out = current <= 0
+        is_over = max_level > 0 and current > max_level
+
+        if is_out:
+            status = "OUT_OF_STOCK"
+            out_count += 1
+        elif is_low:
+            status = "LOW_STOCK"
+            low_count += 1
+        elif is_over:
+            status = "OVERSTOCKED"
+            over_count += 1
+        else:
+            status = "OPTIMAL"
+            optimal_count += 1
+
+        if low_stock_only and not is_low:
+            continue
+        if out_of_stock_only and not is_out:
+            continue
+
+        raw_batches = item.get("batches", [])
+        active_batches = []
+        item_val = 0.0
+        locations = set()
+
+        for b in raw_batches:
+            b_qty = float(b.get("quantity", 0))
+            b_cost = float(b.get("unitCost", 0))
+            loc = b.get("storageLocationName", "Unknown")
+            if loc:
+                locations.add(loc)
+
+            # Check location filter
+            if loc_filter and loc_filter not in loc.lower():
+                continue
+
+            if b_qty > 0 or b.get("status") != "DEPLETED":
+                batch_val = round(b_qty * b_cost, 2)
+                item_val += batch_val
+                active_batches.append({
+                    "batch_number": b.get("batchNumber"),
+                    "quantity": b_qty,
+                    "unit_cost": b_cost,
+                    "batch_value": batch_val,
+                    "expiry_date": b.get("expiryDate"),
+                    "status": b.get("status"),
+                    "location": loc,
+                })
+
+        if loc_filter and not active_batches:
+            continue
+
+        item_val = round(item_val, 2)
+        total_val += item_val
+
+        stocks.append({
+            "ingredient_id": item.get("ingredientId"),
+            "name": name,
+            "sku": sku,
+            "unit": item.get("unit", ""),
+            "current_stock": current,
+            "minimum_stock": min_level,
+            "maximum_stock": max_level,
+            "stock_status": status,
+            "is_low_stock": is_low,
+            "is_out_of_stock": is_out,
+            "deficit": round(max(0.0, min_level - current), 2),
+            "surplus": round(max(0.0, current - max_level), 2) if max_level > 0 else 0.0,
+            "stock_value": item_val,
+            "batch_count": len(active_batches),
+            "storage_locations": list(locations),
+            "batches": active_batches,
+        })
+
+    return {
+        "stocks": stocks,
+        "total_items": len(stocks),
+        "total_inventory_value": round(total_val, 2),
+        "low_stock_count": low_count,
+        "out_of_stock_count": out_count,
+        "overstocked_count": over_count,
+        "optimal_count": optimal_count,
+    }
+
+
+async def get_stock_details(ingredient_id_or_name: str) -> dict:
+    """
+    Get comprehensive stock details for a single ingredient by ID, name, or SKU,
+    including batch breakdown, total inventory value, thresholds, and recent movements.
+    """
+    query = ingredient_id_or_name.strip()
+    all_stocks = await list_all_stocks()
+    if "error" in all_stocks:
+        return all_stocks
+
+    target = None
+    query_lower = query.lower()
+    for s in all_stocks.get("stocks", []):
+        if str(s["ingredient_id"]).lower() == query_lower or s["name"].lower() == query_lower or s["sku"].lower() == query_lower:
+            target = s
+            break
+        if not target and query_lower in s["name"].lower():
+            target = s
+
+    if not target:
+        return {"error": f"Stock details for '{ingredient_id_or_name}' not found."}
+
+    # Fetch recent stock movements for this ingredient
+    recent_movements = []
+    try:
+        moves = await _get("/api/inventory/movements", {"ingredientId": target["ingredient_id"]})
+        if isinstance(moves, list):
+            for m in moves[:5]:
+                recent_movements.append({
+                    "type": m.get("movementType"),
+                    "quantity": m.get("quantity"),
+                    "reason": m.get("reason"),
+                    "batch_number": m.get("batchNumber"),
+                    "date": m.get("createdAt"),
+                })
+    except Exception:
+        pass
+
+    target_copy = dict(target)
+    target_copy["recent_movements"] = recent_movements
+    return target_copy
+
+
 async def get_expiring_batches(days_ahead: int = 7) -> dict:
     """Find stock batches expiring within the specified number of days."""
     days_ahead = int(days_ahead)  # coerce float/str from protobuf conversion
@@ -698,6 +867,46 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         },
     ),
     FunctionDeclaration(
+        name="list_all_stocks",
+        description="List current stock balances and inventory details for all ingredients, including current stock, minimum/maximum levels, status (OUT_OF_STOCK, LOW_STOCK, OPTIMAL, OVERSTOCKED), stock valuation, and active batches.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "low_stock_only": {
+                    "type": "boolean",
+                    "description": "If true, only returns items that are below their minimum stock level.",
+                },
+                "out_of_stock_only": {
+                    "type": "boolean",
+                    "description": "If true, only returns items that are completely out of stock (0 stock).",
+                },
+                "storage_location": {
+                    "type": "string",
+                    "description": "Optional storage location name to filter batches by (e.g., 'Cold Storage A', 'Freezer N').",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Optional search term to filter stocks by ingredient name or SKU.",
+                },
+            },
+            "required": [],
+        },
+    ),
+    FunctionDeclaration(
+        name="get_stock_details",
+        description="Get comprehensive stock details for a single ingredient by name, ID, or SKU, including all active batches, total stock value, thresholds, deficit, and recent movements.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "ingredient_id_or_name": {
+                    "type": "string",
+                    "description": "The unique GUID ID, name, or SKU of the ingredient (e.g., 'Beans', 'Burger Bun', 'DRY-001').",
+                },
+            },
+            "required": ["ingredient_id_or_name"],
+        },
+    ),
+    FunctionDeclaration(
         name="get_all_stock_levels",
         description="Get current stock levels for all ingredients.",
         parameters={"type": "object", "properties": {}, "required": []},
@@ -901,6 +1110,11 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
 # ─── Tool dispatch map ────────────────────────────────────────────────────────
 
 TOOL_DISPATCH: dict[str, Any] = {
+    "list_all_stocks":               list_all_stocks,
+    "get_all_stocks":                list_all_stocks,
+    "list_stocks":                   list_all_stocks,
+    "get_stock_details":             get_stock_details,
+    "get_stock_by_ingredient":       get_stock_details,
     "list_all_ingredients":          list_all_ingredients,
     "get_all_ingredients":           list_all_ingredients,
     "list_ingredients":              list_all_ingredients,

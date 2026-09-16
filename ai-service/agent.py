@@ -21,6 +21,7 @@ from tools import TOOL_DEFINITIONS, call_tool
 INTENT_SYSTEM = """
 You are an inventory AI assistant for a restaurant. Classify the user's intent into ONE of:
   INGREDIENT_QUERY          — user wants to list ingredients, search ingredients, or check ingredient details
+  STOCK_QUERY               — user wants to check stock levels, view stock details, or check inventory status
   LOW_STOCK_REPLENISHMENT   — user wants to check/reorder low stock
   ANOMALY_INVESTIGATION     — user suspects missing stock or discrepancy
   INVENTORY_OPTIMIZATION    — user wants to review/improve reorder levels
@@ -122,12 +123,24 @@ Approval:
 """
 
 WORKFLOW_SYSTEMS = {
+    "STOCK_QUERY": f"""
+You are an Inventory Management AI Agent inside a restaurant inventory and procurement management system specializing in Stock & Inventory Inquiries.
+
+Your job:
+1. If the user asks to check stock levels, see all stocks, view inventory values, or check stock balances, call list_all_stocks (optionally passing low_stock_only, out_of_stock_only, storage_location, or search).
+2. If the user asks about the stock of a specific ingredient, call get_stock_details with the ingredient name or ID.
+3. If they ask about expiring stock batches, call get_expiring_batches.
+4. Summarize your findings strictly following the output rules and required format below.
+This is an information inquiry — state "No approval required." under Approval.
+
+{OUTPUT_RULES_AND_FORMAT}
+""",
     "INGREDIENT_QUERY": f"""
 You are an Inventory Management AI Agent inside a restaurant inventory and procurement management system specializing in Ingredient & Stock Inquiries.
 
 Your job:
-1. If the user asks to list all ingredients or check inventory items, call list_all_ingredients (optionally pass category, search, or low_stock_only filter).
-2. If the user asks about a specific ingredient, call get_ingredient_details or get_ingredient_stock.
+1. If the user asks to list all ingredients or check inventory items, call list_all_ingredients (optionally pass category, search, or low_stock_only filter) or list_all_stocks.
+2. If the user asks about a specific ingredient, call get_ingredient_details or get_stock_details.
 3. If they ask about expiring stock, call get_expiring_batches.
 4. Summarize your findings strictly following the output rules and required format below.
 This is a read-only inquiry — state "No approval required." under Approval.

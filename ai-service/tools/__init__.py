@@ -4,4 +4,6 @@ from .inventory import (
     call_tool,
     list_all_ingredients,
     get_ingredient_details,
+    list_all_stocks,
+    get_stock_details,
 )
