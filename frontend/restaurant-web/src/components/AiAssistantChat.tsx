@@ -20,11 +20,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { getStoredToken } from '../services/api';
+import { useGuidedWorkflow } from '../guided-workflow';
 import type {
   AiChatMessage,
   AiEvent,
   AiProposal,
   AiWorkflowSummary,
+  AiGuidedWorkflowPayload,
 } from '../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -32,6 +34,7 @@ import type {
 const API = 'http://localhost:5066';
 
 const QUICK_ACTIONS = [
+  { label: 'Guide: Receive Stock',  icon: Sparkles,     color: '#3b82f6', message: 'Show me how to receive a new stock batch' },
   { label: 'Check Low Stock',       icon: PackageSearch, color: '#f59e0b', message: 'Check for low stock ingredients that need replenishment' },
   { label: 'Investigate Anomaly',   icon: AlertTriangle, color: '#ef4444', message: 'Investigate stock discrepancies and anomalies across all ingredients' },
   { label: 'Optimize Levels',       icon: TrendingUp,   color: '#8b5cf6', message: 'Analyze and optimize reorder levels based on 90-day consumption history' },
@@ -39,6 +42,7 @@ const QUICK_ACTIONS = [
 ];
 
 const WORKFLOW_COLORS: Record<string, string> = {
+  GUIDED_WORKFLOW:         '#3b82f6',
   LOW_STOCK_REPLENISHMENT: '#f59e0b',
   ANOMALY_INVESTIGATION:   '#ef4444',
   INVENTORY_OPTIMIZATION:  '#8b5cf6',
@@ -168,8 +172,9 @@ const ChatBubble: React.FC<{
   msg: AiChatMessage;
   onApprove: (wfId: string) => void;
   onReject:  (wfId: string) => void;
+  onStartGuidedWorkflow: (gw: AiGuidedWorkflowPayload) => void;
   approvalBusy: boolean;
-}> = ({ msg, onApprove, onReject, approvalBusy }) => {
+}> = ({ msg, onApprove, onReject, onStartGuidedWorkflow, approvalBusy }) => {
   const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
 
   const toggleTool = (idx: number) => {
@@ -227,6 +232,44 @@ const ChatBubble: React.FC<{
           </div>
         )}
 
+        {/* Interactive Guided Workflow Card */}
+        {msg.guidedWorkflow && (
+          <div className="ai-guided-wf-card">
+            <div className="ai-guided-wf-header">
+              <div className="ai-guided-wf-title">
+                <Sparkles size={16} />
+                <span>{msg.guidedWorkflow.title || 'Interactive Guided Workflow'}</span>
+              </div>
+              <span className="ai-guided-wf-badge">
+                {msg.guidedWorkflow.steps.length} Steps
+              </span>
+            </div>
+            <p className="ai-guided-wf-desc">
+              {msg.guidedWorkflow.description || 'Step-by-step interactive navigation with animated cursor and spotlight.'}
+            </p>
+            <div className="ai-guided-wf-steps-preview">
+              {msg.guidedWorkflow.steps.slice(0, 3).map((s: { instruction?: string; action?: string }, idx: number) => (
+                <span key={idx} className="ai-guided-wf-step-item">
+                  {idx + 1}. {s.instruction || s.action}
+                </span>
+              ))}
+              {msg.guidedWorkflow.steps.length > 3 && (
+                <span className="ai-guided-wf-step-item">
+                  ... and {msg.guidedWorkflow.steps.length - 3} more steps
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="ai-guided-wf-launch-btn"
+              onClick={() => onStartGuidedWorkflow(msg.guidedWorkflow!)}
+            >
+              <Zap size={16} />
+              <span>Start Interactive Guidance</span>
+            </button>
+          </div>
+        )}
+
         {/* Streaming indicator */}
         {msg.isStreaming && !msg.content && (
           <div className="ai-bubble ai-bubble--ai">
@@ -277,6 +320,7 @@ const HistoryItem: React.FC<{ wf: AiWorkflowSummary }> = ({ wf }) => {
 
 export const AiAssistantChat: React.FC = () => {
   const { user } = useAuth();
+  const { startWorkflow } = useGuidedWorkflow();
   const [messages,      setMessages]     = useState<AiChatMessage[]>([]);
   const [input,         setInput]        = useState('');
   const [streaming,     setStreaming]    = useState(false);
@@ -284,6 +328,10 @@ export const AiAssistantChat: React.FC = () => {
   const [workflows,     setWorkflows]    = useState<AiWorkflowSummary[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+
+  const handleStartGuided = useCallback((gw: AiGuidedWorkflowPayload) => {
+    void startWorkflow(gw.workflow_type, gw.steps, gw.title, gw.description);
+  }, [startWorkflow]);
 
   // ── Load workflow history ──────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
@@ -350,6 +398,7 @@ export const AiAssistantChat: React.FC = () => {
       let   buffer  = '';
       let   finalText = '';
       let   proposal: AiProposal | undefined;
+      let   guidedWorkflow: AiGuidedWorkflowPayload | undefined;
       let   workflowId: string | undefined;
       const collectedEvents: AiEvent[] = [];
 
@@ -375,16 +424,25 @@ export const AiAssistantChat: React.FC = () => {
               proposal   = ev.proposal;
               workflowId = ev.workflow_id;
             }
+            if (ev.type === 'guided_workflow') {
+              guidedWorkflow = {
+                workflow_type: ev.workflow_type || 'RECEIVE_STOCK',
+                title: ev.title || 'Interactive Guided Workflow',
+                description: ev.description || '',
+                steps: (ev.steps as any[]) || [],
+              };
+            }
 
             // Update assistant message incrementally
             setMessages(prev => prev.map(m =>
               m.id !== assistantId ? m : {
                 ...m,
-                content:     finalText,
-                events:      [...collectedEvents],
+                content:        finalText,
+                events:         [...collectedEvents],
                 proposal,
+                guidedWorkflow,
                 workflowId,
-                isStreaming: ev.type !== 'done',
+                isStreaming:    ev.type !== 'done',
               }
             ));
           } catch {
@@ -559,6 +617,7 @@ export const AiAssistantChat: React.FC = () => {
                 msg={msg}
                 onApprove={(id) => void handleApprove(id)}
                 onReject={(id)  => void handleReject(id)}
+                onStartGuidedWorkflow={handleStartGuided}
                 approvalBusy={approvalBusy}
               />
             ))}

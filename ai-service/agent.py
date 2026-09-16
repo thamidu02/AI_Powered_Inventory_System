@@ -20,6 +20,7 @@ from tools import TOOL_DEFINITIONS, call_tool
 
 INTENT_SYSTEM = """
 You are an inventory AI assistant for a restaurant. Classify the user's intent into ONE of:
+  GUIDED_WORKFLOW           — user wants to know how to perform an action, asks for a tutorial, walkthrough, or step-by-step UI guidance (e.g. 'Show me how to receive stock', 'guide me through receiving chicken', 'how do I receive a new batch', 'walk me through...', 'show me how to...')
   INGREDIENT_QUERY          — user wants to list ingredients, search ingredients, or check ingredient details
   STOCK_QUERY               — user wants to check stock levels, view stock details, or check inventory status
   LOW_STOCK_REPLENISHMENT   — user wants to check/reorder low stock
@@ -123,6 +124,18 @@ Approval:
 """
 
 WORKFLOW_SYSTEMS = {
+    "GUIDED_WORKFLOW": f"""
+You are an Agentic AI Interactive UI Navigation and Workflow Guidance Agent for a restaurant inventory and procurement management system.
+
+Your job:
+1. Analyze the user's request and identify what operational task they want guidance on (e.g. RECEIVE_STOCK, CONSUME_STOCK, VIEW_LOW_STOCK).
+2. Call plan_guided_workflow with the task description and inferred workflow type.
+3. Review the returned plan and summarize the step-by-step guidance clearly for the user adhering strictly to the output rules and required format below.
+4. In the Summary and Required Action, mention that the user can click 'Start Guided Workflow' to begin the interactive step-by-step UI guide with highlighted targets and animated cursor.
+5. Under Approval, state: "No approval required to start interactive guidance. Manager approval required for final high-impact submissions."
+
+{OUTPUT_RULES_AND_FORMAT}
+""",
     "STOCK_QUERY": f"""
 You are an Inventory Management AI Agent inside a restaurant inventory and procurement management system specializing in Stock & Inventory Inquiries.
 
@@ -303,6 +316,7 @@ async def run_agent(
 
     final_text: str = ""
     proposal: dict | None = None
+    guided_workflow: dict | None = None
     step_number = 0
 
     # Agentic loop: keep going until no more function calls
@@ -396,6 +410,10 @@ async def run_agent(
                 if tool_name in ("build_po_proposal", "propose_reorder_level_change"):
                     proposal = tool_result
 
+                # Capture guided workflow plan
+                if tool_name == "plan_guided_workflow":
+                    guided_workflow = tool_result.get("plan")
+
                 # Send tool result back to Gemini
                 # Use role 'user' + function_response (compatible with all Gemini models incl. flash-lite)
                 import google.ai.generativelanguage as glm
@@ -427,6 +445,17 @@ async def run_agent(
             "workflow_id": wf_id,
             "workflow_type": intent,
             "proposal":    proposal,
+        })
+
+    # ── Step 5: Guided workflow event (if workflow generated a plan) ─────────
+    if guided_workflow:
+        yield _sse("guided_workflow", {
+            "workflow_id":   wf_id,
+            "workflow_type": guided_workflow.get("workflow_type"),
+            "title":         guided_workflow.get("title"),
+            "description":   guided_workflow.get("description"),
+            "steps":         guided_workflow.get("steps", []),
+            "guided_workflow": guided_workflow,
         })
 
     yield _sse("done", {"workflow_id": wf_id})

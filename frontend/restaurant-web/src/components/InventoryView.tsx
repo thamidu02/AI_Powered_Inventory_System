@@ -60,6 +60,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [editLoading, setEditLoading] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const canReceive = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
   const canConsume = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'INVENTORY_MANAGER';
 
@@ -190,7 +191,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         </div>
 
-        <div className={`stat-card ${outOfStockCount > 0 ? 'stat-danger' : lowStockCount > 0 ? 'stat-warning' : ''}`}>
+        <div
+          data-guide-id="low-stock-alert-card"
+          className={`stat-card ${outOfStockCount > 0 ? 'stat-danger' : lowStockCount > 0 ? 'stat-warning' : ''}`}
+        >
           <div className={`stat-icon-wrapper ${outOfStockCount > 0 ? 'bg-rose-glow' : 'bg-amber-glow'}`}>
             {outOfStockCount > 0 ? (
               <AlertOctagon size={24} className="text-rose" />
@@ -267,9 +271,22 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="quick-actions">
+          {canReceive && (
+            <button
+              type="button"
+              data-guide-id="receive-stock-button"
+              className="btn-secondary"
+              onClick={() => onOpenModal({ type: 'receive' })}
+            >
+              <PackageCheck size={16} />
+              <span>Receive Stock</span>
+            </button>
+          )}
+
           {canConsume && (
             <button
               type="button"
+              data-guide-id="consume-stock-button"
               className="btn-primary"
               onClick={() => onOpenModal({ type: 'consume' })}
             >

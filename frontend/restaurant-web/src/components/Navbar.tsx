@@ -100,6 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
       <nav className="navbar-tabs">
         <button
           type="button"
+          data-guide-id="nav-inventory"
           className={`nav-tab ${activeTab === 'inventory' ? 'active' : ''}`}
           onClick={() => setActiveTab('inventory')}
         >
@@ -109,6 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-operations"
           className={`nav-tab ${activeTab === 'operations' ? 'active' : ''}`}
           onClick={() => setActiveTab('operations')}
         >
@@ -118,6 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-master-data"
           className={`nav-tab ${activeTab === 'masterData' ? 'active' : ''}`}
           onClick={() => setActiveTab('masterData')}
         >
@@ -127,6 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-recipes"
           className={`nav-tab ${activeTab === 'menuRecipes' ? 'active' : ''}`}
           onClick={() => setActiveTab('menuRecipes')}
         >
@@ -136,6 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-sales-waste"
           className={`nav-tab ${activeTab === 'salesWaste' ? 'active' : ''}`}
           onClick={() => setActiveTab('salesWaste')}
         >
@@ -145,6 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-procurement"
           className={`nav-tab ${activeTab === 'procurement' ? 'active' : ''}`}
           onClick={() => setActiveTab('procurement')}
         >
@@ -154,6 +160,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         <button
           type="button"
+          data-guide-id="nav-planning"
           className={`nav-tab ${activeTab === 'planning' ? 'active' : ''}`}
           onClick={() => setActiveTab('planning')}
         >
@@ -165,6 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           <button
             type="button"
             id="nav-kitchen-order"
+            data-guide-id="nav-kitchen-orders"
             className={`nav-tab nav-tab--highlight ${activeTab === 'kitchenOrder' ? 'active' : ''}`}
             onClick={() => setActiveTab('kitchenOrder')}
           >
@@ -177,6 +185,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           <button
             type="button"
             id="nav-ai-assistant"
+            data-guide-id="nav-ai-assistant"
             className={`nav-tab nav-tab--ai ${activeTab === 'aiAssistant' ? 'active' : ''}`}
             onClick={() => setActiveTab('aiAssistant')}
           >

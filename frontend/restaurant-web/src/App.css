@@ -2378,3 +2378,479 @@ input:focus, select:focus, textarea:focus {
   border-radius: var(--radius-md);
   flex-shrink: 0;
 }
+
+/* ============================================================
+   AI INTERACTIVE WORKFLOW GUIDANCE SYSTEM (Spotlight & Tour)
+   ============================================================ */
+
+.guide-root-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9990;
+}
+
+/* SVG Mask Spotlight */
+.guide-spotlight-svg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9991;
+  transition: opacity 0.3s ease;
+}
+
+.guide-backdrop-fallback {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 26, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 9991;
+  pointer-events: none;
+}
+
+/* Highlight Target Element (Allows Direct User Interaction) */
+.guide-spotlight-target {
+  position: relative !important;
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.6) !important;
+  transition: box-shadow 0.2s ease !important;
+}
+
+/* Highlight frame around target */
+.guide-highlight-frame {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10001;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.6), inset 0 0 12px rgba(59, 130, 246, 0.25);
+  animation: guideFrameGlow 2.2s infinite ease-in-out;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes guideFrameGlow {
+  0%, 100% {
+    border-color: #3b82f6;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    border-color: #60a5fa;
+    box-shadow: 0 0 35px rgba(96, 165, 250, 0.85), inset 0 0 18px rgba(96, 165, 250, 0.4);
+  }
+}
+
+/* Expanding radar ripple */
+.guide-radar-ripple {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(59, 130, 246, 0.65);
+  border-radius: inherit;
+  animation: guideRadarPulse 2s infinite cubic-bezier(0.1, 0.7, 0.1, 1);
+}
+
+@keyframes guideRadarPulse {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+/* Animated Cursor Pointer */
+.guide-cursor-wrapper {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10005;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: guideCursorBounce 1.8s infinite ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-cursor-icon {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(59, 130, 246, 0.8));
+  transform: rotate(-10deg);
+}
+
+.guide-cursor-beacon {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 12px #3b82f6;
+  opacity: 0.75;
+  animation: guideBeaconPing 1.4s infinite;
+}
+
+@keyframes guideBeaconPing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes guideCursorBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-4deg);
+  }
+}
+
+/* Tooltip Instruction Card */
+.guide-tooltip-card {
+  position: fixed;
+  pointer-events: auto;
+  z-index: 10002;
+  width: 440px;
+  max-width: calc(100vw - 36px);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.75), 0 0 35px rgba(59, 130, 246, 0.18);
+  padding: 1.25rem 1.4rem;
+  color: var(--text-main);
+  font-family: inherit;
+  transition: top 0.25s ease, left 0.25s ease;
+  animation: guideTooltipSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes guideTooltipSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Progress bar inside card */
+.guide-progress-bar-container {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 0.9rem;
+}
+
+.guide-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  transition: width 0.35s ease;
+}
+
+/* Card Header */
+.guide-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.guide-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.guide-ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #c4b5fd;
+}
+
+.guide-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: guideBeaconPing 1.8s infinite;
+}
+
+.guide-step-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+
+.guide-btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.guide-btn-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Action meta */
+.guide-step-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.guide-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+}
+
+.guide-action-navigate {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.guide-action-click {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.guide-action-input {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.guide-action-confirm {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.guide-action-inspect {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.guide-target-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Instruction typography */
+.guide-instruction-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #f1f5f9;
+  margin: 0 0 0.85rem 0;
+  font-weight: 500;
+}
+
+/* Hint callout */
+.guide-tip-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.guide-tip-detail {
+  line-height: 1.4;
+}
+
+/* Footer controls */
+.guide-tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.guide-btn-text {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  transition: color 0.15s;
+}
+
+.guide-btn-text:hover {
+  color: #f43f5e;
+}
+
+.guide-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.guide-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.guide-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.guide-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.48rem 1.05rem;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+}
+
+.guide-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.55);
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+}
+
+/* Chat Interactive Guided Workflow Card */
+.ai-guided-wf-card {
+  margin-top: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4), 0 0 15px rgba(59, 130, 246, 0.12);
+}
+
+.ai-guided-wf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.ai-guided-wf-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #93c5fd;
+}
+
+.ai-guided-wf-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  color: #60a5fa;
+}
+
+.ai-guided-wf-desc {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 0.85rem;
+}
+
+.ai-guided-wf-steps-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.ai-guided-wf-step-item {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ai-guided-wf-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+  transition: all 0.15s ease;
+}
+
+.ai-guided-wf-launch-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
+

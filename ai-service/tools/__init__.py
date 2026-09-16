@@ -7,3 +7,8 @@ from .inventory import (
     list_all_stocks,
     get_stock_details,
 )
+from .guided_workflows import (
+    get_available_guided_workflows,
+    plan_guided_workflow,
+    validate_guided_workflow_plan,
+)

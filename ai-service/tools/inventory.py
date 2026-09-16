@@ -18,6 +18,11 @@ from typing import Any, AsyncIterator
 import httpx
 import google.generativeai as genai
 from google.generativeai.types import FunctionDeclaration, Tool
+from .guided_workflows import (
+    get_available_guided_workflows,
+    plan_guided_workflow,
+    validate_guided_workflow_plan,
+)
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -907,6 +912,29 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         },
     ),
     FunctionDeclaration(
+        name="plan_guided_workflow",
+        description="Generate an interactive UI guided workflow plan for navigating and operating the restaurant inventory application (e.g. RECEIVE_STOCK, CONSUME_STOCK, VIEW_LOW_STOCK).",
+        parameters={
+            "type": "object",
+            "properties": {
+                "task_description": {
+                    "type": "string",
+                    "description": "Description of what the user wants guidance on (e.g. 'Show me how to receive a new stock batch').",
+                },
+                "workflow_type": {
+                    "type": "string",
+                    "description": "Optional workflow key (e.g., 'RECEIVE_STOCK', 'CONSUME_STOCK', 'VIEW_LOW_STOCK').",
+                },
+            },
+            "required": ["task_description"],
+        },
+    ),
+    FunctionDeclaration(
+        name="get_available_guided_workflows",
+        description="Get list of all supported interactive UI guided workflows.",
+        parameters={"type": "object", "properties": {}, "required": []},
+    ),
+    FunctionDeclaration(
         name="get_all_stock_levels",
         description="Get current stock levels for all ingredients.",
         parameters={"type": "object", "properties": {}, "required": []},
@@ -1110,6 +1138,9 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
 # ─── Tool dispatch map ────────────────────────────────────────────────────────
 
 TOOL_DISPATCH: dict[str, Any] = {
+    "plan_guided_workflow":          plan_guided_workflow,
+    "get_available_guided_workflows": get_available_guided_workflows,
+    "validate_guided_workflow_plan": validate_guided_workflow_plan,
     "list_all_stocks":               list_all_stocks,
     "get_all_stocks":                list_all_stocks,
     "list_stocks":                   list_all_stocks,
