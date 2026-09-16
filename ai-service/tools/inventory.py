@@ -119,9 +119,157 @@ async def get_all_stock_levels() -> dict:
     return {"items": result, "total": len(result), "low_stock_count": low_count}
 
 
+async def list_all_ingredients(
+    category: str | None = None,
+    low_stock_only: bool = False,
+    search: str | None = None,
+) -> dict:
+    """
+    List all ingredients with complete master details, categories, current inventory stock levels,
+    minimum/maximum thresholds, low stock status, and active batch breakdown.
+    """
+    try:
+        ing_data, inv_data = await asyncio.gather(
+            _get("/api/ingredients"),
+            _get("/api/inventory"),
+            return_exceptions=True,
+        )
+    except Exception as exc:
+        return {"error": f"Failed to fetch ingredients: {str(exc)}"}
+
+    if isinstance(ing_data, Exception):
+        # Fall back to inventory endpoint if ingredients master endpoint fails
+        if not isinstance(inv_data, Exception) and isinstance(inv_data, list):
+            items = []
+            for item in inv_data:
+                items.append({
+                    "ingredient_id": item.get("ingredientId"),
+                    "name": item.get("ingredientName"),
+                    "sku": item.get("sku", ""),
+                    "category": "General",
+                    "unit": item.get("unit", ""),
+                    "current_stock": item.get("currentStock", 0),
+                    "minimum_stock": item.get("minimumStockLevel", 0),
+                    "maximum_stock": item.get("maximumStockLevel", 0),
+                    "is_low_stock": item.get("isLowStock", False),
+                    "reorder_deficit": max(0, item.get("minimumStockLevel", 0) - item.get("currentStock", 0)),
+                    "batch_count": len(item.get("batches", [])),
+                })
+            return {
+                "ingredients": items,
+                "total_count": len(items),
+                "low_stock_count": sum(1 for i in items if i["is_low_stock"]),
+            }
+        return {"error": f"Failed to fetch ingredients: {str(ing_data)}"}
+
+    inv_map = {}
+    if isinstance(inv_data, list):
+        inv_map = {item.get("ingredientId"): item for item in inv_data}
+
+    result = []
+    category_filter = category.strip().lower() if category else None
+    search_filter = search.strip().lower() if search else None
+
+    for ing in ing_data:
+        cat_name = ing.get("categoryName", "Uncategorized")
+        name = ing.get("name", "")
+        sku = ing.get("sku", "")
+
+        # Category filter
+        if category_filter and category_filter not in cat_name.lower():
+            continue
+
+        # Search filter (name or SKU)
+        if search_filter and (search_filter not in name.lower() and search_filter not in sku.lower()):
+            continue
+
+        inv = inv_map.get(ing.get("id"), {})
+        current = inv.get("currentStock", 0)
+        min_stock = ing.get("minimumStockLevel", 0)
+        max_stock = ing.get("maximumStockLevel", 0)
+        is_low = current < min_stock or inv.get("isLowStock", False)
+
+        if low_stock_only and not is_low:
+            continue
+
+        # Active batches
+        batches = [
+            {
+                "batch_number": b.get("batchNumber"),
+                "quantity": b.get("quantity"),
+                "unit_cost": b.get("unitCost"),
+                "expiry_date": b.get("expiryDate"),
+                "status": b.get("status"),
+                "location": b.get("storageLocationName", "Unknown"),
+            }
+            for b in inv.get("batches", [])
+            if b.get("quantity", 0) > 0 or b.get("status") != "DEPLETED"
+        ]
+
+        result.append({
+            "ingredient_id": ing.get("id"),
+            "name": name,
+            "sku": sku,
+            "category": cat_name,
+            "category_id": ing.get("categoryId"),
+            "unit": ing.get("unit", ""),
+            "current_stock": current,
+            "minimum_stock": min_stock,
+            "maximum_stock": max_stock,
+            "is_low_stock": is_low,
+            "reorder_deficit": max(0, min_stock - current),
+            "batch_count": len(batches),
+            "batches": batches,
+        })
+
+    low_count = sum(1 for r in result if r["is_low_stock"])
+    return {
+        "ingredients": result,
+        "total_count": len(result),
+        "low_stock_count": low_count,
+    }
+
+
+async def get_ingredient_details(ingredient_id_or_name: str) -> dict:
+    """
+    Get detailed master and stock information for a specific ingredient by ID, name, or SKU.
+    """
+    all_data = await list_all_ingredients()
+    if "error" in all_data:
+        return all_data
+
+    target = None
+    query = ingredient_id_or_name.strip().lower()
+    for ing in all_data.get("ingredients", []):
+        if str(ing["ingredient_id"]).lower() == query or ing["name"].lower() == query or ing["sku"].lower() == query:
+            target = ing
+            break
+        if not target and query in ing["name"].lower():
+            target = ing
+
+    if not target:
+        return {"error": f"Ingredient '{ingredient_id_or_name}' not found."}
+
+    return target
+
+
 async def get_ingredient_stock(ingredient_id: str) -> dict:
     """Return detailed stock information for a single ingredient including all batches."""
-    data = await _get(f"/api/inventory/{ingredient_id}")
+    data = None
+    try:
+        data = await _get(f"/api/inventory/{ingredient_id}")
+    except Exception:
+        pass
+
+    if not data:
+        # Fallback: resolve ingredient_id if name or SKU was passed
+        details = await get_ingredient_details(ingredient_id)
+        if "error" not in details and details.get("ingredient_id"):
+            try:
+                data = await _get(f"/api/inventory/{details['ingredient_id']}")
+            except Exception:
+                pass
+
     if not data:
         return {"error": f"Ingredient {ingredient_id} not found"}
     batches = [
@@ -514,6 +662,42 @@ async def generate_anomaly_report(
 
 TOOL_DEFINITIONS = Tool(function_declarations=[
     FunctionDeclaration(
+        name="list_all_ingredients",
+        description="List all ingredients in the restaurant inventory with complete details: ingredient ID, name, SKU, category, unit, current stock, minimum and maximum thresholds, low stock status, and active batches.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional category name to filter by (e.g., 'Vegetables', 'Meat', 'Dairy', 'Dry Goods').",
+                },
+                "low_stock_only": {
+                    "type": "boolean",
+                    "description": "If true, only returns ingredients that are currently below their minimum stock level.",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Optional search term to filter by ingredient name or SKU.",
+                },
+            },
+            "required": [],
+        },
+    ),
+    FunctionDeclaration(
+        name="get_ingredient_details",
+        description="Get comprehensive master data and current stock details for a single ingredient by its ID, name, or SKU.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "ingredient_id_or_name": {
+                    "type": "string",
+                    "description": "The unique GUID ID, name, or SKU of the ingredient (e.g., 'Chicken Breast' or 'VEG-005').",
+                },
+            },
+            "required": ["ingredient_id_or_name"],
+        },
+    ),
+    FunctionDeclaration(
         name="get_all_stock_levels",
         description="Get current stock levels for all ingredients.",
         parameters={"type": "object", "properties": {}, "required": []},
@@ -717,6 +901,10 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
 # ─── Tool dispatch map ────────────────────────────────────────────────────────
 
 TOOL_DISPATCH: dict[str, Any] = {
+    "list_all_ingredients":          list_all_ingredients,
+    "get_all_ingredients":           list_all_ingredients,
+    "list_ingredients":              list_all_ingredients,
+    "get_ingredient_details":        get_ingredient_details,
     "get_all_stock_levels":          get_all_stock_levels,
     "get_ingredient_stock":          get_ingredient_stock,
     "get_expiring_batches":          get_expiring_batches,

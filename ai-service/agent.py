@@ -20,11 +20,12 @@ from tools import TOOL_DEFINITIONS, call_tool
 
 INTENT_SYSTEM = """
 You are an inventory AI assistant for a restaurant. Classify the user's intent into ONE of:
+  INGREDIENT_QUERY          — user wants to list ingredients, search ingredients, or check ingredient details
   LOW_STOCK_REPLENISHMENT   — user wants to check/reorder low stock
   ANOMALY_INVESTIGATION     — user suspects missing stock or discrepancy
   INVENTORY_OPTIMIZATION    — user wants to review/improve reorder levels
   EMERGENCY_SHORTAGE        — urgent stock shortage needing immediate action
-  GENERAL_QUERY             — anything else (answer from context, no tools needed)
+  GENERAL_QUERY             — anything else (general questions)
 
 Respond with ONLY the intent label (no explanation).
 """
@@ -121,6 +122,18 @@ Approval:
 """
 
 WORKFLOW_SYSTEMS = {
+    "INGREDIENT_QUERY": f"""
+You are an Inventory Management AI Agent inside a restaurant inventory and procurement management system specializing in Ingredient & Stock Inquiries.
+
+Your job:
+1. If the user asks to list all ingredients or check inventory items, call list_all_ingredients (optionally pass category, search, or low_stock_only filter).
+2. If the user asks about a specific ingredient, call get_ingredient_details or get_ingredient_stock.
+3. If they ask about expiring stock, call get_expiring_batches.
+4. Summarize your findings strictly following the output rules and required format below.
+This is a read-only inquiry — state "No approval required." under Approval.
+
+{OUTPUT_RULES_AND_FORMAT}
+""",
     "LOW_STOCK_REPLENISHMENT": f"""
 You are an Inventory Management AI Agent inside a restaurant inventory and procurement management system specializing in Low-Stock Replenishment.
 
