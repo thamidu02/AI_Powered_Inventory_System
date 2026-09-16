@@ -12,8 +12,9 @@ from __future__ import annotations
 import os
 import json
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator
+from urllib.parse import urlencode
 
 import httpx
 import google.generativeai as genai
@@ -27,13 +28,25 @@ from .guided_workflows import (
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 BACKEND          = os.getenv("BACKEND_BASE_URL", "http://localhost:5066")
-MODEL            = "gemini-3.5-flash-lite"
+MODEL            = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 SERVICE_EMAIL    = os.getenv("SERVICE_ACCOUNT_EMAIL", "inventory@restaurant.com")
 SERVICE_PASSWORD = os.getenv("SERVICE_ACCOUNT_PASSWORD", "Restaurant@123")
 
 # ─── Token cache (in-memory, refreshed on 401) ───────────────────────────────
 
 _token_cache: dict = {"token": None, "expires_at": None}
+
+def _date_range_query(days: int) -> dict[str, str]:
+    """Build the exact UTC RFC3339 query values expected by ASP.NET DateTime."""
+    to_date = datetime.now(timezone.utc).replace(microsecond=0)
+    from_date = (to_date - timedelta(days=days)).replace(microsecond=0)
+    return {
+        "from": from_date.isoformat().replace("+00:00", "Z"),
+        "to": to_date.isoformat().replace("+00:00", "Z"),
+    }
+
+def _with_query(path: str, params: dict[str, str | int]) -> str:
+    return f"{path}?{urlencode(params)}"
 
 async def _get_token() -> str:
     """Login with the service account and return a cached Bearer token."""
@@ -613,7 +626,7 @@ async def get_stock_movements(ingredient_id: str, days: int = 30) -> dict:
                 "reason":   m.get("reason"),
                 "reference_type": m.get("referenceType"),
             })
-            if mtype == "CONSUMPTION": total_consumed += qty
+            if mtype in ("CONSUMPTION", "CONSUME"): total_consumed += qty
             elif mtype == "RECEIPT":   total_received += qty
             elif mtype == "WASTE":     total_wasted   += qty
     return {
@@ -1166,9 +1179,14 @@ TOOL_DISPATCH: dict[str, Any] = {
     "generate_anomaly_report":       generate_anomaly_report,
 }
 
-
-async def call_tool(name: str, args: dict) -> Any:
+async def call_tool(
+    name: str,
+    args: dict,
+    allowed_tools: frozenset[str] | None = None,
+) -> Any:
     """Dispatch a tool call by name."""
+    if allowed_tools is not None and name not in allowed_tools:
+        return {"error": f"Tool '{name}' is not allowed in this workflow."}
     fn = TOOL_DISPATCH.get(name)
     if not fn:
         return {"error": f"Unknown tool: {name}"}

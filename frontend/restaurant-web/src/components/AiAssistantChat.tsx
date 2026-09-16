@@ -37,11 +37,16 @@ const QUICK_ACTIONS = [
   { label: 'Guide: Receive Stock',  icon: Sparkles,     color: '#3b82f6', message: 'Show me how to receive a new stock batch' },
   { label: 'Check Low Stock',       icon: PackageSearch, color: '#f59e0b', message: 'Check for low stock ingredients that need replenishment' },
   { label: 'Investigate Anomaly',   icon: AlertTriangle, color: '#ef4444', message: 'Investigate stock discrepancies and anomalies across all ingredients' },
-  { label: 'Optimize Levels',       icon: TrendingUp,   color: '#8b5cf6', message: 'Analyze and optimize reorder levels based on 90-day consumption history' },
-  { label: 'Emergency Shortage',    icon: ShieldAlert,  color: '#ec4899', message: 'Emergency — we have critically low stock on a key ingredient' },
+  { label: 'Optimize Levels',       icon: TrendingUp,    color: '#8b5cf6', message: 'Analyze and optimize reorder levels based on 90-day consumption history' },
+  { label: 'Emergency Shortage',    icon: ShieldAlert,   color: '#ec4899', message: 'Emergency — we have critically low stock on a key ingredient' },
+  { label: 'Analyze Sales',          icon: TrendingUp,   color: '#22c55e', message: 'Analyze recorded sales performance for the last 30 days' },
+  { label: 'Track Consumption',      icon: PackageSearch, color: '#38bdf8', message: 'Analyze ingredient consumption and stock movements for the last 30 days' },
+  { label: 'Analyze Waste',          icon: AlertTriangle, color: '#f97316', message: 'Analyze recorded waste by ingredient and reason for the last 30 days' },
+  { label: 'Full C3 Report',         icon: Sparkles,    color: '#a855f7', message: 'Give me a complete sales, consumption, recipe, and waste report for the last 30 days using only recorded database data' },
 ];
 
 const WORKFLOW_COLORS: Record<string, string> = {
+  SALES_CONSUMPTION_WASTE:   '#a855f7',
   GUIDED_WORKFLOW:         '#3b82f6',
   LOW_STOCK_REPLENISHMENT: '#f59e0b',
   ANOMALY_INVESTIGATION:   '#ef4444',
@@ -593,14 +598,18 @@ export const AiAssistantChat: React.FC = () => {
               <div className="ai-empty-state">
                 <Bot size={44} style={{ opacity: 0.25 }} />
                 <p className="text-muted" style={{ marginTop: '0.75rem' }}>
-                  Ask me about your inventory or tap a Quick Action to get started.
+                  Ask me about sales, consumption, recipes, or waste, or tap a Quick Action to get started.
                 </p>
                 <div className="ai-capabilities">
                   {[
-                    { icon: PackageSearch, label: 'Low-Stock Replenishment',     color: '#f59e0b' },
-                    { icon: AlertTriangle, label: 'Anomaly Investigation',        color: '#ef4444' },
-                    { icon: Settings2,    label: 'Inventory Optimization',        color: '#8b5cf6' },
-                    { icon: Zap,          label: 'Emergency Shortage Response',   color: '#ec4899' },
+                    { icon: PackageSearch, label: 'Low-Stock Replenishment',    color: '#f59e0b' },
+                    { icon: AlertTriangle, label: 'Anomaly Investigation',      color: '#ef4444' },
+                    { icon: Settings2,     label: 'Inventory Optimization',     color: '#8b5cf6' },
+                    { icon: ShieldAlert,   label: 'Emergency Shortage Response', color: '#ec4899' },
+                    { icon: TrendingUp,    label: 'Sales Performance',          color: '#22c55e' },
+                    { icon: PackageSearch, label: 'Ingredient Consumption',      color: '#38bdf8' },
+                    { icon: AlertTriangle, label: 'Waste Analysis',              color: '#f97316' },
+                    { icon: Sparkles,      label: 'Combined C3 Report',          color: '#a855f7' },
                   ].map(c => (
                     <div key={c.label} className="ai-cap-item" style={{ '--cap-color': c.color } as React.CSSProperties}>
                       <c.icon size={16} style={{ color: c.color }} />

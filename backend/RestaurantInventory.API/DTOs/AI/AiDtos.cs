@@ -31,3 +31,8 @@ public class AiApprovalRequest
     public string Decision { get; set; } = string.Empty;  // APPROVED | REJECTED
     public string? Comment { get; set; }
 }
+
+public class AiSalesWasteAnalyzeRequest
+{
+    public int Days { get; set; } = 30;
+}

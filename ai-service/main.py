@@ -51,12 +51,19 @@ async def chat(req: ChatRequest):
     them further to the React frontend).
     """
     async def event_stream():
-        async for chunk in run_agent(
-            message=req.message,
-            user_id=req.user_id,
-            workflow_id=req.workflow_id,
-        ):
-            yield chunk
+        try:
+            async for chunk in run_agent(
+                message=req.message,
+                user_id=req.user_id,
+                workflow_id=req.workflow_id,
+            ):
+                yield chunk
+        except Exception as exc:
+            # Keep the SSE contract intact so the .NET proxy and UI receive a
+            # useful diagnostic instead of an abruptly failed stream.
+            import json
+            yield f"data: {json.dumps({'type': 'message', 'text': f'AI service error: {exc}'})}\n\n"
+            yield 'data: {"type": "done"}\n\n'
 
     return StreamingResponse(
         event_stream(),

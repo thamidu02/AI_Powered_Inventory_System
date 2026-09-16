@@ -10,16 +10,33 @@ from __future__ import annotations
 import json
 import uuid
 import asyncio
+import os
 from typing import AsyncIterator, Any
 
 import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from tools import TOOL_DEFINITIONS, call_tool
+from tools.sales import COMPONENT3_READ_ONLY_TOOLS
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+COMPONENT3_STAGE_BY_TOOL = {
+    "get_sales_summary": ("sales", "SalesAgent"),
+    "get_sales_records": ("sales", "SalesAgent"),
+    "get_consumption_movements": ("consumption", "ConsumptionAgent"),
+    "get_recipes": ("consumption", "ConsumptionAgent"),
+    "get_component3_waste_summary": ("waste", "WasteAgent"),
+    "get_all_stock_levels": ("consumption", "ConsumptionAgent"),
+    "get_ingredient_stock": ("consumption", "ConsumptionAgent"),
+    "get_stock_movements": ("consumption", "ConsumptionAgent"),
+    "build_component3_report": ("recommendation", "RecommendationAgent"),
+}
 
 # ─── System prompts per workflow stage ───────────────────────────────────────
 
 INTENT_SYSTEM = """
 You are an inventory AI assistant for a restaurant. Classify the user's intent into ONE of:
+  SALES_CONSUMPTION_WASTE   — analyze recorded sales, recipe-derived consumption, stock movements, or waste
   GUIDED_WORKFLOW           — user wants to know how to perform an action, asks for a tutorial, walkthrough, or step-by-step UI guidance (e.g. 'Show me how to receive stock', 'guide me through receiving chicken', 'how do I receive a new batch', 'walk me through...', 'show me how to...')
   INGREDIENT_QUERY          — user wants to list ingredients, search ingredients, or check ingredient details
   STOCK_QUERY               — user wants to check stock levels, view stock details, or check inventory status
@@ -124,6 +141,27 @@ Approval:
 """
 
 WORKFLOW_SYSTEMS = {
+    "SALES_CONSUMPTION_WASTE": """
+You are the Component 3 Sales, Consumption and Waste Agent.
+
+This workflow is strictly read-only. Never call a write endpoint, invent revenue,
+or recommend that a sale, consumption, waste record, or stock adjustment be
+created. Backend-calculated sales totals are authoritative.
+
+1. Call get_sales_summary for the requested period (default 30 days).
+2. Call get_consumption_movements for the same period.
+3. Call get_component3_waste_summary for the same period.
+4. Call get_recipes to explain recipe-derived ingredient consumption.
+5. Call get_all_stock_levels when the user asks about stock impact.
+6. Call build_component3_report with the exact tool results.
+Do not finish until all four roles have produced one stage output: SalesAgent,
+ConsumptionAgent, WasteAgent, and RecommendationAgent.
+
+Return a concise, structured summary with sales revenue, consumption,
+waste by reason, affected ingredients, and traceability to recipes/movements.
+Clearly label unavailable data and never substitute estimates for recorded
+revenue. This report requires no approval because it has no side effects.
+""",
     "GUIDED_WORKFLOW": f"""
 You are an Agentic AI Interactive UI Navigation and Workflow Guidance Agent for a restaurant inventory and procurement management system.
 
@@ -228,6 +266,81 @@ Manager approval required to place the emergency order.
 """,
 }
 
+COMPONENT3_STAGES = (
+    ("sales", "SalesAgent", "get_sales_summary",
+     "Analyze only recorded sales and backend-calculated revenue."),
+    ("consumption", "ConsumptionAgent", "get_consumption_movements",
+     "Explain recipe-derived consumption and stock movements."),
+    ("waste", "WasteAgent", "get_component3_waste_summary",
+     "Analyze only recorded waste and its reasons."),
+)
+
+async def run_component3_workflow(message: str, wf_id: str, days: int):
+    """Run four separate role prompts, then a deterministic recommendation."""
+    outputs = {}
+    for stage, role, tool_name, instruction in COMPONENT3_STAGES:
+        if stage == "consumption":
+            data = {
+                "movements": await call_tool(tool_name, {"days": days},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+                "recipes": await call_tool("get_recipes", {},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+            }
+        else:
+            data = await call_tool(tool_name, {"days": days},
+                allowed_tools=COMPONENT3_READ_ONLY_TOOLS)
+        response = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=f"You are the distinct {role}. Stay within your role."
+        ).generate_content(
+            f"{instruction} Do not invent values. Explain these facts concisely: "
+            f"{json.dumps(data, default=str)}. User request: {message}"
+        )
+        outputs[stage] = {"tool": tool_name, "data": data,
+                          "read_only": True, "summary": response.text}
+        yield _sse("stage_output", {"workflow_id": wf_id, "stage": stage,
+            "role": role, "output": outputs[stage]})
+
+    consumption_data = outputs["consumption"]["data"]
+    recipes = (
+        consumption_data.get("recipes", {})
+        if isinstance(consumption_data, dict)
+        else {}
+    )
+    report = await call_tool("build_component3_report", {
+        "sales_summary": outputs["sales"]["data"],
+        "waste_summary": outputs["waste"]["data"],
+        "consumption": consumption_data,
+        "recipes": recipes,
+    }, allowed_tools=COMPONENT3_READ_ONLY_TOOLS)
+    response = genai.GenerativeModel(
+        model_name=GEMINI_MODEL,
+        system_instruction="You are the distinct RecommendationAgent; facts are authoritative."
+    ).generate_content("Summarize this deterministic report without adding figures: "
+                        + json.dumps(report, default=str))
+    outputs["recommendation"] = {"tool": "build_component3_report", "data": report,
+        "read_only": True, "summary": response.text,
+        "recommendations": report.get("recommendations", []),
+        "impact_level": report.get("impact_level", "LOW"),
+        "confidence": report.get("confidence", 0),
+        "requires_approval": report.get("requires_approval", False)}
+    yield _sse("stage_output", {"workflow_id": wf_id, "stage": "recommendation",
+        "role": "RecommendationAgent", "output": outputs["recommendation"]})
+    if outputs["recommendation"]["requires_approval"]:
+        yield _sse("approval_required", {
+            "workflow_id": wf_id,
+            "workflow_type": "SALES_CONSUMPTION_WASTE",
+            "impact_level": outputs["recommendation"]["impact_level"],
+            "confidence": outputs["recommendation"]["confidence"],
+            "recommendations": outputs["recommendation"]["recommendations"],
+        })
+    if set(outputs) != {"sales", "consumption", "waste", "recommendation"}:
+        yield _sse("workflow_error", {"workflow_id": wf_id,
+            "text": "Component 3 workflow incomplete."})
+        return
+    yield _sse("message", {"workflow_id": wf_id,
+        "text": "\n\n".join(v["summary"] for v in outputs.values())})
+
 
 def sanitize_output(text: str) -> str:
     """Ensure output complies with rules: no ** or __ bolding, no # headings, bullet •."""
@@ -271,7 +384,7 @@ async def run_agent(
     yield _sse("thinking", {"text": "Analysing your request…"})
 
     intent_model = genai.GenerativeModel(
-        model_name="gemini-3.5-flash-lite",
+        model_name=GEMINI_MODEL,
         system_instruction=INTENT_SYSTEM,
     )
     intent_response = intent_model.generate_content(message)
@@ -282,6 +395,16 @@ async def run_agent(
         intent = "GENERAL_QUERY"
 
     yield _sse("intent", {"intent": intent, "workflow_id": wf_id})
+
+    if intent == "SALES_CONSUMPTION_WASTE":
+        import re
+        match = re.search(r"\b(\d{1,3})\s*days?\b", message, re.IGNORECASE)
+        days = max(1, min(int(match.group(1)) if match else 30, 366))
+        yield _sse("thinking", {"text": "Running four Component 3 specialist stages…"})
+        async for event in run_component3_workflow(message, wf_id, days):
+            yield event
+        yield _sse("done", {"workflow_id": wf_id})
+        return
 
     if intent == "GENERAL_QUERY":
         yield _sse("thinking", {"text": "Answering your query…"})
@@ -299,7 +422,7 @@ async def run_agent(
     # ── Step 2: Run the workflow agent (multi-turn function calling) ──────────
     system = WORKFLOW_SYSTEMS[intent]
     model  = genai.GenerativeModel(
-        model_name="gemini-3.5-flash-lite",
+        model_name=GEMINI_MODEL,
         system_instruction=system,
         tools=[TOOL_DEFINITIONS],
     )
@@ -398,13 +521,35 @@ async def run_agent(
                 })
 
                 # Execute the tool
-                tool_result = await call_tool(tool_name, tool_args)
+                allowed_tools = (
+                    COMPONENT3_READ_ONLY_TOOLS
+                    if intent == "SALES_CONSUMPTION_WASTE"
+                    else None
+                )
+                tool_result = await call_tool(
+                    tool_name, tool_args, allowed_tools=allowed_tools
+                )
 
                 yield _sse("tool_result", {
                     "step":   step_number,
                     "tool":   tool_name,
                     "output": tool_result,
                 })
+
+                # Every Component 3 role emits a machine-readable output.
+                # The API validates these values before persisting them.
+                if intent == "SALES_CONSUMPTION_WASTE" and tool_name in COMPONENT3_STAGE_BY_TOOL:
+                    stage, role = COMPONENT3_STAGE_BY_TOOL[tool_name]
+                    yield _sse("stage_output", {
+                        "workflow_id": wf_id,
+                        "stage": stage,
+                        "role": role,
+                        "output": {
+                            "tool": tool_name,
+                            "data": tool_result,
+                            "read_only": True,
+                        },
+                    })
 
                 # Capture proposal for approval gate
                 if tool_name in ("build_po_proposal", "propose_reorder_level_change"):

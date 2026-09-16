@@ -45,10 +45,32 @@ public class AiController : ControllerBase
                 await Response.Body.WriteAsync(bytes, ct);
                 await Response.Body.FlushAsync(ct);
             }
+
         }
         catch (OperationCanceledException)
         {
             // Client disconnected — normal
+        }
+
+    }
+
+    [HttpPost("sales-waste/analyze")]
+    public async Task AnalyzeSalesWaste(
+        [FromBody] AiSalesWasteAnalyzeRequest? req,
+        CancellationToken ct)
+    {
+        var days = Math.Clamp(req?.Days ?? 30, 1, 366);
+        var userId = GetCurrentUserId();
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Connection = "keep-alive";
+
+        var message = $"Run the Component 3 sales, consumption, waste and recommendation workflow for the last {days} days.";
+        await foreach (var chunk in _ai.StreamChatAsync(message, userId, null, ct))
+        {
+            if (ct.IsCancellationRequested) break;
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(chunk), ct);
+            await Response.Body.FlushAsync(ct);
         }
     }
 
