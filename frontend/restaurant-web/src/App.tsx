@@ -15,6 +15,7 @@ import { AiAssistantChat } from './components/AiAssistantChat';
 import { PlanningDashboard } from './components/PlanningDashboard';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { GuidedWorkflowProvider, AIGuide } from './guided-workflow';
 import './App.css';
 
 interface Toast {
@@ -48,73 +49,82 @@ const MainAppContent: React.FC = () => {
   }
 
   return (
-    <div className="app-wrapper">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <GuidedWorkflowProvider
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      openModal={setActiveModal}
+    >
+      <div className="app-wrapper">
+        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="main-content">
-        {activeTab === 'inventory' && (
-          <InventoryView
-            onOpenModal={setActiveModal}
-            refreshTrigger={refreshTrigger}
+        <main className="main-content">
+          {activeTab === 'inventory' && (
+            <InventoryView
+              onOpenModal={setActiveModal}
+              refreshTrigger={refreshTrigger}
+              onSuccess={handleModalSuccess}
+            />
+          )}
+
+          {activeTab === 'operations' && (
+            <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
+          )}
+
+          {activeTab === 'salesWaste' && <SalesWasteDashboard />}
+
+          {activeTab === 'masterData' && (
+            <MasterDataView
+              onOpenModal={setActiveModal}
+              onSuccess={(msg) => {
+                addToast(msg, 'success');
+                setRefreshTrigger((prev) => prev + 1);
+              }}
+            />
+          )}
+
+          {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
+
+          {activeTab === 'kitchenOrder' && <KitchenOrderPanel />}
+
+          {activeTab === 'aiAssistant' && <AiAssistantChat />}
+
+          {activeTab === 'procurement' && (
+            <ProcurementDashboard onSuccess={handleModalSuccess} />
+          )}
+
+          {activeTab === 'planning' && (
+            <PlanningDashboard onSuccess={handleModalSuccess} />
+          )}
+        </main>
+
+        {/* Global Stock Operations Modal Suite */}
+        {activeModal && (
+          <OperationsModals
+            key={`${activeModal.type}-${'ingredientId' in activeModal ? activeModal.ingredientId : ''}-${'batch' in activeModal ? activeModal.batch?.id : ''}-${'adjustmentId' in activeModal ? activeModal.adjustmentId : ''}`}
+            modal={activeModal}
+            onClose={() => setActiveModal(null)}
             onSuccess={handleModalSuccess}
           />
         )}
 
-        {activeTab === 'operations' && (
-          <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
-        )}
+        {/* Interactive Guided Workflow Engine Overlay & Cursor */}
+        <AIGuide />
 
-        {activeTab === 'salesWaste' && <SalesWasteDashboard />}
-
-        {activeTab === 'masterData' && (
-          <MasterDataView
-            onOpenModal={setActiveModal}
-            onSuccess={(msg) => {
-              addToast(msg, 'success');
-              setRefreshTrigger((prev) => prev + 1);
-            }}
-          />
-        )}
-
-        {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
-
-        {activeTab === 'kitchenOrder' && <KitchenOrderPanel />}
-
-        {activeTab === 'aiAssistant' && <AiAssistantChat />}
-
-        {activeTab === 'procurement' && (
-          <ProcurementDashboard onSuccess={handleModalSuccess} />
-        )}
-
-        {activeTab === 'planning' && (
-          <PlanningDashboard onSuccess={handleModalSuccess} />
-        )}
-      </main>
-
-      {/* Global Stock Operations Modal Suite */}
-      {activeModal && (
-        <OperationsModals
-          key={`${activeModal.type}-${'ingredientId' in activeModal ? activeModal.ingredientId : ''}-${'batch' in activeModal ? activeModal.batch?.id : ''}-${'adjustmentId' in activeModal ? activeModal.adjustmentId : ''}`}
-          modal={activeModal}
-          onClose={() => setActiveModal(null)}
-          onSuccess={handleModalSuccess}
-        />
-      )}
-
-      {/* Toasts Container */}
-      <div className="toast-container">
-        {toasts.map((toast) => (
-          <div key={toast.id} className={`toast-item ${toast.type}`}>
-            {toast.type === 'success' ? (
-              <CheckCircle2 size={18} className="text-emerald" />
-            ) : (
-              <AlertCircle size={18} className="text-rose" />
-            )}
-            <span>{toast.message}</span>
-          </div>
-        ))}
+        {/* Toasts Container */}
+        <div className="toast-container">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={`toast-item ${toast.type}`}>
+              {toast.type === 'success' ? (
+                <CheckCircle2 size={18} className="text-emerald" />
+              ) : (
+                <AlertCircle size={18} className="text-rose" />
+              )}
+              <span>{toast.message}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </GuidedWorkflowProvider>
   );
 };
 
