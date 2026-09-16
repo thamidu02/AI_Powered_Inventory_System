@@ -62,7 +62,7 @@ interface CartItem {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-/** Large picture card shown in the menu grid */
+/** Clean card with food photo on top and details below */
 const MenuCard: React.FC<{
   item: MenuItemResponse;
   cartQty: number;
@@ -78,8 +78,8 @@ const MenuCard: React.FC<{
       className={`kop-card ${cartQty > 0 ? 'kop-card--active' : ''}`}
       id={`kop-menu-card-${item.id}`}
     >
-      {/* Picture header */}
-      <div className="kop-card-image-wrap" onClick={onAdd}>
+      {/* Food image on top */}
+      <div className="kop-card-media" onClick={onAdd}>
         {!imgError ? (
           <img
             src={imgSrc}
@@ -88,64 +88,59 @@ const MenuCard: React.FC<{
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="kop-card-img-fallback" style={{ background: gradient }}>
+          <div className="kop-card-fallback" style={{ background: gradient }}>
             <span className="kop-card-initial">{item.name.charAt(0).toUpperCase()}</span>
           </div>
         )}
-
-        {/* Price badge */}
-        <div className="kop-price-badge">${item.sellingPrice.toFixed(2)}</div>
-
-        {/* Cart quantity badge */}
-        {cartQty > 0 && (
-          <div className="kop-qty-badge">{cartQty}</div>
-        )}
-
-        {/* Hover overlay */}
-        <div className="kop-card-overlay">
-          <Plus size={28} />
-          <span>Add to order</span>
-        </div>
+        <span className="kop-price-badge">${item.sellingPrice.toFixed(2)}</span>
+        {cartQty > 0 && <span className="kop-qty-badge">{cartQty}</span>}
       </div>
 
-      {/* Info footer */}
+      {/* Details below the food card */}
       <div className="kop-card-body">
-        <div className="kop-card-name" title={item.name}>{item.name}</div>
+        <h4 className="kop-card-name" title={item.name} onClick={onAdd}>
+          {item.name}
+        </h4>
         {item.description && (
-          <div className="kop-card-desc">{item.description}</div>
+          <p className="kop-card-desc" title={item.description}>
+            {item.description}
+          </p>
         )}
 
-        {/* Quick qty controls when item is in cart */}
-        {cartQty > 0 ? (
-          <div className="kop-card-controls">
+        {/* Small clean action controls */}
+        <div className="kop-card-actions">
+          {cartQty > 0 ? (
+            <div className="kop-card-controls">
+              <button
+                type="button"
+                className="kop-ctrl-btn kop-ctrl-btn--remove"
+                onClick={onRemove}
+                aria-label={`Remove one ${item.name}`}
+              >
+                <Minus size={12} />
+              </button>
+              <span className="kop-ctrl-qty">{cartQty} in order</span>
+              <button
+                type="button"
+                className="kop-ctrl-btn kop-ctrl-btn--add"
+                onClick={onAdd}
+                aria-label={`Add one more ${item.name}`}
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              className="kop-ctrl-btn kop-ctrl-btn--remove"
-              onClick={onRemove}
-              aria-label={`Remove one ${item.name}`}
-            >
-              <Minus size={14} />
-            </button>
-            <span className="kop-ctrl-qty">{cartQty} in order</span>
-            <button
-              type="button"
-              className="kop-ctrl-btn kop-ctrl-btn--add"
+              className="kop-add-btn"
               onClick={onAdd}
-              aria-label={`Add one more ${item.name}`}
+              aria-label={`Add ${item.name} to order`}
             >
-              <Plus size={14} />
+              <Plus size={13} />
+              <span>Add to Order</span>
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="kop-add-btn"
-            onClick={onAdd}
-            aria-label={`Add ${item.name} to order`}
-          >
-            <Plus size={14} /> Add
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -181,16 +176,16 @@ const CartRow: React.FC<{
 
     <div className="kop-cart-info">
       <strong className="kop-cart-name">{item.menuItem.name}</strong>
-      <span className="text-xs text-muted">${item.menuItem.sellingPrice.toFixed(2)} each</span>
+      <span className="text-xs text-muted">${item.menuItem.sellingPrice.toFixed(2)}</span>
     </div>
 
     <div className="kop-cart-qty-wrap">
       <button type="button" className="kop-stepper" onClick={onDecrease} aria-label="decrease">
-        <Minus size={11} />
+        <Minus size={10} />
       </button>
       <span className="kop-stepper-val">{item.quantity}</span>
       <button type="button" className="kop-stepper" onClick={onIncrease} aria-label="increase">
-        <Plus size={11} />
+        <Plus size={10} />
       </button>
     </div>
 
@@ -204,7 +199,7 @@ const CartRow: React.FC<{
       onClick={onRemove}
       aria-label={`Remove ${item.menuItem.name}`}
     >
-      <X size={13} />
+      <X size={12} />
     </button>
   </div>
 );
@@ -307,14 +302,14 @@ export const KitchenOrderPanel: React.FC = () => {
       {/* ── Header ── */}
       <div className="hub-hero" style={{ marginBottom: '1.25rem' }}>
         <div className="hub-hero-text">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <ChefHat size={26} className="text-accent" />
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.25rem' }}>
+            <ChefHat size={20} className="text-accent" />
             Kitchen Order Panel
           </h2>
           <p>Tap a dish to add it to the order. Place order to auto-deduct all ingredients via FEFO.</p>
         </div>
         <button type="button" className="btn-secondary" onClick={() => void loadData()} disabled={loading || busy}>
-          <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh
+          <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
         </button>
       </div>
 
@@ -349,17 +344,17 @@ export const KitchenOrderPanel: React.FC = () => {
       {/* ── Alerts ── */}
       {error && (
         <div className="alert-error" style={{ margin: '0.75rem 0' }}>
-          <AlertCircle size={17} /> {error}
+          <AlertCircle size={15} /> {error}
         </div>
       )}
       {successMsg && (
         <div className="alert-success" style={{ margin: '0.75rem 0' }}>
-          <CheckCircle2 size={17} /> {successMsg}
+          <CheckCircle2 size={15} /> {successMsg}
         </div>
       )}
       {!canOrder && (
         <div className="alert-error" style={{ margin: '0.75rem 0' }}>
-          <AlertCircle size={17} />
+          <AlertCircle size={15} />
           Your role (<strong>{user?.role}</strong>) cannot place orders.
         </div>
       )}
@@ -371,7 +366,7 @@ export const KitchenOrderPanel: React.FC = () => {
         <div className="kop-menu-section">
           {/* Search bar */}
           <div className="kop-search-wrap">
-            <Search size={16} className="kop-search-icon" />
+            <Search size={14} className="kop-search-icon" />
             <input
               id="kop-search"
               type="search"
@@ -385,7 +380,7 @@ export const KitchenOrderPanel: React.FC = () => {
 
           {loading ? (
             <div className="kop-loading">
-              <RefreshCw size={28} className="spin text-accent" />
+              <RefreshCw size={20} className="spin text-accent" />
               <p className="text-muted text-sm">Loading menu…</p>
             </div>
           ) : filtered.length === 0 ? (
@@ -410,13 +405,13 @@ export const KitchenOrderPanel: React.FC = () => {
           {/* Cart header */}
           <div className="kop-cart-hdr">
             <div className="kop-cart-hdr-title">
-              <ShoppingCart size={18} />
+              <ShoppingCart size={15} />
               <span>Current Order</span>
               {cartCount > 0 && <span className="kop-cart-count-badge">{cartCount}</span>}
             </div>
             {cart.length > 0 && (
               <button type="button" className="kop-clear-all" onClick={clearCart}>
-                <Trash2 size={13} /> Clear
+                <Trash2 size={12} /> Clear
               </button>
             )}
           </div>
@@ -425,8 +420,8 @@ export const KitchenOrderPanel: React.FC = () => {
           <div className="kop-cart-body">
             {cart.length === 0 ? (
               <div className="kop-cart-empty">
-                <ShoppingCart size={40} className="text-muted" style={{ opacity: 0.3 }} />
-                <p className="text-muted text-sm" style={{ marginTop: '0.6rem' }}>
+                <ShoppingCart size={24} className="text-muted" style={{ opacity: 0.25 }} />
+                <p className="text-muted text-sm" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
                   Tap a dish to add it here
                 </p>
               </div>
@@ -472,9 +467,9 @@ export const KitchenOrderPanel: React.FC = () => {
                 onClick={() => void submitOrder()}
               >
                 {busy ? (
-                  <><RefreshCw size={17} className="spin" /> Placing…</>
+                  <><RefreshCw size={14} className="spin" /> Placing…</>
                 ) : (
-                  <><Receipt size={17} /> Place Order · ${cartTotal.toFixed(2)}</>
+                  <><Receipt size={15} /> Place Order · ${cartTotal.toFixed(2)}</>
                 )}
               </button>
 
