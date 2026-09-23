@@ -22,7 +22,9 @@ public class WasteRecordsController : ControllerBase
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetWasteRecords()
     {
-        return Ok(await _salesService.GetWasteRecordsAsync());
+        // Keep this endpoint parameterless while returning enough history for
+        // the read-only AI analysis to apply its own requested date window.
+        return Ok(await _salesService.GetWasteRecordsAsync(page: 1, pageSize: 1000));
     }
 
     [HttpGet("summary")]

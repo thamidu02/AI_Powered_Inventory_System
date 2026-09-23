@@ -49,6 +49,27 @@ async def get_component3_waste_summary(days: int = 30) -> dict:
     )
 
 
+async def get_component3_waste_records(days: int = 30) -> dict:
+    """Read waste history and apply the requested UTC date window locally."""
+    days = max(1, min(int(days), 366))
+    data = await _safe_get("/api/wasterecords")
+    if isinstance(data, dict) and "error" in data:
+        return data
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    records = []
+    for record in data if isinstance(data, list) else []:
+        raw_date = record.get("recordedAt")
+        try:
+            recorded_at = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+            if recorded_at.tzinfo is None:
+                recorded_at = recorded_at.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        if recorded_at >= cutoff:
+            records.append(record)
+    return {"days": days, "records": records, "count": len(records)}
+
+
 async def get_recipes() -> dict:
     data = await _safe_get("/api/recipes")
     if isinstance(data, dict) and "error" in data:
@@ -58,21 +79,15 @@ async def get_recipes() -> dict:
 
 async def get_consumption_movements(days: int = 30) -> dict:
     days = max(1, min(int(days), 366))
-    data = await _safe_get("/api/inventory/movements", {"movementType": "CONSUME"})
+    data = await _safe_get(
+        _with_query(
+            "/api/inventory/movements",
+            {"movementType": "CONSUME", **_date_range_query(days)},
+        )
+    )
     if isinstance(data, dict) and "error" in data:
         return data
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    movements = []
-    for movement in data:
-        raw_date = movement.get("createdAt")
-        try:
-            date = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
-            if date.tzinfo is None:
-                date = date.replace(tzinfo=timezone.utc)
-        except (TypeError, ValueError):
-            continue
-        if date >= cutoff:
-            movements.append(movement)
+    movements = data if isinstance(data, list) else []
     return {"days": days, "movements": movements[:500], "count": len(movements)}
 
 
@@ -81,6 +96,8 @@ def build_component3_report(
     waste_summary: dict,
     consumption: dict,
     recipes: dict,
+    waste_records: dict | None = None,
+    focus: str = "combined",
 ) -> dict:
     """Build a deterministic report without inventing unavailable data."""
     values = (sales_summary, waste_summary, consumption, recipes)
@@ -113,7 +130,18 @@ def build_component3_report(
         total_waste = float(total_waste or 0)
     except (TypeError, ValueError):
         total_waste = 0
-    high_impact = total_waste > 0
+    high_impact = focus in ("waste", "combined") and total_waste > 0
+    recommendations = []
+    if focus == "waste" and total_waste > 0:
+        recommendations.append("Review the recorded waste by ingredient and reason.")
+    elif focus == "sales":
+        recommendations.append("Use the recorded sales totals and item performance to guide menu decisions.")
+    elif focus == "consumption":
+        recommendations.append("Review recorded consumption movements by source before changing stock levels.")
+    elif focus == "combined" and total_waste > 0:
+        recommendations.append("Review recorded waste alongside sales and consumption patterns.")
+    else:
+        recommendations.append("Continue monitoring the recorded data for actionable patterns.")
     return {
         "report_type": "SALES_CONSUMPTION_WASTE",
         "sales": sales_summary,
@@ -121,11 +149,9 @@ def build_component3_report(
         "consumption": consumption,
         "recipes": recipes,
         "status": "READ_ONLY",
-        "recommendations": (
-            ["Review recorded waste by reason and ingredient."]
-            if high_impact
-            else ["Continue monitoring recorded sales, consumption and waste."]
-        ),
+        "waste_records": waste_records or {},
+        "focus": focus,
+        "recommendations": recommendations,
         "impact_level": "HIGH" if high_impact else "LOW",
         "confidence": 0.9 if high_impact else 0.7,
         "requires_approval": high_impact,
@@ -156,6 +182,13 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         }, "required": []},
     ),
     FunctionDeclaration(
+        name="get_component3_waste_records",
+        description="Read waste history for a bounded period, including ingredient and reason fields.",
+        parameters={"type": "object", "properties": {
+            "days": {"type": "integer", "description": "Look-back period, maximum 366 days"},
+        }, "required": []},
+    ),
+    FunctionDeclaration(
         name="get_recipes",
         description="Read menu item recipes and ingredient quantities.",
         parameters={"type": "object", "properties": {}, "required": []},
@@ -175,6 +208,8 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
             "waste_summary": {"type": "object"},
             "consumption": {"type": "object"},
             "recipes": {"type": "object"},
+            "waste_records": {"type": "object"},
+            "focus": {"type": "string"},
         }, "required": ["sales_summary", "waste_summary", "consumption", "recipes"]},
     ),
 ])
@@ -183,6 +218,7 @@ TOOL_DISPATCH = {
     "get_sales_summary": get_sales_summary,
     "get_sales_records": get_sales_records,
     "get_component3_waste_summary": get_component3_waste_summary,
+    "get_component3_waste_records": get_component3_waste_records,
     "get_recipes": get_recipes,
     "get_consumption_movements": get_consumption_movements,
     "build_component3_report": build_component3_report,

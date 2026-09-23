@@ -272,12 +272,16 @@ public class InventoryController : ControllerBase
     public async Task<IActionResult> GetStockMovements(
         [FromQuery] Guid? ingredientId = null,
         [FromQuery] Guid? batchId = null,
-        [FromQuery] string? movementType = null)
+        [FromQuery] string? movementType = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
     {
         var result = await _inventoryService.GetStockMovementsAsync(
             ingredientId,
             batchId,
-            movementType);
+            movementType,
+            from,
+            to);
 
         return Ok(result);
     }

@@ -48,7 +48,9 @@ public interface IInventoryService
     Task<List<StockMovementResponse>> GetStockMovementsAsync(
         Guid? ingredientId = null,
         Guid? batchId = null,
-        string? movementType = null);
+        string? movementType = null,
+        DateTime? from = null,
+        DateTime? to = null);
 
     Task<List<StockMovementResponse>> GetBatchMovementsAsync(
         Guid batchId,
