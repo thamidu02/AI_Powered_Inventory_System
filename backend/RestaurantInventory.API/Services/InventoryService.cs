@@ -837,7 +837,9 @@ public class InventoryService : IInventoryService
     public async Task<List<StockMovementResponse>> GetStockMovementsAsync(
         Guid? ingredientId = null,
         Guid? batchId = null,
-        string? movementType = null)
+        string? movementType = null,
+        DateTime? from = null,
+        DateTime? to = null)
     {
         var query = _context.StockMovements
             .AsNoTracking()
@@ -861,6 +863,16 @@ public class InventoryService : IInventoryService
         {
             var normalizedType = movementType.Trim().ToUpper();
             query = query.Where(m => m.MovementType.ToUpper() == normalizedType);
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(m => m.CreatedAt >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(m => m.CreatedAt <= to.Value);
         }
 
         return await query

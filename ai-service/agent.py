@@ -26,6 +26,7 @@ COMPONENT3_STAGE_BY_TOOL = {
     "get_consumption_movements": ("consumption", "ConsumptionAgent"),
     "get_recipes": ("consumption", "ConsumptionAgent"),
     "get_component3_waste_summary": ("waste", "WasteAgent"),
+    "get_component3_waste_records": ("waste", "WasteAgent"),
     "get_all_stock_levels": ("consumption", "ConsumptionAgent"),
     "get_ingredient_stock": ("consumption", "ConsumptionAgent"),
     "get_stock_movements": ("consumption", "ConsumptionAgent"),
@@ -275,6 +276,197 @@ COMPONENT3_STAGES = (
      "Analyze only recorded waste and its reasons."),
 )
 
+
+def _component3_value(data: dict, *keys: str) -> Any:
+    for key in keys:
+        if key in data and data[key] is not None:
+            return data[key]
+    return None
+
+
+def _component3_number(value: Any) -> str:
+    if isinstance(value, bool) or value is None:
+        return "Unavailable"
+    if isinstance(value, float):
+        return f"{value:,.2f}".rstrip("0").rstrip(".")
+    if isinstance(value, int):
+        return f"{value:,}"
+    return str(value)
+
+
+def _component3_focus(message: str) -> str:
+    request = message.lower()
+    has_sales = "sales" in request or "revenue" in request
+    has_consumption = "consumption" in request or "stock movement" in request
+    has_waste = "waste" in request
+    has_recipe = "recipe" in request or "menu item" in request
+    if has_sales and (has_consumption or has_waste or has_recipe):
+        return "combined"
+    if has_waste:
+        return "waste"
+    if has_consumption:
+        return "consumption"
+    if has_sales:
+        return "sales"
+    return "combined"
+
+
+def _component3_intent_from_request(message: str) -> str | None:
+    request = message.lower()
+    if "waste" in request:
+        return "SALES_CONSUMPTION_WASTE"
+    if "consumption" in request or "stock movement" in request:
+        return "SALES_CONSUMPTION_WASTE"
+    if "sales" in request or "revenue" in request:
+        return "SALES_CONSUMPTION_WASTE"
+    return None
+
+
+def _format_component3_response(
+    message: str,
+    outputs: dict[str, dict[str, Any]],
+    report: dict[str, Any],
+    days: int,
+) -> str:
+    """Render one user-facing answer from validated Component 3 data.
+
+    Stage summaries are deliberately excluded: they are internal agent output,
+    while the tool payloads and deterministic report are the factual source.
+    """
+    request = message.lower()
+    complete = any(term in request for term in (
+        "complete", "full report", "sales, consumption", "sales and waste",
+    ))
+    wants_sales = complete or "sales" in request or "revenue" in request
+    wants_consumption = complete or "consumption" in request or "movement" in request
+    wants_waste = complete or "waste" in request
+    wants_recipes = complete or "recipe" in request or "menu item" in request
+    if not any((wants_sales, wants_consumption, wants_waste, wants_recipes)):
+        wants_sales = wants_consumption = wants_waste = wants_recipes = True
+
+    lines = [
+        (
+            "Sales, Consumption, Recipe & Waste Report"
+            if complete
+            else "Component 3 Analysis"
+        ) + f" — Last {days} Days",
+        "",
+    ]
+
+    sales = outputs.get("sales", {}).get("data", {})
+    if wants_sales:
+        lines.append("Sales Performance")
+        if isinstance(sales, dict) and "error" not in sales:
+            lines.extend([
+                f"• Total sales: {_component3_number(_component3_value(sales, 'totalSales', 'total_sales'))}",
+                f"• Total revenue: {_component3_number(_component3_value(sales, 'totalRevenue', 'total_revenue'))}",
+                f"• Average order value: {_component3_number(_component3_value(sales, 'averageOrderValue', 'average_order_value'))}",
+                f"• Total items sold: {_component3_number(_component3_value(sales, 'totalItemsSold', 'total_items_sold'))}",
+            ])
+        else:
+            lines.append("• Recorded sales data is unavailable.")
+        lines.append("")
+
+    consumption = outputs.get("consumption", {}).get("data", {})
+    if wants_consumption:
+        lines.append("Ingredient Consumption & Stock Movements")
+        if isinstance(consumption, dict) and "error" not in consumption:
+            movements = consumption.get("movements", [])
+            lines.append(
+                f"• Total relevant stock movements: {_component3_number(consumption.get('count', len(movements)))}"
+            )
+            by_ingredient: dict[str, float] = {}
+            sales_consumption = 0.0
+            operational_consumption = 0.0
+            for movement in movements if isinstance(movements, list) else []:
+                name = (
+                    movement.get("ingredientName")
+                    or movement.get("ingredient_name")
+                    or movement.get("ingredientId")
+                    or "Unknown ingredient"
+                )
+                quantity = movement.get("quantity", 0)
+                if isinstance(quantity, (int, float)):
+                    by_ingredient[name] = by_ingredient.get(name, 0) + quantity
+                    reference_type = str(
+                        movement.get("referenceType")
+                        or movement.get("reference_type")
+                        or ""
+                    ).upper()
+                    if reference_type == "SALE":
+                        sales_consumption += quantity
+                    else:
+                        operational_consumption += quantity
+            lines.append(f"• Sales-derived consumption: {_component3_number(sales_consumption)}")
+            lines.append(
+                f"• Other recorded operational consumption: {_component3_number(operational_consumption)}"
+            )
+            for name, quantity in sorted(by_ingredient.items(), key=lambda item: -item[1])[:5]:
+                lines.append(f"• {name}: {_component3_number(quantity)} recorded")
+            if not by_ingredient and not movements:
+                lines.append("• No recorded consumption movements were returned.")
+        else:
+            lines.append("• Recorded consumption data is unavailable.")
+        lines.append("")
+
+    recipes = consumption.get("recipes", {}) if isinstance(consumption, dict) else {}
+    if wants_recipes:
+        lines.append("Recipes")
+        if isinstance(recipes, dict) and "error" not in recipes:
+            lines.append(
+                f"• Recipes available for analysis: {_component3_number(recipes.get('count'))}"
+            )
+        else:
+            lines.append("• Recipe data is unavailable.")
+        lines.append("")
+
+    waste_stage = outputs.get("waste", {}).get("data", {})
+    waste = waste_stage.get("summary", {}) if isinstance(waste_stage, dict) else {}
+    if wants_waste:
+        lines.append("Waste")
+        if isinstance(waste, dict) and "error" not in waste:
+            lines.extend([
+                f"• Total waste records: {_component3_number(_component3_value(waste, 'totalWasteRecords', 'total_waste_records'))}",
+                f"• Total waste quantity: {_component3_number(_component3_value(waste, 'totalWasteQuantity', 'total_waste_quantity'))}",
+            ])
+            waste_records = report.get("waste_records", {})
+            records = waste_records.get("records", []) if isinstance(waste_records, dict) else []
+            by_ingredient: dict[str, float] = {}
+            by_reason: dict[str, float] = {}
+            for record in records if isinstance(records, list) else []:
+                ingredient = record.get("ingredientName") or "Not recorded"
+                reason = record.get("reason") or "Not recorded"
+                quantity = record.get("quantity", 0)
+                if isinstance(quantity, (int, float)):
+                    by_ingredient[ingredient] = by_ingredient.get(ingredient, 0) + quantity
+                    by_reason[reason] = by_reason.get(reason, 0) + quantity
+            if by_ingredient:
+                lines.append("By ingredient")
+                lines.extend(
+                    f"• {name}: {_component3_number(quantity)}"
+                    for name, quantity in sorted(by_ingredient.items(), key=lambda item: -item[1])
+                )
+            if by_reason:
+                lines.append("By reason")
+                lines.extend(
+                    f"• {reason}: {_component3_number(quantity)}"
+                    for reason, quantity in sorted(by_reason.items(), key=lambda item: -item[1])
+                )
+        else:
+            lines.append("• Recorded waste data is unavailable.")
+        lines.append("")
+
+    recommendations = report.get("recommendations", []) if isinstance(report, dict) else []
+    if recommendations:
+        lines.append("Recommendations")
+        for recommendation in recommendations:
+            lines.append(f"• {recommendation}")
+        if report.get("requires_approval"):
+            lines.append("• Manager approval required.")
+
+    return "\n".join(lines).strip()
+
+
 async def run_component3_workflow(message: str, wf_id: str, days: int):
     """Run four separate role prompts, then a deterministic recommendation."""
     outputs = {}
@@ -284,6 +476,13 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
                 "movements": await call_tool(tool_name, {"days": days},
                     allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
                 "recipes": await call_tool("get_recipes", {},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+            }
+        elif stage == "waste":
+            data = {
+                "summary": await call_tool(tool_name, {"days": days},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+                "records": await call_tool("get_component3_waste_records", {"days": days},
                     allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
             }
         else:
@@ -309,9 +508,11 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
     )
     report = await call_tool("build_component3_report", {
         "sales_summary": outputs["sales"]["data"],
-        "waste_summary": outputs["waste"]["data"],
+        "waste_summary": outputs["waste"]["data"].get("summary", {}),
         "consumption": consumption_data,
         "recipes": recipes,
+        "waste_records": outputs["waste"]["data"].get("records", {}),
+        "focus": _component3_focus(message),
     }, allowed_tools=COMPONENT3_READ_ONLY_TOOLS)
     response = genai.GenerativeModel(
         model_name=GEMINI_MODEL,
@@ -338,8 +539,10 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         yield _sse("workflow_error", {"workflow_id": wf_id,
             "text": "Component 3 workflow incomplete."})
         return
-    yield _sse("message", {"workflow_id": wf_id,
-        "text": "\n\n".join(v["summary"] for v in outputs.values())})
+    yield _sse("message", {
+        "workflow_id": wf_id,
+        "text": _format_component3_response(message, outputs, report, days),
+    })
 
 
 def sanitize_output(text: str) -> str:
@@ -389,6 +592,9 @@ async def run_agent(
     )
     intent_response = intent_model.generate_content(message)
     intent = intent_response.text.strip().upper()
+    request_intent = _component3_intent_from_request(message)
+    if request_intent:
+        intent = request_intent
 
     # Guard unknown intents
     if intent not in WORKFLOW_SYSTEMS:
