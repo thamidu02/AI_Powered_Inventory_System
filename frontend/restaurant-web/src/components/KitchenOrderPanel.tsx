@@ -11,58 +11,23 @@ import {
   X,
   Search,
   Receipt,
+  Sparkles,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import type { MenuItemResponse, CreateSaleRequest, SalesSummaryResponse } from '../types';
+import { getFoodImage, getFoodCategory } from '../utils/foodImages';
 
-// ─── Image mapping ────────────────────────────────────────────────────────────
-// Maps keywords in menu item names to pre-generated food photos served from /menu-images/
-const IMAGE_MAP: { keywords: string[]; src: string }[] = [
-  { keywords: ['burger', 'beef', 'cheeseburger'], src: '/menu-images/burger.jpg' },
-  { keywords: ['pizza', 'pepperoni', 'margherita'], src: '/menu-images/pizza.jpg' },
-  { keywords: ['pasta', 'spaghetti', 'carbonara', 'bolognese', 'linguine', 'fettuccine', 'noodle'], src: '/menu-images/pasta.jpg' },
-  { keywords: ['salad', 'caesar', 'greek', 'coleslaw'], src: '/menu-images/salad.jpg' },
-  { keywords: ['chicken', 'grilled', 'fried chicken', 'wings', 'poultry'], src: '/menu-images/chicken.jpg' },
-  { keywords: ['rice', 'bowl', 'fried rice', 'biryani', 'pilaf'], src: '/menu-images/rice.jpg' },
-  { keywords: ['soup', 'bisque', 'chowder', 'broth', 'stew'], src: '/menu-images/soup.jpg' },
-];
-
-const getMenuImage = (name: string): string => {
-  const lower = name.toLowerCase();
-  for (const entry of IMAGE_MAP) {
-    if (entry.keywords.some((kw) => lower.includes(kw))) return entry.src;
-  }
-  return '/menu-images/default.jpg';
-};
-
-// Gradient backgrounds used as image fallback (by name hash)
-const CARD_GRADIENTS = [
-  'linear-gradient(135deg,#7c3aed,#4f46e5)',
-  'linear-gradient(135deg,#0891b2,#0d9488)',
-  'linear-gradient(135deg,#b45309,#d97706)',
-  'linear-gradient(135deg,#be185d,#e11d48)',
-  'linear-gradient(135deg,#15803d,#16a34a)',
-  'linear-gradient(135deg,#9333ea,#db2777)',
-  'linear-gradient(135deg,#1d4ed8,#0891b2)',
-  'linear-gradient(135deg,#92400e,#b45309)',
-];
-
-const hashGradient = (s: string) => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return CARD_GRADIENTS[Math.abs(h) % CARD_GRADIENTS.length];
-};
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 interface CartItem {
   menuItem: MenuItemResponse;
   quantity: number;
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+const CATEGORY_TABS = ['All Dishes', 'Main Course', 'Starters', 'Sides', 'Desserts', 'Drinks'] as const;
+type CategoryTab = typeof CATEGORY_TABS[number];
 
-/** Clean card with food photo on top and details below */
+/** Dish Card for the POS Grid */
 const MenuCard: React.FC<{
   item: MenuItemResponse;
   cartQty: number;
@@ -70,15 +35,15 @@ const MenuCard: React.FC<{
   onRemove: () => void;
 }> = ({ item, cartQty, onAdd, onRemove }) => {
   const [imgError, setImgError] = useState(false);
-  const imgSrc = getMenuImage(item.name);
-  const gradient = hashGradient(item.name);
+  const imgSrc = getFoodImage(item.name);
+  const category = getFoodCategory(item.name, item.description);
 
   return (
     <div
       className={`kop-card ${cartQty > 0 ? 'kop-card--active' : ''}`}
       id={`kop-menu-card-${item.id}`}
     >
-      {/* Food image on top */}
+      {/* Food Photo Container */}
       <div className="kop-card-media" onClick={onAdd}>
         {!imgError ? (
           <img
@@ -88,15 +53,16 @@ const MenuCard: React.FC<{
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="kop-card-fallback" style={{ background: gradient }}>
-            <span className="kop-card-initial">{item.name.charAt(0).toUpperCase()}</span>
+          <div className="kop-card-fallback">
+            <UtensilsCrossed size={32} className="text-accent" />
           </div>
         )}
+        <span className="kop-category-pill">{category}</span>
         <span className="kop-price-badge">${item.sellingPrice.toFixed(2)}</span>
         {cartQty > 0 && <span className="kop-qty-badge">{cartQty}</span>}
       </div>
 
-      {/* Details below the food card */}
+      {/* Dish Details */}
       <div className="kop-card-body">
         <h4 className="kop-card-name" title={item.name} onClick={onAdd}>
           {item.name}
@@ -107,7 +73,7 @@ const MenuCard: React.FC<{
           </p>
         )}
 
-        {/* Small clean action controls */}
+        {/* Action Controls */}
         <div className="kop-card-actions">
           {cartQty > 0 ? (
             <div className="kop-card-controls">
@@ -117,7 +83,7 @@ const MenuCard: React.FC<{
                 onClick={onRemove}
                 aria-label={`Remove one ${item.name}`}
               >
-                <Minus size={12} />
+                <Minus size={13} />
               </button>
               <span className="kop-ctrl-qty">{cartQty} in order</span>
               <button
@@ -126,7 +92,7 @@ const MenuCard: React.FC<{
                 onClick={onAdd}
                 aria-label={`Add one more ${item.name}`}
               >
-                <Plus size={12} />
+                <Plus size={13} />
               </button>
             </div>
           ) : (
@@ -136,7 +102,7 @@ const MenuCard: React.FC<{
               onClick={onAdd}
               aria-label={`Add ${item.name} to order`}
             >
-              <Plus size={13} />
+              <Plus size={14} />
               <span>Add to Order</span>
             </button>
           )}
@@ -146,7 +112,7 @@ const MenuCard: React.FC<{
   );
 };
 
-/** Compact row inside the cart sidebar */
+/** Cart Ticket Row */
 const CartRow: React.FC<{
   item: CartItem;
   onIncrease: () => void;
@@ -156,36 +122,28 @@ const CartRow: React.FC<{
   <div className="kop-cart-row">
     <div className="kop-cart-thumb-wrap">
       <img
-        src={getMenuImage(item.menuItem.name)}
+        src={getFoodImage(item.menuItem.name)}
         alt={item.menuItem.name}
         className="kop-cart-thumb"
         onError={(e) => {
           const el = e.currentTarget as HTMLImageElement;
           el.style.display = 'none';
-          const next = el.nextElementSibling as HTMLElement | null;
-          if (next) next.style.display = 'flex';
         }}
       />
-      <div
-        className="kop-cart-thumb-fb"
-        style={{ background: hashGradient(item.menuItem.name), display: 'none' }}
-      >
-        {item.menuItem.name.charAt(0)}
-      </div>
     </div>
 
     <div className="kop-cart-info">
       <strong className="kop-cart-name">{item.menuItem.name}</strong>
-      <span className="text-xs text-muted">${item.menuItem.sellingPrice.toFixed(2)}</span>
+      <span className="kop-cart-unit-price">${item.menuItem.sellingPrice.toFixed(2)} each</span>
     </div>
 
     <div className="kop-cart-qty-wrap">
-      <button type="button" className="kop-stepper" onClick={onDecrease} aria-label="decrease">
-        <Minus size={10} />
+      <button type="button" className="kop-stepper" onClick={onDecrease} aria-label="Decrease quantity">
+        <Minus size={11} />
       </button>
       <span className="kop-stepper-val">{item.quantity}</span>
-      <button type="button" className="kop-stepper" onClick={onIncrease} aria-label="increase">
-        <Plus size={10} />
+      <button type="button" className="kop-stepper" onClick={onIncrease} aria-label="Increase quantity">
+        <Plus size={11} />
       </button>
     </div>
 
@@ -197,14 +155,14 @@ const CartRow: React.FC<{
       type="button"
       className="kop-cart-remove"
       onClick={onRemove}
+      title={`Remove ${item.menuItem.name}`}
       aria-label={`Remove ${item.menuItem.name}`}
     >
-      <X size={12} />
+      <X size={14} />
     </button>
   </div>
 );
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export const KitchenOrderPanel: React.FC = () => {
   const { user } = useAuth();
   const [menuItems, setMenuItems] = useState<MenuItemResponse[]>([]);
@@ -215,43 +173,49 @@ export const KitchenOrderPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [orderPlaced, setOrderPlaced] = useState(0); // counter to animate success
+  const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('All Dishes');
+  const [orderPlaced, setOrderPlaced] = useState(0);
 
-  const canOrder = ['RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF'].includes(user?.role ?? '');
+  const canOrder = ['RESTAURANT_MANAGER', 'SALES_KITCHEN_STAFF', 'SYSTEM_ADMIN'].includes(user?.role ?? '');
 
-  // ── Load data ──────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [menu, summary] = await Promise.all([
         api.getMenuItems(),
-        api.getSalesSummary(),
+        api.getSalesSummary().catch(() => null),
       ]);
       setMenuItems(menu.filter((m) => m.isActive));
       setSalesSummary(summary);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load menu.');
+      setError(err instanceof Error ? err.message : 'Failed to load menu items.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
-  // ── Cart helpers ───────────────────────────────────────────────────────────
   const addItem = (menuItem: MenuItemResponse) => {
     setCart((prev) => {
       const found = prev.find((ci) => ci.menuItem.id === menuItem.id);
-      if (found) return prev.map((ci) => ci.menuItem.id === menuItem.id ? { ...ci, quantity: ci.quantity + 1 } : ci);
+      if (found) {
+        return prev.map((ci) =>
+          ci.menuItem.id === menuItem.id ? { ...ci, quantity: ci.quantity + 1 } : ci
+        );
+      }
       return [...prev, { menuItem, quantity: 1 }];
     });
   };
 
   const removeOne = (id: string) => {
     setCart((prev) =>
-      prev.map((ci) => ci.menuItem.id === id ? { ...ci, quantity: ci.quantity - 1 } : ci)
-          .filter((ci) => ci.quantity > 0)
+      prev
+        .map((ci) => (ci.menuItem.id === id ? { ...ci, quantity: ci.quantity - 1 } : ci))
+        .filter((ci) => ci.quantity > 0)
     );
   };
 
@@ -259,19 +223,24 @@ export const KitchenOrderPanel: React.FC = () => {
   const clearCart = () => setCart([]);
 
   const cartQtyFor = (id: string) => cart.find((ci) => ci.menuItem.id === id)?.quantity ?? 0;
-  const cartTotal = useMemo(() => cart.reduce((s, ci) => s + ci.menuItem.sellingPrice * ci.quantity, 0), [cart]);
+  const cartTotal = useMemo(
+    () => cart.reduce((s, ci) => s + ci.menuItem.sellingPrice * ci.quantity, 0),
+    [cart]
+  );
   const cartCount = useMemo(() => cart.reduce((s, ci) => s + ci.quantity, 0), [cart]);
 
-  // ── Filtered menu ──────────────────────────────────────────────────────────
+  // Filtered dishes
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return menuItems;
-    return menuItems.filter(
-      (m) => m.name.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q)
-    );
-  }, [menuItems, query]);
+    return menuItems.filter((m) => {
+      const matchesSearch =
+        !q || m.name.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q);
+      const cat = getFoodCategory(m.name, m.description);
+      const matchesCategory = selectedCategory === 'All Dishes' || cat === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [menuItems, query, selectedCategory]);
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const submitOrder = async () => {
     if (cart.length === 0 || !canOrder || busy) return;
     setBusy(true);
@@ -283,108 +252,168 @@ export const KitchenOrderPanel: React.FC = () => {
       await api.createSale(req);
       const total = cartTotal;
       clearCart();
-      setSuccessMsg(`Order placed! $${total.toFixed(2)} · Ingredients deducted via FEFO.`);
+      setSuccessMsg(`Order placed successfully! Total: $${total.toFixed(2)} · Stock deducted via FEFO.`);
       setOrderPlaced((p) => p + 1);
       setTimeout(() => setSuccessMsg(null), 5000);
-      const summary = await api.getSalesSummary();
-      setSalesSummary(summary);
+      const summary = await api.getSalesSummary().catch(() => null);
+      if (summary) setSalesSummary(summary);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to place order.');
+      setError(err instanceof Error ? err.message : 'Failed to place kitchen order.');
     } finally {
       setBusy(false);
     }
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="view-container">
-
-      {/* ── Header ── */}
-      <div className="hub-hero" style={{ marginBottom: '1.25rem' }}>
+      {/* ─── 1. POS Top Hero Header ───────────────────────────────────────── */}
+      <div className="hub-hero">
         <div className="hub-hero-text">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.25rem' }}>
-            <ChefHat size={20} className="text-accent" />
-            Kitchen Order Panel
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+            <ChefHat size={22} className="text-accent" />
+            Kitchen Order Panel &amp; POS
           </h2>
-          <p>Tap a dish to add it to the order. Place order to auto-deduct all ingredients via FEFO.</p>
+          <p>Tap dishes to build a customer order. Submitting auto-deducts ingredient batches using FEFO rules.</p>
         </div>
-        <button type="button" className="btn-secondary" onClick={() => void loadData()} disabled={loading || busy}>
-          <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
-        </button>
+        <div className="hub-role-status">
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => void loadData()}
+            disabled={loading || busy}
+          >
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            <span>Refresh Menu</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── KPI bar ── */}
+      {/* ─── 2. POS KPI Stats Row ─────────────────────────────────────────── */}
       <div className="kop-kpi-bar">
         <div className="kop-kpi">
-          <span className="kop-kpi-label">Today's Sales</span>
+          <span className="kop-kpi-label">Today's Orders</span>
           <span className="kop-kpi-val">{salesSummary?.totalSales ?? 0}</span>
         </div>
         <div className="kop-kpi-divider" />
         <div className="kop-kpi">
-          <span className="kop-kpi-label">Revenue</span>
+          <span className="kop-kpi-label">Today's Revenue</span>
           <span className="kop-kpi-val text-emerald">${(salesSummary?.totalRevenue ?? 0).toFixed(2)}</span>
         </div>
         <div className="kop-kpi-divider" />
         <div className="kop-kpi">
-          <span className="kop-kpi-label">Avg Order</span>
+          <span className="kop-kpi-label">Avg Order Value</span>
           <span className="kop-kpi-val">${(salesSummary?.averageOrderValue ?? 0).toFixed(2)}</span>
         </div>
         <div className="kop-kpi-divider" />
         <div className="kop-kpi">
-          <span className="kop-kpi-label">Items on Menu</span>
+          <span className="kop-kpi-label">Active Dishes</span>
           <span className="kop-kpi-val">{menuItems.length}</span>
         </div>
         <div className="kop-kpi-divider" />
         <div className="kop-kpi">
-          <span className="kop-kpi-label">Orders This Session</span>
+          <span className="kop-kpi-label">Session Tickets</span>
           <span className="kop-kpi-val text-accent">{orderPlaced}</span>
         </div>
       </div>
 
-      {/* ── Alerts ── */}
+      {/* ─── 3. System Alerts ─────────────────────────────────────────────── */}
       {error && (
-        <div className="alert-error" style={{ margin: '0.75rem 0' }}>
-          <AlertCircle size={15} /> {error}
+        <div className="alert-error">
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
       {successMsg && (
-        <div className="alert-success" style={{ margin: '0.75rem 0' }}>
-          <CheckCircle2 size={15} /> {successMsg}
+        <div className="alert-success">
+          <CheckCircle2 size={16} />
+          <span>{successMsg}</span>
         </div>
       )}
       {!canOrder && (
-        <div className="alert-error" style={{ margin: '0.75rem 0' }}>
-          <AlertCircle size={15} />
-          Your role (<strong>{user?.role}</strong>) cannot place orders.
+        <div className="alert-error">
+          <AlertCircle size={16} />
+          <span>Your current role ({user?.role?.replace(/_/g, ' ')}) has read-only POS access.</span>
         </div>
       )}
 
-      {/* ── Main layout ── */}
+      {/* ─── 4. Main POS Split Screen: Menu vs Order Ticket ───────────────── */}
       <div className="kop-layout">
-
-        {/* ── LEFT: Menu grid ── */}
+        {/* ── LEFT: Menu Catalog ── */}
         <div className="kop-menu-section">
-          {/* Search bar */}
-          <div className="kop-search-wrap">
-            <Search size={14} className="kop-search-icon" />
-            <input
-              id="kop-search"
-              type="search"
-              placeholder="Search dishes…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="kop-search-input"
-            />
-            <span className="kop-search-count">{filtered.length} items</span>
+          {/* Filter Bar: Categories + Search */}
+          <div className="kop-filter-container">
+            {/* Category Pills */}
+            <div className="kop-category-tabs">
+              {CATEGORY_TABS.map((cat) => {
+                const count =
+                  cat === 'All Dishes'
+                    ? menuItems.length
+                    : menuItems.filter((m) => getFoodCategory(m.name, m.description) === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`kop-category-tab ${selectedCategory === cat ? 'active' : ''}`}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    <span>{cat}</span>
+                    <span className="kop-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Search */}
+            <div className="kop-search-box">
+              <Search size={15} className="kop-search-icon" />
+              <input
+                id="kop-search"
+                type="text"
+                placeholder="Filter dishes by name..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="kop-search-clear"
+                  onClick={() => setQuery('')}
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Dishes Grid */}
           {loading ? (
-            <div className="kop-loading">
-              <RefreshCw size={20} className="spin text-accent" />
-              <p className="text-muted text-sm">Loading menu…</p>
+            <div className="table-loading-box">
+              <RefreshCw size={22} className="spin text-accent mb-2" />
+              <span>Loading fresh dishes from kitchen catalog...</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="empty-state">No active menu items found.</div>
+            <div className="empty-box">
+              <ChefHat size={36} className="text-muted mb-2" />
+              <h4>No matching dishes</h4>
+              <p className="text-muted text-sm">
+                {query
+                  ? `No items found matching "${query}".`
+                  : `No dishes listed in ${selectedCategory}.`}
+              </p>
+              {(query || selectedCategory !== 'All Dishes') && (
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm mt-3"
+                  onClick={() => {
+                    setQuery('');
+                    setSelectedCategory('All Dishes');
+                  }}
+                >
+                  Reset filters
+                </button>
+              )}
+            </div>
           ) : (
             <div className="kop-grid">
               {filtered.map((item) => (
@@ -400,30 +429,35 @@ export const KitchenOrderPanel: React.FC = () => {
           )}
         </div>
 
-        {/* ── RIGHT: Cart ── */}
+        {/* ── RIGHT: Tactical Order Ticket (Cart) ── */}
         <aside className="kop-cart">
-          {/* Cart header */}
+          {/* Ticket Header */}
           <div className="kop-cart-hdr">
             <div className="kop-cart-hdr-title">
-              <ShoppingCart size={15} />
+              <Receipt size={17} className="text-accent" />
               <span>Current Order</span>
-              {cartCount > 0 && <span className="kop-cart-count-badge">{cartCount}</span>}
+              {cartCount > 0 && <span className="kop-cart-count-badge">{cartCount} items</span>}
             </div>
             {cart.length > 0 && (
-              <button type="button" className="kop-clear-all" onClick={clearCart}>
-                <Trash2 size={12} /> Clear
+              <button
+                type="button"
+                className="kop-clear-all"
+                onClick={clearCart}
+                title="Clear current order"
+              >
+                <Trash2 size={12} />
+                <span>Clear</span>
               </button>
             )}
           </div>
 
-          {/* Cart body */}
+          {/* Ticket Body: Scrollable Item List */}
           <div className="kop-cart-body">
             {cart.length === 0 ? (
               <div className="kop-cart-empty">
-                <ShoppingCart size={24} className="text-muted" style={{ opacity: 0.25 }} />
-                <p className="text-muted text-sm" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                  Tap a dish to add it here
-                </p>
+                <ShoppingCart size={36} className="text-muted mb-2" style={{ opacity: 0.3 }} />
+                <strong>No items selected</strong>
+                <p className="text-secondary text-sm">Tap dishes on the left menu to build a customer order ticket.</p>
               </div>
             ) : (
               cart.map((ci) => (
@@ -438,27 +472,41 @@ export const KitchenOrderPanel: React.FC = () => {
             )}
           </div>
 
-          {/* Cart footer */}
+          {/* Ticket Footer */}
           {cart.length > 0 && (
             <div className="kop-cart-ftr">
-              {/* Line items summary */}
+              {/* Itemized summary lines */}
               <div className="kop-cart-lines">
                 {cart.map((ci) => (
                   <div key={ci.menuItem.id} className="kop-cart-line">
-                    <span className="text-muted text-xs">{ci.menuItem.name} ×{ci.quantity}</span>
-                    <span className="text-xs">${(ci.menuItem.sellingPrice * ci.quantity).toFixed(2)}</span>
+                    <span className="kop-line-name">
+                      {ci.menuItem.name} <span className="text-muted">×{ci.quantity}</span>
+                    </span>
+                    <span className="kop-line-val font-mono">
+                      ${(ci.menuItem.sellingPrice * ci.quantity).toFixed(2)}
+                    </span>
                   </div>
                 ))}
               </div>
+
               <div className="kop-divider" />
 
-              {/* Total */}
+              {/* Grand Total */}
               <div className="kop-total-row">
-                <span className="text-muted text-sm">Total</span>
+                <div className="kop-total-label-group">
+                  <span className="kop-total-title">Total Amount</span>
+                  <span className="kop-total-sub">{cartCount} items in ticket</span>
+                </div>
                 <span className="kop-total-amt">${cartTotal.toFixed(2)}</span>
               </div>
 
-              {/* Place order button */}
+              {/* FEFO Traceability Notice */}
+              <div className="kop-fefo-notice">
+                <Sparkles size={13} className="text-accent" />
+                <span>Ingredients deducted using FEFO First-Expired First-Out rules.</span>
+              </div>
+
+              {/* Submit Order Action */}
               <button
                 id="kop-place-order-btn"
                 type="button"
@@ -467,17 +515,17 @@ export const KitchenOrderPanel: React.FC = () => {
                 onClick={() => void submitOrder()}
               >
                 {busy ? (
-                  <><RefreshCw size={14} className="spin" /> Placing…</>
+                  <>
+                    <RefreshCw size={15} className="spin" />
+                    <span>Placing Order &amp; Deducting Stock...</span>
+                  </>
                 ) : (
-                  <><Receipt size={15} /> Place Order · ${cartTotal.toFixed(2)}</>
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Place Order · ${cartTotal.toFixed(2)}</span>
+                  </>
                 )}
               </button>
-
-              {!canOrder && (
-                <p className="text-xs text-rose text-center" style={{ marginTop: '0.4rem' }}>
-                  Insufficient permissions
-                </p>
-              )}
             </div>
           )}
         </aside>

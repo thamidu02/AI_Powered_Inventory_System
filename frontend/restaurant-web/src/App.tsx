@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
-import { Navbar } from './components/Navbar';
+import { Sidebar, TopHeader } from './components/Navbar';
 import { LoginView } from './components/LoginView';
 import { InventoryView } from './components/InventoryView';
 import { OperationsHub } from './components/OperationsHub';
@@ -30,6 +30,7 @@ const MainAppContent: React.FC = () => {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -54,48 +55,64 @@ const MainAppContent: React.FC = () => {
       setActiveTab={setActiveTab}
       openModal={setActiveModal}
     >
-      <div className="app-wrapper">
-        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="app-layout">
+        {/* Fixed / Responsive Drawer Sidebar */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+        />
 
-        <main className="main-content">
-          {activeTab === 'inventory' && (
-            <InventoryView
-              onOpenModal={setActiveModal}
-              refreshTrigger={refreshTrigger}
-              onSuccess={handleModalSuccess}
-            />
-          )}
+        {/* Main Application Area */}
+        <div className="app-main-area">
+          {/* Top Bar Header */}
+          <TopHeader
+            activeTab={activeTab}
+            onOpenMobileNav={() => setMobileOpen(true)}
+          />
 
-          {activeTab === 'operations' && (
-            <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
-          )}
+          {/* Main View Container */}
+          <main className="main-content">
+            {activeTab === 'inventory' && (
+              <InventoryView
+                onOpenModal={setActiveModal}
+                refreshTrigger={refreshTrigger}
+                onSuccess={handleModalSuccess}
+              />
+            )}
 
-          {activeTab === 'salesWaste' && <SalesWasteDashboard />}
+            {activeTab === 'operations' && (
+              <OperationsHub onOpenModal={setActiveModal} refreshTrigger={refreshTrigger} />
+            )}
 
-          {activeTab === 'masterData' && (
-            <MasterDataView
-              onOpenModal={setActiveModal}
-              onSuccess={(msg) => {
-                addToast(msg, 'success');
-                setRefreshTrigger((prev) => prev + 1);
-              }}
-            />
-          )}
+            {activeTab === 'salesWaste' && <SalesWasteDashboard />}
 
-          {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
+            {activeTab === 'masterData' && (
+              <MasterDataView
+                onOpenModal={setActiveModal}
+                onSuccess={(msg) => {
+                  addToast(msg, 'success');
+                  setRefreshTrigger((prev) => prev + 1);
+                }}
+              />
+            )}
 
-          {activeTab === 'kitchenOrder' && <KitchenOrderPanel />}
+            {activeTab === 'menuRecipes' && <MenuRecipesDashboard />}
 
-          {activeTab === 'aiAssistant' && <AiAssistantChat />}
+            {activeTab === 'kitchenOrder' && <KitchenOrderPanel />}
 
-          {activeTab === 'procurement' && (
-            <ProcurementDashboard onSuccess={handleModalSuccess} />
-          )}
+            {activeTab === 'aiAssistant' && <AiAssistantChat />}
 
-          {activeTab === 'planning' && (
-            <PlanningDashboard onSuccess={handleModalSuccess} />
-          )}
-        </main>
+            {activeTab === 'procurement' && (
+              <ProcurementDashboard onSuccess={handleModalSuccess} />
+            )}
+
+            {activeTab === 'planning' && (
+              <PlanningDashboard onSuccess={handleModalSuccess} />
+            )}
+          </main>
+        </div>
 
         {/* Global Stock Operations Modal Suite */}
         {activeModal && (

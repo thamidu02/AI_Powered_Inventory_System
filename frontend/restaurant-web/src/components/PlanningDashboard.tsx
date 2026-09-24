@@ -3,15 +3,13 @@ import {
   TrendingUp,
   AlertTriangle,
   Package,
-  Calendar,
   RefreshCw,
   Search,
-  Filter,
   CheckCircle2,
   AlertCircle,
-  BarChart3,
   ShoppingCart,
   ShieldAlert,
+  Info,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type {
@@ -24,25 +22,34 @@ interface PlanningDashboardProps {
 }
 
 export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess }) => {
-  const getDefaultDates = () => {
+  const [periodDays, setPeriodDays] = useState<7 | 14 | 30>(7);
+
+  const calculateDates = (days: number) => {
     const end = new Date();
     const start = new Date();
-    start.setDate(end.getDate() - 14);
+    start.setDate(end.getDate() - days);
     return {
       start: start.toISOString().split('T')[0],
       end: end.toISOString().split('T')[0],
     };
   };
 
-  const defaultDates = getDefaultDates();
-  const [periodStart, setPeriodStart] = useState<string>(defaultDates.start);
-  const [periodEnd, setPeriodEnd] = useState<string>(defaultDates.end);
+  const [periodStart, setPeriodStart] = useState<string>(() => calculateDates(7).start);
+  const [periodEnd, setPeriodEnd] = useState<string>(() => calculateDates(7).end);
+
   const [plans, setPlans] = useState<DemandPlanResponse[]>([]);
   const [riskSummary, setRiskSummary] = useState<PlanningRiskSummaryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  const handlePeriodChange = (days: 7 | 14 | 30) => {
+    setPeriodDays(days);
+    const dates = calculateDates(days);
+    setPeriodStart(dates.start);
+    setPeriodEnd(dates.end);
+  };
 
   const fetchPlanningData = useCallback(async () => {
     try {
@@ -80,6 +87,11 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
       return true;
     });
   }, [plans, searchQuery, statusFilter]);
+
+  // Suggested purchases highlight list (items requiring reorder)
+  const suggestedPurchases = useMemo(() => {
+    return plans.filter((p) => p.reorderRequired || p.riskStatus === 'STOCK_RISK');
+  }, [plans]);
 
   const renderRiskBadge = (riskStatus: string, reorderRequired: boolean) => {
     if (riskStatus === 'STOCK_RISK' || reorderRequired) {
@@ -120,121 +132,169 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
 
   return (
     <div className="view-container">
-      {/* Top Header Card */}
-      <div className="table-card p-6" style={{ padding: '1.25rem 1.5rem' }}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="stat-icon-wrapper bg-purple-glow" style={{ width: 38, height: 38 }}>
-                <BarChart3 size={20} className="text-purple" style={{ color: 'var(--accent)' }} />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-main" style={{ fontSize: '1.25rem', margin: 0 }}>
-                  Demand &amp; Inventory Planning
-                </h1>
-                <p className="text-muted text-xs" style={{ margin: '0.2rem 0 0 0' }}>
-                  Rule-based 7-day demand forecasting, stock risk assessment, and replenishment recommendations.
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* ─── Hero Overview ──────────────────────────────────────── */}
+      <div className="hub-hero">
+        <div className="hub-hero-text">
+          <h2>Demand Planning</h2>
+          <p>Plan upcoming ingredient purchases using recipe consumption trends and live inventory levels.</p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="input-with-icon px-3 py-1.5 rounded-lg border border-border bg-input flex items-center gap-2">
-              <Calendar size={14} className="text-secondary" />
-              <input
-                type="date"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-                className="bg-transparent text-xs text-main border-none outline-none cursor-pointer"
-              />
-              <span className="text-muted text-xs">to</span>
-              <input
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-                className="bg-transparent text-xs text-main border-none outline-none cursor-pointer"
-              />
-            </div>
-
+        <div className="flex items-center gap-3">
+          {/* Quick Period selector */}
+          <div className="menu-category-tabs" style={{ margin: 0 }}>
             <button
               type="button"
-              onClick={() => {
-                fetchPlanningData();
-                if (onSuccess) onSuccess('Refreshed demand forecast & risk calculations.');
-              }}
-              disabled={loading}
-              className="btn-action btn-action-primary flex items-center gap-2"
+              className={`menu-cat-btn ${periodDays === 7 ? 'active' : ''}`}
+              onClick={() => handlePeriodChange(7)}
             >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              <span>Recalculate</span>
+              7 Days
+            </button>
+            <button
+              type="button"
+              className={`menu-cat-btn ${periodDays === 14 ? 'active' : ''}`}
+              onClick={() => handlePeriodChange(14)}
+            >
+              14 Days
+            </button>
+            <button
+              type="button"
+              className={`menu-cat-btn ${periodDays === 30 ? 'active' : ''}`}
+              onClick={() => handlePeriodChange(30)}
+            >
+              30 Days
             </button>
           </div>
+
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              fetchPlanningData();
+              if (onSuccess) onSuccess('Refreshed demand forecast calculations.');
+            }}
+            disabled={loading}
+            title="Recalculate demand forecast"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
       {error && (
-        <div className="glass-card p-4 flex items-center gap-3 border-rose-500/30 text-rose-400" style={{ background: 'rgba(244, 63, 94, 0.08)' }}>
-          <AlertCircle size={18} className="flex-shrink-0" />
-          <span className="text-sm">{error}</span>
+        <div className="alert-error">
+          <AlertCircle size={18} />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* KPI Stat Cards Grid */}
+      {/* ─── High-Level Forecasting KPI Row ─────────────────────── */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon-wrapper bg-purple-glow">
-            <Package size={24} style={{ color: 'var(--accent)' }} />
+            <Package size={22} style={{ color: 'var(--accent)' }} />
           </div>
           <div className="stat-content">
-            <span className="stat-label">Total Ingredients</span>
+            <span className="stat-label">Ingredients Analyzed</span>
             <span className="stat-value">{riskSummary?.totalIngredients ?? plans.length}</span>
-            <span className="stat-subtext">Catalog items analyzed</span>
+            <span className="stat-subtext">Active menu recipes</span>
           </div>
         </div>
 
-        <div className={`stat-card ${reorderCount > 0 ? 'stat-danger' : ''}`}>
+        <div className={`stat-card ${reorderCount > 0 ? 'stat-card-highlight-amber' : ''}`}>
           <div className="stat-icon-wrapper bg-rose-glow">
-            <ShoppingCart size={24} className="text-rose" />
+            <ShoppingCart size={22} className="text-rose" />
           </div>
           <div className="stat-content">
-            <span className="stat-label">Reorder Required</span>
-            <span className="stat-value">{reorderCount}</span>
-            <span className="stat-subtext">Below minimum / safe stock</span>
+            <span className="stat-label">Reorder Needed</span>
+            <span className="stat-value text-rose">{reorderCount}</span>
+            <span className="stat-subtext">Below safety threshold</span>
           </div>
         </div>
 
-        <div className={`stat-card ${stockRiskCount > 0 ? 'stat-warning' : ''}`}>
+        <div className="stat-card">
           <div className="stat-icon-wrapper bg-amber-glow">
-            <ShieldAlert size={24} className="text-amber" />
+            <ShieldAlert size={22} className="text-amber" />
           </div>
           <div className="stat-content">
             <span className="stat-label">Stock Out Risk</span>
-            <span className="stat-value">{stockRiskCount}</span>
-            <span className="stat-subtext">Projected shortage this week</span>
+            <span className="stat-value text-amber">{stockRiskCount}</span>
+            <span className="stat-subtext">Projected deficit in window</span>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon-wrapper bg-blue-glow">
-            <TrendingUp size={24} className="text-blue" />
+            <TrendingUp size={22} className="text-blue" />
           </div>
           <div className="stat-content">
             <span className="stat-label">High Demand Items</span>
-            <span className="stat-value">{highDemandCount}</span>
-            <span className="stat-subtext">Surpassing safety thresholds</span>
+            <span className="stat-value text-blue">{highDemandCount}</span>
+            <span className="stat-subtext">Strong sales consumption</span>
           </div>
         </div>
       </div>
 
-      {/* Controls & Filter Bar */}
-      <div className="controls-bar">
+      {/* ─── Smart Suggestions & Suggested Purchases Panel ──────── */}
+      {suggestedPurchases.length > 0 && (
+        <div className="suggested-purchases-panel mt-6">
+          <div className="panel-heading mb-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={18} className="text-accent" />
+              <h3 className="section-title" style={{ margin: 0 }}>
+                Suggested Purchases ({suggestedPurchases.length})
+              </h3>
+            </div>
+            <span className="text-xs text-muted">
+              Calculated from {periodDays}-day sales velocity and buffer requirements
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {suggestedPurchases.slice(0, 6).map((item) => (
+              <div className="suggested-purchase-card" key={item.id}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <strong className="text-base text-primary">{item.ingredientName}</strong>
+                    <div className="text-xs font-mono text-muted">SKU: {item.sku}</div>
+                  </div>
+                  <span className="badge badge-rose font-bold">
+                    +{item.recommendedOrderQuantity} {item.unit}
+                  </span>
+                </div>
+
+                <div className="suggested-metrics-grid">
+                  <div className="suggested-metric">
+                    <span className="text-muted text-xs">Current Stock</span>
+                    <strong>
+                      {item.currentStock} {item.unit}
+                    </strong>
+                  </div>
+                  <div className="suggested-metric">
+                    <span className="text-muted text-xs">Expected Demand</span>
+                    <strong className="text-accent">
+                      {item.weeklyForecast} {item.unit}
+                    </strong>
+                  </div>
+                </div>
+
+                <p className="suggested-reason-text">
+                  <Info size={12} className="inline mr-1 text-muted" />
+                  {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Filter & Search Bar ─────────────────────────────────── */}
+      <div className="controls-bar mt-6">
         <div className="search-group">
           <div className="input-with-icon search-input">
-            <Search size={18} className="input-icon" />
+            <Search size={16} className="input-icon" />
             <input
               type="text"
-              placeholder="Search by ingredient name or SKU..."
+              placeholder="Search ingredient or SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -242,58 +302,73 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
 
           <button
             type="button"
-            className={`btn-filter ${statusFilter === 'REORDER' ? 'active' : ''}`}
-            onClick={() => setStatusFilter(statusFilter === 'REORDER' ? 'ALL' : 'REORDER')}
+            className={`btn-filter ${statusFilter === 'ALL' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('ALL')}
           >
-            <Filter size={16} />
-            <span>Reorder Required ({reorderCount})</span>
+            All Items ({plans.length})
           </button>
-        </div>
-
-        <div className="quick-actions">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="btn-filter"
-            style={{ cursor: 'pointer', paddingRight: '1rem' }}
+          <button
+            type="button"
+            className={`btn-filter ${statusFilter === 'REORDER' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('REORDER')}
           >
-            <option value="ALL">All Statuses ({plans.length})</option>
-            <option value="REORDER">Reorder Required</option>
-            <option value="STOCK_RISK">Stock Out Risk</option>
-            <option value="HIGH_DEMAND">High Demand</option>
-            <option value="OVERSTOCK_RISK">Overstock Risk</option>
-          </select>
+            Reorder Needed ({reorderCount})
+          </button>
+          <button
+            type="button"
+            className={`btn-filter ${statusFilter === 'STOCK_RISK' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('STOCK_RISK')}
+          >
+            Stock Risk ({stockRiskCount})
+          </button>
+          <button
+            type="button"
+            className={`btn-filter ${statusFilter === 'HIGH_DEMAND' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('HIGH_DEMAND')}
+          >
+            High Demand ({highDemandCount})
+          </button>
         </div>
       </div>
 
-      {/* Custom Data Table Container */}
+      {/* ─── Detailed Forecast Table ─────────────────────────────── */}
       <div className="table-card">
+        <div className="panel-heading p-4 border-b border-border">
+          <div>
+            <h3 className="section-title">Ingredient Demand Position</h3>
+            <p className="text-xs text-muted">
+              Live comparison of current pantry stock against {periodDays}-day forecast and safety thresholds.
+            </p>
+          </div>
+          <span className="badge badge-emerald">{filteredPlans.length} records</span>
+        </div>
+
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Ingredient / SKU</th>
+              <th>Ingredient &amp; SKU</th>
               <th>Current Stock</th>
-              <th>7-Day Demand Forecast</th>
-              <th>Projected Stock</th>
-              <th>Coverage</th>
+              <th>Expected Demand</th>
+              <th>Projected Balance</th>
+              <th>Pantry Coverage</th>
               <th>Recommendation</th>
               <th>Status</th>
-              <th>Reason</th>
+              <th>Planning Reason</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-muted">
+                <td colSpan={8} className="text-center py-10 text-muted">
                   <div className="flex items-center justify-center gap-2">
                     <RefreshCw size={18} className="animate-spin text-accent" />
-                    <span>Calculating ingredient demand & inventory position...</span>
+                    <span>Calculating recipe velocity &amp; inventory positions...</span>
                   </div>
                 </td>
               </tr>
             ) : filteredPlans.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-muted">
+                <td colSpan={8} className="text-center py-10 text-muted">
                   No ingredient demand records match your current criteria.
                 </td>
               </tr>
@@ -304,22 +379,25 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                     <div className="ingredient-title">{plan.ingredientName}</div>
                     <div className="ingredient-sku">{plan.sku}</div>
                   </td>
+
                   <td>
                     <div className="stock-number">
                       {plan.currentStock} <span className="text-xs text-muted">{plan.unit}</span>
                     </div>
-                    <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
-                      Min: {plan.minimumStockLevel} | Max: {plan.maximumStockLevel}
+                    <div className="text-xs text-muted">
+                      Buffer: {plan.minimumStockLevel} {plan.unit}
                     </div>
                   </td>
+
                   <td>
-                    <div className="font-semibold text-accent" style={{ color: 'var(--accent)' }}>
+                    <div className="font-semibold text-primary">
                       {plan.weeklyForecast} {plan.unit}
                     </div>
-                    <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                    <div className="text-xs text-muted">
                       (~{plan.dailyAverageDemand} {plan.unit}/day)
                     </div>
                   </td>
+
                   <td>
                     <div
                       className={`font-semibold ${
@@ -333,30 +411,36 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                       {plan.projectedStock} {plan.unit}
                     </div>
                     {plan.projectedShortage > 0 && (
-                      <div className="text-xs text-rose font-medium" style={{ fontSize: '0.7rem' }}>
+                      <div className="text-xs text-rose font-medium">
                         Shortage: {plan.projectedShortage} {plan.unit}
                       </div>
                     )}
                   </td>
-                  <td className="text-secondary text-sm">
-                    {plan.stockCoverageDays > 300 ? '30+ Days' : `${plan.stockCoverageDays} Days`}
+
+                  <td>
+                    <span className="badge badge-default">
+                      {plan.stockCoverageDays > 300 ? '30+ Days' : `${plan.stockCoverageDays} Days`}
+                    </span>
                   </td>
+
                   <td>
                     {plan.reorderRequired ? (
                       <div>
                         <span className="badge badge-rose">REORDER</span>
-                        <div className="text-xs font-semibold text-accent mt-0.5" style={{ fontSize: '0.72rem' }}>
+                        <div className="text-xs font-bold text-primary mt-0.5">
                           Order +{plan.recommendedOrderQuantity} {plan.unit}
                         </div>
                       </div>
                     ) : (
-                      <span className="badge badge-purple" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)' }}>
-                        NO REORDER
+                      <span className="badge badge-default text-muted">
+                        Adequate
                       </span>
                     )}
                   </td>
+
                   <td>{renderRiskBadge(plan.riskStatus, plan.reorderRequired)}</td>
-                  <td className="text-xs text-muted max-w-xs leading-relaxed" style={{ fontSize: '0.75rem' }}>
+
+                  <td className="text-xs text-secondary max-w-xs leading-relaxed">
                     {plan.reason}
                   </td>
                 </tr>

@@ -31,7 +31,7 @@ interface ProcurementDashboardProps {
 
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const [subTab, setSubTab] = useState<'requests' | 'orders' | 'suppliers'>('requests');
+  const [subTab, setSubTab] = useState<'orders' | 'requests' | 'suppliers'>('orders');
 
   // Data states
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -261,17 +261,9 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
 
   return (
     <div className="view-container">
-      {/* Subtabs: Purchase Requests vs Purchase Orders vs Suppliers */}
-      <div className="catalog-header">
+      {/* Subtabs: Purchase Orders vs Purchase Requests vs Suppliers */}
+      <div className="catalog-header" style={{ marginBottom: '1.25rem' }}>
         <div className="catalog-tabs">
-          <button
-            type="button"
-            className={`catalog-tab ${subTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setSubTab('requests')}
-          >
-            <ClipboardList size={16} />
-            <span>Purchase Requests</span>
-          </button>
           <button
             type="button"
             className={`catalog-tab ${subTab === 'orders' ? 'active' : ''}`}
@@ -282,34 +274,41 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
           </button>
           <button
             type="button"
+            className={`catalog-tab ${subTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setSubTab('requests')}
+          >
+            <ClipboardList size={16} />
+            <span>Purchase Requests</span>
+          </button>
+          <button
+            type="button"
             className={`catalog-tab ${subTab === 'suppliers' ? 'active' : ''}`}
             onClick={() => setSubTab('suppliers')}
           >
             <Building2 size={16} />
-            <span>Suppliers ({suppliers.length})</span>
+            <span>Supplier Directory ({suppliers.length})</span>
           </button>
         </div>
       </div>
 
-      {subTab === 'requests' && <PurchaseRequestsView onSuccess={onSuccess} />}
       {subTab === 'orders' && <PurchaseOrdersView onSuccess={onSuccess} />}
+      {subTab === 'requests' && <PurchaseRequestsView onSuccess={onSuccess} />}
       {subTab === 'suppliers' && (
         <>
           {/* Header Banner */}
-      <div className="hub-hero">
-        <div className="hub-hero-text">
-          <h2>Procurement & Supplier Management</h2>
-          <p>
-            Manage restaurant vendor relationships, contact profiles, address directories, and payment terms.
-            Vendors managed here provide ingredient supply catalogs for procurement orders.
-          </p>
-        </div>
-        <div className="hub-role-status">
-          <span className="text-muted text-xs">LOGGED IN AS</span>
-          <strong>{user?.fullName}</strong>
-          <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
-        </div>
-      </div>
+          <div className="hub-hero">
+            <div className="hub-hero-text">
+              <h2>Supplier Directory & Vendor Profiles</h2>
+              <p>
+                Manage restaurant vendor relationships, contact profiles, address directories, and payment terms.
+              </p>
+            </div>
+            <div className="hub-role-status">
+              <span className="text-muted text-xs">LOGGED IN AS</span>
+              <strong>{user?.fullName}</strong>
+              <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
+            </div>
+          </div>
 
       {/* Global Alerts */}
       {error && (
