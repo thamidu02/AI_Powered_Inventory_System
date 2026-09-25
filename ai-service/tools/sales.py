@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from google.generativeai.types import FunctionDeclaration, Tool
 
-from .inventory import _date_range_query, _get, _with_query
+from .inventory import _date_range_query, _get
 
 
 async def _safe_get(path: str, params: dict[str, Any] | None = None) -> Any:
@@ -27,26 +27,22 @@ async def _safe_get(path: str, params: dict[str, Any] | None = None) -> Any:
 
 async def get_sales_summary(days: int = 30) -> dict:
     days = max(1, min(int(days), 366))
-    return await _safe_get(
-        _with_query("/api/sales/summary", _date_range_query(days))
-    )
+    return await _safe_get("/api/sales/summary", _date_range_query(days))
 
 
 async def get_sales_records(days: int = 30) -> dict:
     days = max(1, min(int(days), 366))
-    data = await _safe_get(_with_query("/api/sales", {
+    data = await _safe_get("/api/sales", {
         **_date_range_query(days),
         "page": 1,
         "pageSize": 100,
-    }))
+    })
     return {"days": days, "records": data}
 
 
 async def get_component3_waste_summary(days: int = 30) -> dict:
     days = max(1, min(int(days), 366))
-    return await _safe_get(
-        _with_query("/api/wasterecords/summary", _date_range_query(days))
-    )
+    return await _safe_get("/api/wasterecords/summary", _date_range_query(days))
 
 
 async def get_component3_waste_records(days: int = 30) -> dict:
@@ -80,15 +76,13 @@ async def get_recipes() -> dict:
 async def get_consumption_movements(days: int = 30) -> dict:
     days = max(1, min(int(days), 366))
     data = await _safe_get(
-        _with_query(
-            "/api/inventory/movements",
-            {"movementType": "CONSUME", **_date_range_query(days)},
-        )
+        "/api/inventory/movements",
+        {"movementType": "CONSUME", **_date_range_query(days)},
     )
     if isinstance(data, dict) and "error" in data:
         return data
     movements = data if isinstance(data, list) else []
-    return {"days": days, "movements": movements[:500], "count": len(movements)}
+    return {"days": days, "movements": movements, "count": len(movements)}
 
 
 def build_component3_report(
