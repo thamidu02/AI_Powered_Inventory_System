@@ -7,6 +7,7 @@ import 'package:restaurant_mobile/features/auth/providers/auth_provider.dart';
 import 'package:restaurant_mobile/features/auth/services/auth_service.dart';
 import 'package:restaurant_mobile/core/services/api_service.dart';
 import 'package:restaurant_mobile/core/services/storage_service.dart';
+import 'package:restaurant_mobile/features/home/screens/home_dashboard_screen.dart';
 import 'package:restaurant_mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,8 +57,8 @@ void main() {
     });
   });
 
-  group('Widget and App Smoke Tests', () {
-    testWidgets('RestaurantInventoryApp renders AuthGateScreen with unauthenticated state', (WidgetTester tester) async {
+  group('Step 2 UI and Widget Tests', () {
+    testWidgets('LoginScreen renders brand, inputs, demo role chips, and sign-in button', (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({});
       final storage = await StorageService.initialize();
       final api = ApiService(storage: storage);
@@ -79,8 +80,65 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Restaurant Inventory Mobile'), findsOneWidget);
-      expect(find.byIcon(Icons.restaurant_menu), findsOneWidget);
+      // Brand Title
+      expect(find.text('SavoryInventory'), findsOneWidget);
+      expect(find.text('Kitchen Operations & Inventory Mobile'), findsOneWidget);
+
+      // Input Form Fields
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expect(find.text('Email Address'), findsOneWidget);
+      expect(find.text('Password'), findsOneWidget);
+
+      // Sign In Button
+      expect(find.text('Sign In'), findsOneWidget);
+
+      // Demo Role Action Chips
+      expect(find.text('Manager'), findsOneWidget);
+      expect(find.text('Inventory'), findsOneWidget);
+      expect(find.text('Kitchen'), findsOneWidget);
+
+      // Tap on Manager demo chip
+      await tester.tap(find.text('Manager'));
+      await tester.pumpAndSettle();
+
+      // Verifies fields populated
+      expect(find.text('manager@restaurant.com'), findsOneWidget);
+    });
+
+    testWidgets('HomeDashboardScreen renders authenticated user profile and operations cards', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({
+        'auth_jwt_token': 'test-token',
+        'auth_user_data': '{"userId":"1","email":"inventory@restaurant.com","fullName":"Sam Warehouse","role":"INVENTORY_MANAGER","token":"test-token","expiresAt":"2099-01-01T00:00:00.000Z"}',
+      });
+
+      final storage = await StorageService.initialize();
+      final api = ApiService(storage: storage);
+      final authService = AuthService(api: api, storage: storage);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<StorageService>.value(value: storage),
+            Provider<ApiService>.value(value: api),
+            Provider<AuthService>.value(value: authService),
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(authService: authService),
+            ),
+          ],
+          child: const MaterialApp(
+            home: HomeDashboardScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('KitchenOps Mobile'), findsOneWidget);
+      expect(find.text('Sam Warehouse'), findsOneWidget);
+      expect(find.text('INVENTORY MANAGER'), findsOneWidget);
+      expect(find.text('Stock & Inventory'), findsOneWidget);
+      expect(find.text('Goods Receiving'), findsOneWidget);
+      expect(find.text('AI Assistant'), findsOneWidget);
     });
   });
 }
