@@ -24,14 +24,22 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
         policy
-            .WithOrigins(
-                "http://localhost:5173",   // Vite dev server
-                "http://localhost:3000",   // Alternative dev port
-                "https://localhost:5173",
-                "http://localhost:8000"    // Python AI service
-            )
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin)) return false;
+                try
+                {
+                    var uri = new Uri(origin);
+                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                }
+                catch
+                {
+                    return false;
+                }
+            })
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 // --------------------------------------------------
