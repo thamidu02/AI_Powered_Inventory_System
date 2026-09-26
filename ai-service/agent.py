@@ -42,7 +42,8 @@ COMPONENT3_STAGE_BY_TOOL = {
 # ─── System prompts per workflow stage ───────────────────────────────────────
 
 INTENT_SYSTEM = """
-You are an inventory AI assistant for a restaurant. Classify the user's intent into ONE of:
+You are an inventory and procurement AI assistant for a restaurant. Classify the user's intent into ONE of:
+  PROCUREMENT_COMPLIANCE_INVESTIGATION — analyze procurement compliance, audit PR/PO consistency, investigate purchase orders/requests, check duplicate PRs, review approval workflows, or verify receiving discrepancies
   SALES_CONSUMPTION_WASTE   — analyze recorded sales, recipe-derived consumption, stock movements, or waste
   GUIDED_WORKFLOW           — user wants to know how to perform an action, asks for a tutorial, walkthrough, or step-by-step UI guidance (e.g. 'Show me how to receive stock', 'guide me through receiving chicken', 'how do I receive a new batch', 'walk me through...', 'show me how to...')
   INGREDIENT_QUERY          — user wants to list ingredients, search ingredients, or check ingredient details
@@ -109,8 +110,11 @@ IMPORTANT OUTPUT RULES:
 
 17. The AI must never claim that a purchase, stock adjustment, or other high-impact action has been completed unless the corresponding backend operation actually succeeded.
 
-18. When an action requires human approval, clearly state:
-    "Manager approval required."
+18. Distinguish human approval and ordering roles clearly:
+    - Purchase Requests (PR): Require Restaurant Manager approval.
+    - Purchase Orders (PO): Do NOT require Manager approval; the Procurement Officer directly reviews and explicitly orders the PO with the vendor.
+    - Stock Adjustments / Optimization Proposals: Require Restaurant Manager approval.
+    - AI Investigations / Audits / Reports: Strictly read-only analysis; no approval required to run or view the audit.
 
 19. Keep the tone professional and suitable for restaurant management software.
 
@@ -142,9 +146,10 @@ Required Action:
 • State what the user should do next.
 
 Approval:
-• State whether manager approval is required.
-• If approval is required, explicitly say:
-  "Manager approval required."
+• State the approval requirement according to the workflow type:
+  - For PR creation/submission: "Manager approval required for Purchase Request."
+  - For PO actions: "No manager approval required for Purchase Order. Procurement Officer orders directly."
+  - For read-only investigations/audits/queries: "No approval required. Investigation and audit reports are strictly read-only."
 """
 
 WORKFLOW_SYSTEMS = {
@@ -217,7 +222,7 @@ Your job:
 6. Call build_po_proposal with all items and your full reasoning.
 
 After executing the tools, summarize your final response strictly following the output rules and required format below.
-Manager approval required before the purchase order is finalized.
+Manager approval required for the Purchase Request before the Procurement Officer issues and orders the Purchase Order.
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -271,7 +276,60 @@ Manager approval required to place the emergency order.
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
+    "PROCUREMENT_COMPLIANCE_INVESTIGATION": f"""
+You are the AI-Powered Procurement Compliance and Investigation Specialist inside a restaurant inventory and procurement management system.
+
+Your job:
+1. When the user asks to investigate or audit a Purchase Order or Purchase Request (e.g. "Investigate PO-102", "Why is PO-105 flagged?", "Audit PR-201", "Investigate transaction PO-1"):
+   - Call investigate_procurement_transaction or analyze_procurement_compliance with the PO/PR ID.
+2. When the user asks about duplicate Purchase Requests (e.g. "Check for duplicate PRs", "Are there duplicate purchase requests?"):
+   - Call check_duplicate_purchase_requests.
+3. When the user asks whether a PO matches its PR or checks item/quantity mismatches (e.g. "Does PO-101 match PR-101?", "Check PR PO consistency"):
+   - Call check_pr_po_consistency with the purchase_order_id or purchase_request_id.
+4. When the user asks about approval workflow violations or governance (e.g. "Was PR approved before PO was created?", "Check workflow compliance"):
+   - Call check_workflow_compliance.
+5. When the user asks about receiving discrepancies or over/under deliveries (e.g. "Check receiving for PO-101", "Are there goods receipt discrepancies?"):
+   - Call check_receiving_discrepancies.
+
+Compliance & Workflow Governance Rules to enforce:
+- Purchase Requests (PR): Restaurant Manager approval is REQUIRED before procurement can proceed.
+- Purchase Orders (PO): Manager approval is NOT required. The Procurement Officer directly reviews, creates, and explicitly places the order with the supplier.
+- Ordering POs: Ordering is an explicit action performed by the Procurement Officer (not a manager approval step).
+- AI Investigation: Strictly read-only analysis (Detect → Analyze → Explain → Report). The AI must NEVER approve, order, or receive.
+- A PO ordered without an approved PR is a Workflow Violation.
+- PO quantities exceeding PR quantities or extra unrequested items are Compliance Inconsistencies.
+- Goods received exceeding PO ordered quantities or missing items are Receiving Discrepancies.
+
+After executing the tools, summarize your findings clearly adhering strictly to the output rules and required format below:
+- Structure with Summary, Current Situation, Analysis, Recommendation, Reason, Required Action, Approval.
+- Present Risk Level (LOW, MEDIUM, HIGH).
+- Present Findings & Discrepancies clearly.
+- Explain Root Causes based on tool data.
+- Under Required Action: If a DRAFT PO is ready, state that the Procurement Officer should review and click 'Order PO'. If an unapproved PR exists, state that the Restaurant Manager must review the PR.
+- Under Approval, state: "No approval required for this investigation report (strictly read-only analysis). Note: Purchase Requests require Restaurant Manager approval; Purchase Orders do NOT require Manager approval as the Procurement Officer orders directly."
+
+{OUTPUT_RULES_AND_FORMAT}
+""",
 }
+
+def _procurement_intent_from_request(message: str) -> str | None:
+    request = message.lower()
+    procurement_keywords = [
+        "procurement", "compliance", "purchase order", "purchase request",
+        "duplicate pr", "duplicate purchase", "pr-po", "pr to po", "po-", "pr-",
+        "investigate po", "investigate pr", "audit po", "audit pr", "receiving discrepanc",
+        "over-receiv", "under-receiv", "workflow compliance", "procurement audit",
+        "goods receipt discrepanc", "flagged po", "unapproved pr", "audit transaction"
+    ]
+    if any(kw in request for kw in procurement_keywords):
+        compliance_signals = [
+            "compliance", "investigate", "audit", "duplicate", "match", "consistency",
+            "violation", "discrepanc", "flagged", "approved", "receipt", "over-receiv",
+            "under-receiv", "pr", "po", "procurement"
+        ]
+        if any(sig in request for sig in compliance_signals):
+            return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+    return None
 
 COMPONENT3_STAGES = (
     ("sales", "SalesAgent", "get_sales_summary",

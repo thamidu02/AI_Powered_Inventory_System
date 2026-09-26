@@ -40,6 +40,8 @@ public class UpdatePurchaseOrderItemRequest
 
 public class CreatePurchaseOrderRequest
 {
+    public Guid? PurchaseRequestId { get; set; }
+
     [Required]
     public Guid SupplierId { get; set; }
 
@@ -52,6 +54,8 @@ public class CreatePurchaseOrderRequest
 
 public class UpdatePurchaseOrderRequest
 {
+    public Guid? PurchaseRequestId { get; set; }
+
     [Required]
     public Guid SupplierId { get; set; }
 
@@ -64,6 +68,17 @@ public class UpdatePurchaseOrderRequest
 
 public class RejectPurchaseOrderRequest
 {
+}
+
+public class PurchaseOrderSummaryResponse
+{
+    public Guid Id { get; set; }
+    public Guid SupplierId { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public DateTime? OrderDate { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 // -----------------------------------------------------------------------------
@@ -87,6 +102,8 @@ public class PurchaseOrderItemResponse
 public class PurchaseOrderResponse
 {
     public Guid Id { get; set; }
+    public Guid? PurchaseRequestId { get; set; }
+    public string? PurchaseRequestReason { get; set; }
     public Guid SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;

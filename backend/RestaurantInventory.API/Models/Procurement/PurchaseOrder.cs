@@ -25,6 +25,10 @@ public class PurchaseOrder : BaseEntity
 
     public User? ApprovedBy { get; set; }
 
+    public Guid? PurchaseRequestId { get; set; }
+
+    public PurchaseRequest? PurchaseRequest { get; set; }
+
     public ICollection<PurchaseOrderItem> Items { get; set; }
         = new List<PurchaseOrderItem>();
 

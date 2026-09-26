@@ -50,7 +50,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetSales(
         [FromQuery] string? search = null,
         [FromQuery] DateTime? from = null,
@@ -64,7 +64,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("summary")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetSalesSummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
@@ -73,7 +73,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("{saleId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetById(Guid saleId)
     {
         var result = await _salesService.GetSaleByIdAsync(saleId);

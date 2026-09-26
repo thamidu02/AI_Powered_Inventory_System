@@ -20,7 +20,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { api } from '../services/api';
-import type { SupplierResponse } from '../types';
+import type { SupplierResponse, PurchaseRequestResponse } from '../types';
 import { useAuth } from '../context/useAuth';
 import { PurchaseRequestsView } from './PurchaseRequestsView';
 import { PurchaseOrdersView } from './PurchaseOrdersView';
@@ -32,6 +32,7 @@ interface ProcurementDashboardProps {
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSuccess }) => {
   const { user } = useAuth();
   const [subTab, setSubTab] = useState<'requests' | 'orders' | 'suppliers'>('requests');
+  const [selectedPrForPo, setSelectedPrForPo] = useState<PurchaseRequestResponse | null>(null);
 
   // Data states
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -291,8 +292,23 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
         </div>
       </div>
 
-      {subTab === 'requests' && <PurchaseRequestsView onSuccess={onSuccess} />}
-      {subTab === 'orders' && <PurchaseOrdersView onSuccess={onSuccess} />}
+      {subTab === 'requests' && (
+        <PurchaseRequestsView
+          onSuccess={onSuccess}
+          onCreatePoFromPr={(pr) => {
+            setSelectedPrForPo(pr);
+            setSubTab('orders');
+          }}
+        />
+      )}
+      {subTab === 'orders' && (
+        <PurchaseOrdersView
+          onSuccess={onSuccess}
+          preloadedPr={selectedPrForPo}
+          onClearPreloadedPr={() => setSelectedPrForPo(null)}
+          onNavigateToApprovedPrs={() => setSubTab('requests')}
+        />
+      )}
       {subTab === 'suppliers' && (
         <>
           {/* Header Banner */}

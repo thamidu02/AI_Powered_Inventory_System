@@ -23,14 +23,20 @@ from .guided_workflows import (
     plan_guided_workflow,
     validate_guided_workflow_plan,
 )
+from .procurement_compliance import (
+    TOOL_DEFINITIONS as PROCUREMENT_TOOL_DEFINITIONS,
+    TOOL_DISPATCH as PROCUREMENT_TOOL_DISPATCH,
+)
 
 TOOL_DEFINITIONS = Tool(function_declarations=[
     *INVENTORY_TOOL_DEFINITIONS.function_declarations,
     *SALES_TOOL_DEFINITIONS.function_declarations,
+    *PROCUREMENT_TOOL_DEFINITIONS.function_declarations,
 ])
 TOOL_DISPATCH: dict[str, Any] = {
     **INVENTORY_TOOL_DISPATCH,
     **SALES_TOOL_DISPATCH,
+    **PROCUREMENT_TOOL_DISPATCH,
     "get_available_guided_workflows": get_available_guided_workflows,
     "plan_guided_workflow": plan_guided_workflow,
     "validate_guided_workflow_plan": validate_guided_workflow_plan,

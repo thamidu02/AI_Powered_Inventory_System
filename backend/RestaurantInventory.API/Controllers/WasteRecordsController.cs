@@ -34,7 +34,7 @@ public class WasteRecordsController : ControllerBase
     }
 
     [HttpGet("summary")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetWasteSummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
@@ -43,7 +43,7 @@ public class WasteRecordsController : ControllerBase
     }
 
     [HttpGet("{wasteRecordId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetById(Guid wasteRecordId)
     {
         var result = await _salesService.GetWasteRecordByIdAsync(wasteRecordId);
