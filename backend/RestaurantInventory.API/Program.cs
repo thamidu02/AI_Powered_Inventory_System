@@ -138,6 +138,8 @@ builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 builder.Services.AddScoped<IPlanningService, PlanningService>();
 builder.Services.AddScoped<IGuidedWorkflowService, GuidedWorkflowService>();
 builder.Services.AddHttpClient<IAiProxyService, AiProxyService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IWeatherService, WeatherService>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 

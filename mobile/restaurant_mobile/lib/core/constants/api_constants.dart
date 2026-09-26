@@ -27,6 +27,7 @@ class ApiConstants {
   static const String salesEndpoint = '/api/sales';
   static const String wasteRecordsEndpoint = '/api/wasterecords';
 
-  // AI assistant endpoint
+  // AI & Weather intelligence endpoints
   static const String aiChatEndpoint = '/api/ai/chat';
+  static const String weatherEndpoint = '/api/weather';
 }
