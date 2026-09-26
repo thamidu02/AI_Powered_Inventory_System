@@ -24,6 +24,8 @@ public class DemandPlanResponse
     public decimal? ConfidenceScore { get; set; }
     public string GeneratedBy { get; set; } = "RULE_BASED";
     public string Reason { get; set; } = string.Empty;
+    public decimal WeatherMultiplier { get; set; } = 1.0m;
+    public string? WeatherImpact { get; set; }
 }
 
 public class PlanningRecommendationResponse
@@ -41,6 +43,8 @@ public class PlanningRecommendationResponse
     public decimal RecommendedOrderQuantity { get; set; }
     public string Recommendation { get; set; } = "NO_REORDER";
     public string Reason { get; set; } = string.Empty;
+    public decimal WeatherMultiplier { get; set; } = 1.0m;
+    public string? WeatherImpact { get; set; }
 }
 
 public class PlanningRiskSummaryResponse
