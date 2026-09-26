@@ -12,6 +12,12 @@ import 'package:restaurant_mobile/features/inventory/models/inventory_item_model
 import 'package:restaurant_mobile/features/inventory/providers/inventory_provider.dart';
 import 'package:restaurant_mobile/features/inventory/screens/inventory_detail_screen.dart';
 import 'package:restaurant_mobile/features/inventory/services/inventory_service.dart';
+import 'package:restaurant_mobile/features/receiving/models/goods_receipt_model.dart';
+import 'package:restaurant_mobile/features/receiving/models/purchase_order_model.dart';
+import 'package:restaurant_mobile/features/receiving/models/storage_location_model.dart';
+import 'package:restaurant_mobile/features/receiving/providers/receiving_provider.dart';
+import 'package:restaurant_mobile/features/receiving/screens/goods_intake_screen.dart';
+import 'package:restaurant_mobile/features/receiving/services/receiving_service.dart';
 import 'package:restaurant_mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,6 +127,8 @@ void main() {
       expect(ApiConstants.loginEndpoint, equals('/api/auth/login'));
       expect(ApiConstants.inventoryEndpoint, equals('/api/inventory'));
       expect(ApiConstants.ingredientsEndpoint, equals('/api/ingredients'));
+      expect(ApiConstants.purchaseOrdersEndpoint, equals('/api/purchaseorders'));
+      expect(ApiConstants.goodsReceiptsEndpoint, equals('/api/goodsreceipts'));
       expect(ApiConstants.aiChatEndpoint, equals('/api/ai/chat'));
     });
   });
@@ -238,6 +246,160 @@ void main() {
       expect(find.text('LOW STOCK'), findsOneWidget);
       expect(find.text('B-TOM-101'), findsOneWidget);
       expect(find.text('Dry Store A'), findsOneWidget);
+    });
+  });
+
+  group('Step 4 Receiving & Stock Intake Unit Tests', () {
+    test('StorageLocationModel parses JSON and sets temperature badges', () {
+      final json = {
+        'id': 'loc-1',
+        'name': 'Cold Room A',
+        'description': 'Main walk-in dairy and meat cooler',
+        'temperatureType': 'REFRIGERATED',
+        'isActive': true,
+      };
+
+      final loc = StorageLocationModel.fromJson(json);
+      expect(loc.id, equals('loc-1'));
+      expect(loc.name, equals('Cold Room A'));
+      expect(loc.temperatureType, equals('REFRIGERATED'));
+      expect(loc.displayName, equals('Cold Room A (REFRIGERATED)'));
+      expect(loc.isActive, isTrue);
+    });
+
+    test('PurchaseOrderModel computes remaining quantities and eligibility correctly', () {
+      final json = {
+        'id': '11112222-3333-4444-5555-666677778888',
+        'supplierId': 'sup-1',
+        'supplierName': 'Fresh Farms Organic',
+        'status': 'ORDERED',
+        'totalAmount': 450.00,
+        'items': [
+          {
+            'id': 'poi-1',
+            'purchaseOrderId': '11112222-3333-4444-5555-666677778888',
+            'ingredientId': 'ing-1',
+            'ingredientName': 'Fresh Milk',
+            'ingredientUnit': 'liters',
+            'orderedQuantity': 50.0,
+            'unitPrice': 3.50,
+            'receivedQuantity': 20.0,
+          },
+          {
+            'id': 'poi-2',
+            'purchaseOrderId': '11112222-3333-4444-5555-666677778888',
+            'ingredientId': 'ing-2',
+            'ingredientName': 'Butter',
+            'ingredientUnit': 'kg',
+            'orderedQuantity': 10.0,
+            'unitPrice': 6.00,
+            'receivedQuantity': 10.0,
+          },
+        ],
+      };
+
+      final po = PurchaseOrderModel.fromJson(json);
+      expect(po.shortId, equals('PO-11112222'));
+      expect(po.isEligibleForReceiving, isTrue);
+      expect(po.statusLabel, equals('READY TO RECEIVE'));
+      expect(po.items.length, equals(2));
+
+      // Item 1 (partial)
+      expect(po.items[0].remainingQuantity, equals(30.0));
+      expect(po.items[0].isFullyReceived, isFalse);
+
+      // Item 2 (fully received)
+      expect(po.items[1].remainingQuantity, equals(0.0));
+      expect(po.items[1].isFullyReceived, isTrue);
+
+      expect(po.remainingItemsCount, equals(1));
+    });
+
+    test('CreateGoodsReceiptRequest formats correct JSON payload', () {
+      final req = CreateGoodsReceiptRequest(
+        purchaseOrderId: 'po-1',
+        notes: 'Delivery docket #1092',
+        items: [
+          const GoodsReceiptItemRequest(
+            purchaseOrderItemId: 'poi-1',
+            storageLocationId: 'loc-1',
+            receivedQuantity: 30.0,
+            unitCost: 3.50,
+            batchNumber: 'B-2026-MILK',
+          ),
+        ],
+      );
+
+      final json = req.toJson();
+      expect(json['purchaseOrderId'], equals('po-1'));
+      expect(json['notes'], equals('Delivery docket #1092'));
+      final items = json['items'] as List;
+      expect(items.length, equals(1));
+      expect(items[0]['receivedQuantity'], equals(30.0));
+      expect(items[0]['batchNumber'], equals('B-2026-MILK'));
+    });
+  });
+
+  group('Step 4 Widget Tests', () {
+    testWidgets('GoodsIntakeScreen renders PO supplier, item fields, and confirm button', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = await StorageService.initialize();
+      final api = ApiService(storage: storage);
+      final authService = AuthService(api: api, storage: storage);
+      final receivingService = ReceivingService(api: api);
+      final inventoryService = InventoryService(api: api);
+
+      final samplePo = PurchaseOrderModel(
+        id: 'po-test-99',
+        supplierId: 'sup-1',
+        supplierName: 'Highland Dairy Co',
+        status: 'ORDERED',
+        totalAmount: 180.0,
+        items: [
+          const PurchaseOrderItemModel(
+            id: 'poi-test-1',
+            purchaseOrderId: 'po-test-99',
+            ingredientId: 'ing-1',
+            ingredientName: 'Whole Milk',
+            ingredientUnit: 'liters',
+            orderedQuantity: 40.0,
+            unitPrice: 4.50,
+            receivedQuantity: 0.0,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<StorageService>.value(value: storage),
+            Provider<ApiService>.value(value: api),
+            Provider<AuthService>.value(value: authService),
+            Provider<ReceivingService>.value(value: receivingService),
+            Provider<InventoryService>.value(value: inventoryService),
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(authService: authService),
+            ),
+            ChangeNotifierProvider<InventoryProvider>(
+              create: (_) => InventoryProvider(inventoryService: inventoryService),
+            ),
+            ChangeNotifierProvider<ReceivingProvider>(
+              create: (_) => ReceivingProvider(receivingService: receivingService),
+            ),
+          ],
+          child: MaterialApp(
+            home: GoodsIntakeScreen(purchaseOrder: samplePo),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Receive Goods'), findsOneWidget);
+      expect(find.text('Highland Dairy Co'), findsOneWidget);
+      expect(find.text('Whole Milk'), findsOneWidget);
+      expect(find.text('Due: 40.0 liters'), findsOneWidget);
+      expect(find.text('Confirm Stock Intake (1 items)'), findsOneWidget);
     });
   });
 }

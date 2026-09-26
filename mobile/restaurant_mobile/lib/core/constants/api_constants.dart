@@ -21,7 +21,9 @@ class ApiConstants {
   static const String ingredientsEndpoint = '/api/ingredients';
   static const String storageLocationsEndpoint = '/api/storagelocations';
 
-  // Operations & Movements endpoints
+  // Operations & Procurement endpoints
+  static const String purchaseOrdersEndpoint = '/api/purchaseorders';
+  static const String goodsReceiptsEndpoint = '/api/goodsreceipts';
   static const String salesEndpoint = '/api/sales';
   static const String wasteRecordsEndpoint = '/api/wasterecords';
 
