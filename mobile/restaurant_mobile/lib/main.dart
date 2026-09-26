@@ -10,6 +10,8 @@ import 'features/inventory/providers/inventory_provider.dart';
 import 'features/inventory/services/inventory_service.dart';
 import 'features/receiving/providers/receiving_provider.dart';
 import 'features/receiving/services/receiving_service.dart';
+import 'features/kitchen/providers/kitchen_provider.dart';
+import 'features/kitchen/services/kitchen_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +20,7 @@ void main() async {
   final authService = AuthService(api: apiService, storage: storageService);
   final inventoryService = InventoryService(api: apiService);
   final receivingService = ReceivingService(api: apiService);
+  final kitchenService = KitchenService(api: apiService);
 
   runApp(
     MultiProvider(
@@ -27,6 +30,7 @@ void main() async {
         Provider<AuthService>.value(value: authService),
         Provider<InventoryService>.value(value: inventoryService),
         Provider<ReceivingService>.value(value: receivingService),
+        Provider<KitchenService>.value(value: kitchenService),
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(authService: authService),
         ),
@@ -35,6 +39,9 @@ void main() async {
         ),
         ChangeNotifierProvider<ReceivingProvider>(
           create: (_) => ReceivingProvider(receivingService: receivingService),
+        ),
+        ChangeNotifierProvider<KitchenProvider>(
+          create: (_) => KitchenProvider(kitchenService: kitchenService),
         ),
       ],
       child: const RestaurantInventoryApp(),
