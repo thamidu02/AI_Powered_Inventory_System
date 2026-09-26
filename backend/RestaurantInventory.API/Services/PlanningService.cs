@@ -12,10 +12,14 @@ namespace RestaurantInventory.API.Services;
 public class PlanningService : IPlanningService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IWeatherService _weatherService;
 
-    public PlanningService(ApplicationDbContext context)
+    public PlanningService(
+        ApplicationDbContext context,
+        IWeatherService weatherService)
     {
         _context = context;
+        _weatherService = weatherService;
     }
 
     public async Task<IReadOnlyList<DemandPlan>> GenerateDemandPlansAsync(
@@ -87,7 +91,10 @@ public class PlanningService : IPlanningService
         }
 
         var today = DateTime.UtcNow.Date;
+        var weatherImpact = await _weatherService.GetDemandImpactAsync();
+
         var ingredients = await _context.Ingredients
+            .Include(i => i.Category)
             .Include(i => i.StockBatches)
             .ToListAsync();
 
@@ -170,7 +177,42 @@ public class PlanningService : IPlanningService
                 avgWeekday = avgWeekend;
             }
 
-            var weeklyForecast = Math.Round((avgWeekday * 5m) + (avgWeekend * 2m), 2);
+            var baseForecast = Math.Round((avgWeekday * 5m) + (avgWeekend * 2m), 2);
+            var categoryName = ingredient.Category?.Name?.ToLowerInvariant() ?? "";
+            decimal weatherMultiplier = 1.0m;
+            string weatherImpactDesc = "Normal baseline demand.";
+
+            if (categoryName.Contains("meat") || categoryName.Contains("poultry") ||
+                categoryName.Contains("dairy") || categoryName.Contains("bakery") ||
+                categoryName.Contains("sauce") || categoryName.Contains("dry") ||
+                categoryName.Contains("grain") || categoryName.Contains("pasta"))
+            {
+                weatherMultiplier = weatherImpact.ComfortFoodMultiplier;
+                if (weatherMultiplier > 1.0m)
+                    weatherImpactDesc = $"+{Math.Round((weatherMultiplier - 1.0m) * 100)}% comfort food buffer due to rainy/cold weather.";
+                else if (weatherMultiplier < 1.0m)
+                    weatherImpactDesc = $"-{Math.Round((1.0m - weatherMultiplier) * 100)}% reduced comfort meal demand in warm weather.";
+            }
+            else if (categoryName.Contains("beverage") || categoryName.Contains("drink"))
+            {
+                weatherMultiplier = weatherImpact.ColdBeverageMultiplier;
+                if (weatherMultiplier > 1.0m)
+                    weatherImpactDesc = $"+{Math.Round((weatherMultiplier - 1.0m) * 100)}% beverage surge due to warm/sunny weather.";
+                else if (weatherMultiplier < 1.0m)
+                    weatherImpactDesc = $"-{Math.Round((1.0m - weatherMultiplier) * 100)}% reduced cold drinks demand in cold/rainy weather.";
+            }
+            else if (categoryName.Contains("produce") || categoryName.Contains("vegetable") ||
+                     categoryName.Contains("fruit") || categoryName.Contains("salad") ||
+                     categoryName.Contains("herb"))
+            {
+                weatherMultiplier = weatherImpact.SaladProduceMultiplier;
+                if (weatherMultiplier > 1.0m)
+                    weatherImpactDesc = $"+{Math.Round((weatherMultiplier - 1.0m) * 100)}% fresh produce surge in warm weather.";
+                else if (weatherMultiplier < 1.0m)
+                    weatherImpactDesc = $"-{Math.Round((1.0m - weatherMultiplier) * 100)}% lower fresh salad demand in rainy weather.";
+            }
+
+            var weeklyForecast = Math.Round(baseForecast * weatherMultiplier, 2);
             var dailyAvg = Math.Round(weeklyForecast / 7m, 2);
             var totalConsumed = totalWeekday + totalWeekend;
 
@@ -249,8 +291,10 @@ public class PlanningService : IPlanningService
                 Recommendation           = reorderRequired ? "REORDER" : "NO_REORDER",
                 RiskStatus               = riskStatus,
                 ConfidenceScore          = confidenceScore,
-                GeneratedBy              = "RULE_BASED",
-                Reason                   = reason
+                GeneratedBy              = weatherMultiplier != 1.0m ? "AI_WEATHER_ENRICHED" : "RULE_BASED",
+                Reason                   = reason,
+                WeatherMultiplier        = weatherMultiplier,
+                WeatherImpact            = weatherImpactDesc
             });
         }
 
@@ -279,7 +323,9 @@ public class PlanningService : IPlanningService
                 Shortage                 = p.ProjectedShortage,
                 RecommendedOrderQuantity = p.RecommendedOrderQuantity,
                 Recommendation           = p.Recommendation,
-                Reason                   = p.Reason
+                Reason                   = p.Reason,
+                WeatherMultiplier        = p.WeatherMultiplier,
+                WeatherImpact            = p.WeatherImpact
             })
             .ToList();
 
