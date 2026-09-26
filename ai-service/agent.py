@@ -297,7 +297,11 @@ def _component3_number(value: Any) -> str:
 def _component3_focus(message: str) -> str:
     request = message.lower()
     has_sales = "sales" in request or "revenue" in request
-    has_consumption = "consumption" in request or "stock movement" in request
+    has_consumption = (
+        "consumption" in request
+        or "consumed" in request
+        or "stock movement" in request
+    )
     has_waste = "waste" in request
     has_recipe = "recipe" in request or "menu item" in request
     if has_sales and (has_consumption or has_waste or has_recipe):
@@ -311,11 +315,36 @@ def _component3_focus(message: str) -> str:
     return "combined"
 
 
+def _component3_query_type(message: str) -> str:
+    request = message.lower()
+    if "compare" in request:
+        return "comparison"
+    if "menu item" in request or "sold the most" in request or "sold the least" in request:
+        return "menu_item_sales"
+    if "ingredient" in request and ("required" in request or "recipe" in request):
+        return "recipe_analysis"
+    if "waste" in request and ("reason" in request or "common" in request):
+        return "waste_reason_analysis"
+    if "waste" in request and "ingredient" in request:
+        return "waste_analysis"
+    if "consumption" in request or "consumed" in request or "stock movement" in request:
+        return "consumption_analysis"
+    if "sales" in request or "revenue" in request:
+        return "sales_analysis"
+    return "combined_analysis"
+
+
+def _component3_menu_item_name(message: str) -> str | None:
+    import re
+    match = re.search(r"\b(?:for|of)\s+([A-Za-z][A-Za-z0-9 '&-]*?)(?:\s+in\s+the|\s+for\s+the|\?|$)", message, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
 def _component3_intent_from_request(message: str) -> str | None:
     request = message.lower()
     if "waste" in request:
         return "SALES_CONSUMPTION_WASTE"
-    if "consumption" in request or "stock movement" in request:
+    if "consumption" in request or "consumed" in request or "stock movement" in request:
         return "SALES_CONSUMPTION_WASTE"
     if "sales" in request or "revenue" in request:
         return "SALES_CONSUMPTION_WASTE"
@@ -338,7 +367,12 @@ def _format_component3_response(
         "complete", "full report", "sales, consumption", "sales and waste",
     ))
     wants_sales = complete or "sales" in request or "revenue" in request
-    wants_consumption = complete or "consumption" in request or "movement" in request
+    wants_consumption = (
+        complete
+        or "consumption" in request
+        or "consumed" in request
+        or "movement" in request
+    )
     wants_waste = complete or "waste" in request
     wants_recipes = complete or "recipe" in request or "menu item" in request
     if not any((wants_sales, wants_consumption, wants_waste, wants_recipes)):
@@ -353,7 +387,124 @@ def _format_component3_response(
         "",
     ]
 
-    sales = outputs.get("sales", {}).get("data", {})
+    sales_stage = outputs.get("sales", {}).get("data", {})
+    sales = (
+        sales_stage.get("summary", {})
+        if isinstance(sales_stage, dict) and "summary" in sales_stage
+        else sales_stage
+    )
+    query_type = _component3_query_type(message)
+    if query_type == "menu_item_sales":
+        sales_records = sales_stage.get("records", {}) if isinstance(sales_stage, dict) else {}
+        raw_records = (
+            sales_records.get("records", sales_records)
+            if isinstance(sales_records, dict)
+            else sales_records
+        )
+        ranking: dict[str, int] = {}
+        for sale in raw_records if isinstance(raw_records, list) else []:
+            for item in sale.get("items", []) if isinstance(sale, dict) else []:
+                name = item.get("menuItemName") or "Not recorded"
+                quantity = item.get("quantity", 0)
+                if isinstance(quantity, int):
+                    ranking[name] = ranking.get(name, 0) + quantity
+        descending = "least" not in request
+        lines = [f"Menu Item Sales — Last {days} Days", ""]
+        if ranking:
+            lines.append("Recorded quantities:")
+            for name, quantity in sorted(ranking.items(), key=lambda item: item[1], reverse=descending):
+                lines.append(f"• {name}: {_component3_number(quantity)} sold")
+        else:
+            lines.append("• No recorded menu-item sales were found for this period.")
+        return "\n".join(lines)
+
+    consumption = outputs.get("consumption", {}).get("data", {})
+    if query_type == "waste_reason_analysis":
+        waste_stage = outputs.get("waste", {}).get("data", {})
+        records_data = waste_stage.get("records", {}) if isinstance(waste_stage, dict) else {}
+        records = records_data.get("records", []) if isinstance(records_data, dict) else []
+        by_reason: dict[str, float] = {}
+        for record in records if isinstance(records, list) else []:
+            reason = record.get("reason") or "Not recorded"
+            quantity = record.get("quantity", 0)
+            if isinstance(quantity, (int, float)):
+                by_reason[reason] = by_reason.get(reason, 0) + quantity
+        descending = "least" not in request
+        lines = [f"Waste Reasons — Last {days} Days", ""]
+        if by_reason:
+            lines.extend(
+                f"• {reason}: {_component3_number(quantity)}"
+                for reason, quantity in sorted(
+                    by_reason.items(), key=lambda item: item[1], reverse=descending
+                )
+            )
+        else:
+            lines.append("• No recorded waste reasons were found for this period.")
+        return "\n".join(lines)
+
+    if query_type == "consumption_analysis":
+        if isinstance(consumption, dict) and "error" in consumption:
+            return (
+                f"Ingredient Consumption — Last {days} Days\n\n"
+                f"• Recorded consumption data is unavailable: {consumption['error']}"
+            )
+        movements = consumption.get("movements", []) if isinstance(consumption, dict) else []
+        by_ingredient: dict[tuple[str, str], float] = {}
+        for movement in movements if isinstance(movements, list) else []:
+            name = (
+                movement.get("ingredientName")
+                or movement.get("ingredient_name")
+                or movement.get("ingredientId")
+                or "Unknown ingredient"
+            )
+            unit = str(movement.get("unit") or "").strip()
+            quantity = movement.get("quantity", 0)
+            if isinstance(quantity, (int, float)):
+                key = (name, unit)
+                by_ingredient[key] = by_ingredient.get(key, 0) + quantity
+        lines = [f"Ingredient Consumption — Last {days} Days", ""]
+        lines.append(
+            f"• Recorded consumption movements: "
+            f"{_component3_number(consumption.get('count', len(movements)))}"
+        )
+        if by_ingredient:
+            lines.extend(
+                f"• {name}: {_component3_number(quantity)}"
+                + (f" {unit}" if unit else "")
+                + " recorded"
+                for (name, unit), quantity in sorted(
+                    by_ingredient.items(), key=lambda item: -item[1]
+                )
+            )
+        elif not movements:
+            lines.append("• No recorded consumption movements were found for this period.")
+        else:
+            lines.append("• Recorded movements did not include usable ingredient quantities.")
+        return "\n".join(lines)
+
+    if query_type == "recipe_analysis":
+        recipes_stage = outputs.get("consumption", {}).get("data", {})
+        recipes = recipes_stage.get("recipes", {}) if isinstance(recipes_stage, dict) else {}
+        raw_recipes = recipes.get("recipes", []) if isinstance(recipes, dict) else []
+        requested_name = _component3_menu_item_name(message)
+        matches = [
+            recipe for recipe in raw_recipes if isinstance(recipe, dict)
+            and (not requested_name or requested_name.lower() in str(recipe.get("menuItemName", "")).lower())
+        ]
+        lines = [f"Recipe Analysis — Last {days} Days", ""]
+        if not matches:
+            lines.append("• No recorded recipe matched the requested menu item.")
+        else:
+            for recipe in matches:
+                lines.append(f"{recipe.get('menuItemName', 'Not recorded')}:")
+                for ingredient in recipe.get("ingredients", []):
+                    lines.append(
+                        f"• {ingredient.get('ingredientName', 'Not recorded')}: "
+                        f"{_component3_number(ingredient.get('quantityRequired'))} "
+                        f"{ingredient.get('unit', '')}".rstrip()
+                    )
+        return "\n".join(lines)
+
     if wants_sales:
         lines.append("Sales Performance")
         if isinstance(sales, dict) and "error" not in sales:
@@ -367,7 +518,6 @@ def _format_component3_response(
             lines.append("• Recorded sales data is unavailable.")
         lines.append("")
 
-    consumption = outputs.get("consumption", {}).get("data", {})
     if wants_consumption:
         lines.append("Ingredient Consumption & Stock Movements")
         if isinstance(consumption, dict) and "error" not in consumption:
@@ -471,7 +621,14 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
     """Run four separate role prompts, then a deterministic recommendation."""
     outputs = {}
     for stage, role, tool_name, instruction in COMPONENT3_STAGES:
-        if stage == "consumption":
+        if stage == "sales":
+            data = {
+                "summary": await call_tool("get_sales_summary", {"days": days},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+                "records": await call_tool("get_sales_records", {"days": days},
+                    allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
+            }
+        elif stage == "consumption":
             data = {
                 "movements": await call_tool(tool_name, {"days": days},
                     allowed_tools=COMPONENT3_READ_ONLY_TOOLS),
@@ -507,7 +664,7 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         else {}
     )
     report = await call_tool("build_component3_report", {
-        "sales_summary": outputs["sales"]["data"],
+        "sales_summary": outputs["sales"]["data"].get("summary", {}),
         "waste_summary": outputs["waste"]["data"].get("summary", {}),
         "consumption": consumption_data,
         "recipes": recipes,
