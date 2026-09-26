@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../inventory/screens/inventory_list_screen.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -139,12 +140,11 @@ class HomeDashboardScreen extends StatelessWidget {
               iconColor: Colors.blue,
               title: 'Stock & Inventory',
               subtitle: 'Check ingredient levels, batches, and low stock warnings',
-              badgeText: 'Step 3',
+              badgeText: 'Live',
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Stock & Inventory browsing will be integrated in Step 3!'),
-                    duration: Duration(seconds: 2),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const InventoryListScreen(),
                   ),
                 );
               },
