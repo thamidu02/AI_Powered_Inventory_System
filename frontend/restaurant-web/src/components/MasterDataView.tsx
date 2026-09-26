@@ -367,21 +367,6 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
 
   return (
     <div className="view-container">
-      {/* Hero Overview */}
-      <div className="hub-hero">
-        <div className="hub-hero-text">
-          <h2>Ingredient &amp; Master Catalog</h2>
-          <p>
-            Configure restaurant ingredients, SKU mappings, pantry categories, and storage locations.
-          </p>
-        </div>
-        <div className="hub-role-status">
-          <span className="text-muted text-xs">LOGGED IN AS</span>
-          <strong>{user?.fullName}</strong>
-          <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
-        </div>
-      </div>
-
       {/* Subtabs and Actions */}
       <div className="catalog-header">
         <div className="catalog-tabs">

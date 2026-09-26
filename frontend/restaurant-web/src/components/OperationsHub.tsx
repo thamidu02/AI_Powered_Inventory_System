@@ -1,24 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PackageCheck,
   PackageMinus,
   ShieldAlert,
+  Sparkles,
   Trash2,
   CheckCircle2,
   RefreshCw,
-  AlertTriangle,
-  Clock,
-  Truck,
-  Activity,
+  ArrowRight
 } from 'lucide-react';
-import type {
-  ActiveModal,
-  StockAdjustmentResponse,
-  StockBatchResponse,
-  InventoryResponse,
-  PurchaseOrderResponse,
-  StockMovementResponse,
-} from '../types';
+import type { ActiveModal, StockAdjustmentResponse } from '../types';
 import { useAuth } from '../context/useAuth';
 import { api } from '../services/api';
 
@@ -29,263 +20,62 @@ interface OperationsHubProps {
 
 export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refreshTrigger }) => {
   const { user } = useAuth();
-
-  // Data states
-  const [loading, setLoading] = useState(false);
-  const [expiringBatches, setExpiringBatches] = useState<StockBatchResponse[]>([]);
-  const [lowStockItems, setLowStockItems] = useState<InventoryResponse[]>([]);
-  const [pendingOrders, setPendingOrders] = useState<PurchaseOrderResponse[]>([]);
+  const [testAdjId, setTestAdjId] = useState('');
   const [pendingAdjustments, setPendingAdjustments] = useState<StockAdjustmentResponse[]>([]);
-  const [recentMovements, setRecentMovements] = useState<StockMovementResponse[]>([]);
-  const [totalInventoryCount, setTotalInventoryCount] = useState(0);
+  const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
   const isManager = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'SYSTEM_ADMIN';
-  const canReceive =
-    user?.role === 'SYSTEM_ADMIN' ||
-    user?.role === 'RESTAURANT_MANAGER' ||
-    user?.role === 'INVENTORY_MANAGER';
-  const canConsume =
-    user?.role === 'SYSTEM_ADMIN' ||
-    user?.role === 'RESTAURANT_MANAGER' ||
-    user?.role === 'INVENTORY_MANAGER' ||
-    user?.role === 'SALES_KITCHEN_STAFF';
+  const canReceive = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
+  const canConsume = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
 
-  const loadOperationsData = useCallback(async () => {
-    setLoading(true);
+  const loadPendingAdjustments = async () => {
+    if (!isManager) return;
+    setLoadingAdjustments(true);
     try {
-      const [expiring, lowStock, adjustments, movements, orders, allInventory] =
-        await Promise.all([
-          api.getExpiringStock(7).catch(() => []),
-          api.getLowStock().catch(() => []),
-          isManager ? api.getAdjustments('PENDING_APPROVAL').catch(() => []) : Promise.resolve([]),
-          api.getStockMovements().catch(() => []),
-          api.getPurchaseOrders().catch(() => []),
-          api.getInventory().catch(() => []),
-        ]);
-
-      setExpiringBatches(expiring);
-      setLowStockItems(lowStock);
-      setPendingAdjustments(adjustments);
-      setRecentMovements(movements.slice(0, 6));
-      setPendingOrders(orders.filter((o) => ['ORDERED', 'PENDING_APPROVAL', 'PARTIALLY_RECEIVED'].includes(o.status)));
-      setTotalInventoryCount(allInventory.length);
+      const data = await api.getAdjustments('PENDING_APPROVAL');
+      setPendingAdjustments(data);
     } catch {
       // ignore
     } finally {
-      setLoading(false);
+      setLoadingAdjustments(false);
     }
-  }, [isManager]);
+  };
 
   useEffect(() => {
-    void loadOperationsData();
-  }, [loadOperationsData, refreshTrigger]);
-
-  const getDaysUntil = (dateStr?: string | null) => {
-    if (!dateStr) return null;
-    const diffTime = new Date(dateStr).getTime() - new Date().getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+    loadPendingAdjustments();
+  }, [isManager, refreshTrigger]);
 
   return (
     <div className="view-container">
-      {/* ─── Hero Overview ──────────────────────────────────────── */}
+      {/* Overview Banner */}
       <div className="hub-hero">
         <div className="hub-hero-text">
-          <h2>Operations</h2>
-          <p>Here&apos;s what needs attention today across kitchen, inventory, and supplier intake.</p>
+          <h2>Inventory Operations & Business Logic Hub</h2>
+          <p>
+            Execute real-time warehouse transactions. All actions are governed by strict backend rules
+            including First-Expired First-Out (FEFO) depletion and managerial threshold gates.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hub-role-status">
-            <span className="text-muted text-xs">SHIFT OPERATOR</span>
-            <strong>{user?.fullName}</strong>
-            <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
-          </div>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => void loadOperationsData()}
-            disabled={loading}
-            title="Refresh operations"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
+        <div className="hub-role-status">
+          <span className="text-muted text-xs">LOGGED IN AS</span>
+          <strong>{user?.fullName}</strong>
+          <span className="role-pill-accent">{user?.role}</span>
         </div>
       </div>
 
-      {/* ─── Top 4 Operational Metrics ──────────────────────────── */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon-wrapper bg-emerald-glow">
-            <CheckCircle2 size={22} className="text-emerald" />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Inventory Health</span>
-            <span className="stat-value">
-              {lowStockItems.length === 0 ? 'Healthy' : `${lowStockItems.length} Low Stock`}
-            </span>
-            <span className="stat-subtext">
-              {totalInventoryCount > 0 ? `${totalInventoryCount} tracked ingredients` : 'Pantry active'}
-            </span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon-wrapper bg-blue-glow">
-            <Truck size={22} className="text-blue" />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Pending Orders</span>
-            <span className="stat-value">{pendingOrders.length}</span>
-            <span className="stat-subtext">Awaiting delivery / intake</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon-wrapper bg-amber-glow">
-            <Clock size={22} className="text-amber" />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Expiring Soon</span>
-            <span className="stat-value">{expiringBatches.length} items</span>
-            <span className="stat-subtext">Prioritize via FEFO</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon-wrapper bg-purple-glow">
-            <ShieldAlert size={22} style={{ color: 'var(--accent)' }} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Manager Sign-offs</span>
-            <span className="stat-value">{pendingAdjustments.length}</span>
-            <span className="stat-subtext">Stock adjustments &ge; 10 units</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Today's Priorities ("Today's Attention") ───────────── */}
-      <div className="operations-priority-section">
-        <div className="section-header-row mb-3">
-          <div>
-            <h3 className="section-title">Today&apos;s Attention</h3>
-            <p className="text-xs text-muted">Immediate action items required for kitchen and stock integrity.</p>
-          </div>
-          <span className="badge badge-amber">
-            {expiringBatches.length + lowStockItems.length + pendingAdjustments.length} priorities
-          </span>
-        </div>
-
-        <div className="priority-cards-grid">
-          {/* 1. First Expiring Batch */}
-          {expiringBatches.length > 0 ? (
-            expiringBatches.slice(0, 2).map((batch) => {
-              const days = getDaysUntil(batch.expiryDate);
-              return (
-                <div className="priority-card priority-card--amber" key={batch.id}>
-                  <div className="priority-card-icon">
-                    <Clock size={20} className="text-amber" />
-                  </div>
-                  <div className="priority-card-info">
-                    <div className="flex items-center gap-2">
-                      <strong>{batch.ingredientName}</strong>
-                      <span className="font-mono text-xs text-muted">Lot: {batch.batchNumber}</span>
-                    </div>
-                    <p className="priority-card-desc">
-                      {days !== null && days <= 0
-                        ? '⚠️ Expired today — deplete or log waste immediately.'
-                        : `Expires in ${days} day(s) · Batch quantity: ${batch.quantity}`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={() => onOpenModal({ type: 'consume', ingredientId: batch.ingredientId })}
-                  >
-                    Use First (FEFO)
-                  </button>
-                </div>
-              );
-            })
-          ) : (
-            <div className="priority-card priority-card--clean">
-              <CheckCircle2 size={18} className="text-emerald" />
-              <div className="priority-card-info">
-                <strong>FEFO Batches in Good Standing</strong>
-                <p className="priority-card-desc">No batches are within critical 48h expiration window.</p>
-              </div>
-            </div>
-          )}
-
-          {/* 2. Low Stock Alerts */}
-          {lowStockItems.slice(0, 2).map((item) => (
-            <div className="priority-card priority-card--rose" key={item.ingredientId}>
-              <div className="priority-card-icon">
-                <AlertTriangle size={20} className="text-rose" />
-              </div>
-              <div className="priority-card-info">
-                <strong>{item.ingredientName}</strong>
-                <p className="priority-card-desc">
-                  Low stock · Current: <strong>{item.currentStock} {item.unit}</strong> (Min buffer: {item.minimumStockLevel} {item.unit})
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={() => onOpenModal({ type: 'receive', ingredientId: item.ingredientId })}
-                disabled={!canReceive}
-              >
-                + Receive Stock
-              </button>
-            </div>
-          ))}
-
-          {/* 3. Pending Adjustments */}
-          {isManager && pendingAdjustments.length > 0 && (
-            <div className="priority-card priority-card--purple">
-              <div className="priority-card-icon">
-                <ShieldAlert size={20} style={{ color: 'var(--accent)' }} />
-              </div>
-              <div className="priority-card-info">
-                <strong>{pendingAdjustments.length} Stock Adjustments Pending Sign-off</strong>
-                <p className="priority-card-desc">
-                  Changes &ge; 10 units awaiting Restaurant Manager approval.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={() => {
-                  const first = pendingAdjustments[0];
-                  onOpenModal({ type: 'approveAdjustment', adjustmentId: first.id, adjustment: first });
-                }}
-              >
-                Review First
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Quick Actions Grid ─────────────────────────────────── */}
-      <div className="section-header-row mt-6 mb-3">
-        <div>
-          <h3 className="section-title">Quick Operations</h3>
-          <p className="text-xs text-muted">Primary transactions governed by First-Expired, First-Out (FEFO) rules.</p>
-        </div>
-      </div>
-
+      {/* Operations Grid */}
       <div className="ops-grid">
-        {/* Receive Stock */}
+        {/* 1. Receive Stock */}
         <div className={`ops-card ${!canReceive ? 'ops-card-disabled' : ''}`}>
           <div className="ops-card-header">
             <div className="ops-icon-box bg-blue-glow">
-              <PackageCheck size={22} className="text-blue" />
+              <PackageCheck size={24} className="text-blue" />
             </div>
-            <div className="ops-tag">INTAKE</div>
+            <div className="ops-tag">RECEIVE</div>
           </div>
           <h3>Receive Inward Stock</h3>
           <p>
-            Register supplier shipments, lot numbers, storage locations, unit costs, and expiration dates.
+            Register incoming shipments, assign lot/batch numbers, storage locations, unit costs, and expiration dates.
           </p>
           <div className="ops-footer">
             <button
@@ -295,25 +85,25 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
               disabled={!canReceive}
               onClick={() => onOpenModal({ type: 'receive' })}
             >
-              + Receive Stock
+              Open Receive Form
             </button>
             {!canReceive && (
-              <span className="text-xs text-rose mt-1 block">Requires Manager or Storekeeper role</span>
+              <span className="text-xs text-rose mt-1 block">Requires Manager or Admin role</span>
             )}
           </div>
         </div>
 
-        {/* FEFO Usage */}
+        {/* 2. FEFO Consume */}
         <div className={`ops-card ${!canConsume ? 'ops-card-disabled' : ''}`}>
           <div className="ops-card-header">
             <div className="ops-icon-box bg-emerald-glow">
-              <PackageMinus size={22} className="text-emerald" />
+              <PackageMinus size={24} className="text-emerald" />
             </div>
-            <div className="ops-tag">FEFO DEPLETION</div>
+            <div className="ops-tag">FEFO CONSUME</div>
           </div>
-          <h3>Use Stock in Kitchen</h3>
+          <h3>Consume Stock (FEFO)</h3>
           <p>
-            Deduct ingredient portions. The system automatically depletes earliest expiring batches first.
+            Deduct ingredient quantities. The system automatically depletes batches with the earliest expiration date first.
           </p>
           <div className="ops-footer">
             <button
@@ -323,47 +113,50 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
               disabled={!canConsume}
               onClick={() => onOpenModal({ type: 'consume' })}
             >
-              Use Stock (FEFO)
+              Consume via FEFO
             </button>
           </div>
         </div>
 
-        {/* Record Waste */}
+        {/* 3. Record Waste */}
         <div className="ops-card">
           <div className="ops-card-header">
             <div className="ops-icon-box bg-rose-glow">
-              <Trash2 size={22} className="text-rose" />
+              <Trash2 size={24} className="text-rose" />
             </div>
             <div className="ops-tag">SPOILAGE</div>
           </div>
-          <h3>Record Spoilage & Waste</h3>
+          <h3>Record Waste & Spoilage</h3>
           <p>
-            Record expired, damaged, or over-prepped items directly against specific stock batches.
+            Record expired or ruined stock directly against a batch. Audit trail is captured in stock movements.
           </p>
           <div className="ops-footer">
+            <span className="text-xs text-muted block mb-2">
+              Tip: Click &quot;Waste&quot; next to any batch on the Stock tab to auto-select it.
+            </span>
             <button
               type="button"
               className="btn-secondary w-full"
-              onClick={() => onOpenModal({ type: 'consume' })}
+              onClick={() => alert('Please navigate to Stock & Batches and click Waste on the specific batch.')}
             >
-              Log Waste Record
+              Batch Waste Instructions
             </button>
           </div>
         </div>
 
-        {/* Manager Review */}
+        {/* 4. Manager Approval Quick Trigger */}
         <div className={`ops-card ${!isManager ? 'ops-card-disabled' : ''}`}>
           <div className="ops-card-header">
             <div className="ops-icon-box bg-purple-glow">
-              <ShieldAlert size={22} style={{ color: 'var(--accent)' }} />
+              <ShieldAlert size={24} className="text-accent" />
             </div>
             <div className="ops-tag">
-              {pendingAdjustments.length > 0 ? `${pendingAdjustments.length} PENDING` : 'GATEWAY'}
+              {pendingAdjustments.length > 0 ? `${pendingAdjustments.length} PENDING` : 'THRESHOLD GATE'}
             </div>
           </div>
           <h3>Manager Adjustment Review</h3>
           <p>
-            Adjustments &ge; 10 units require managerial sign-off before warehouse quantity is updated.
+            Adjustments &ge; 10 units require manager sign-off before batch inventory quantity is altered.
           </p>
           <div className="ops-footer">
             {pendingAdjustments.length > 0 ? (
@@ -375,67 +168,170 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
                   onOpenModal({ type: 'approveAdjustment', adjustmentId: first.id, adjustment: first });
                 }}
               >
-                Review Pending ({pendingAdjustments.length})
+                Review First Pending ({pendingAdjustments.length})
               </button>
             ) : (
-              <button
-                type="button"
-                className="btn-secondary w-full"
-                disabled
-              >
-                No Pending Approvals
-              </button>
+              <div className="input-group mb-2">
+                <input
+                  type="text"
+                  className="input-sm font-mono"
+                  placeholder="Or enter adjustment GUID..."
+                  value={testAdjId}
+                  onChange={(e) => setTestAdjId(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm mt-2 w-full"
+                  disabled={!isManager || !testAdjId}
+                  onClick={() => onOpenModal({ type: 'approveAdjustment', adjustmentId: testAdjId })}
+                >
+                  Review by ID
+                </button>
+              </div>
+            )}
+            {!isManager && (
+              <span className="text-xs text-rose mt-1 block">Requires RESTAURANT_MANAGER role</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* ─── Recent Operations Activity Feed ────────────────────── */}
-      <div className="table-card mt-6 p-4">
-        <div className="panel-heading mb-3">
-          <div className="flex items-center gap-2">
-            <Activity size={18} className="text-accent" />
-            <h3 style={{ margin: 0 }}>Recent Warehouse Activity Feed</h3>
-          </div>
-          <span className="text-xs text-muted">Audited stock movements</span>
-        </div>
-
-        {recentMovements.length === 0 ? (
-          <div className="empty-state py-6">
-            <p className="text-sm text-muted">No recent stock movements recorded yet today.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {recentMovements.map((move) => (
-              <div className="activity-feed-row" key={move.id}>
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`activity-pill ${
-                      move.movementType === 'RECEIPT' || move.movementType === 'TRANSFER_IN'
-                        ? 'activity-pill--in'
-                        : move.movementType === 'WASTE'
-                        ? 'activity-pill--waste'
-                        : 'activity-pill--out'
-                    }`}
-                  >
-                    {move.movementType}
-                  </span>
-                  <strong className="text-sm">{move.ingredientName}</strong>
-                  <span className="text-xs font-mono text-muted">Batch: {move.batchNumber}</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold text-primary">
-                    {move.quantity > 0 ? `+${move.quantity}` : move.quantity} {move.unit}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {new Date(move.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
+      {/* PENDING ADJUSTMENTS QUEUE FOR MANAGERS */}
+      {isManager && (
+        <div className="logic-explainer-card mt-6">
+          <div className="explainer-header flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={20} className="text-accent" />
+              <div>
+                <h3 style={{ margin: 0 }}>Pending Stock Adjustments Queue</h3>
+                <span className="text-xs text-muted">
+                  Significant adjustments (&ge; 10 units) awaiting Restaurant Manager decision
+                </span>
               </div>
-            ))}
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-sm flex items-center gap-1"
+              onClick={loadPendingAdjustments}
+              disabled={loadingAdjustments}
+            >
+              <RefreshCw size={14} className={loadingAdjustments ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
           </div>
-        )}
+
+          {loadingAdjustments ? (
+            <div className="p-4 text-center text-muted text-sm">
+              Loading pending adjustments...
+            </div>
+          ) : pendingAdjustments.length === 0 ? (
+            <div className="p-4 text-center text-muted text-sm flex flex-col items-center justify-center gap-1">
+              <CheckCircle2 size={24} className="text-emerald mb-1" />
+              <strong>Queue is clear</strong>
+              <span>No stock adjustments are currently pending manager approval.</span>
+            </div>
+          ) : (
+            <div className="space-y-3 mt-3">
+              {pendingAdjustments.map((adj) => (
+                <div
+                  key={adj.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    gap: '1rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <strong style={{ fontSize: '0.95rem' }}>{adj.ingredientName}</strong>
+                      <span className="text-xs font-mono text-muted">Batch: {adj.batchNumber}</span>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '999px',
+                          background: adj.quantityChange > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                          color: adj.quantityChange > 0 ? 'var(--emerald, #10b981)' : 'var(--rose, #ef4444)',
+                          border: `1px solid ${adj.quantityChange > 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                        }}
+                      >
+                        {adj.quantityChange > 0 ? `+${adj.quantityChange}` : adj.quantityChange} units
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Reason: <span style={{ color: 'var(--text-main, #e2e8f0)' }}>&ldquo;{adj.reason}&rdquo;</span> • Requested by: <strong>{adj.requestedByName}</strong> • {new Date(adj.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm flex items-center gap-1"
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => onOpenModal({ type: 'approveAdjustment', adjustmentId: adj.id, adjustment: adj })}
+                  >
+                    <span>Review & Decide</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Business Logic Deep-Dive Explainer Card */}
+      <div className="logic-explainer-card mt-6">
+        <div className="explainer-header">
+          <Sparkles size={20} className="text-accent" />
+          <h3>How the Backend Implements Core Logic</h3>
+        </div>
+        <div className="explainer-columns">
+          <div className="explainer-col">
+            <h4>1. FEFO Automated Depletion</h4>
+            <p className="text-sm text-muted">
+              When consumption is submitted, the API queries unexpired batches ordered by:
+            </p>
+            <ol className="text-xs text-muted explainer-list">
+              <li>Batches with explicit ExpiryDate ascending (earliest first)</li>
+              <li>Batches with null ExpiryDate sorted by ReceivedDate</li>
+              <li>Iteratively deducts until remaining request = 0</li>
+              <li>Updates batch status: DEPLETED if quantity is 0</li>
+            </ol>
+          </div>
+
+          <div className="explainer-col">
+            <h4>2. Stock Adjustment Threshold</h4>
+            <p className="text-sm text-muted">
+              Stock adjustments protect against discrepancies:
+            </p>
+            <ul className="text-xs text-muted explainer-list">
+              <li>
+                <strong>&lt; 10 units:</strong> Applied instantly to batch quantity + written to audit ledger.
+              </li>
+              <li>
+                <strong>&ge; 10 units:</strong> Marked <code>PENDING_APPROVAL</code>. Batch quantity is unchanged until a Manager reviews.
+              </li>
+            </ul>
+          </div>
+
+          <div className="explainer-col">
+            <h4>3. Dual-Movement Transfers</h4>
+            <p className="text-sm text-muted">
+              Transferring stock creates:
+            </p>
+            <ul className="text-xs text-muted explainer-list">
+              <li><code>TRANSFER_OUT</code> movement referencing original batch</li>
+              <li>New batch created at destination location with same cost & expiry</li>
+              <li><code>TRANSFER_IN</code> movement referencing new batch</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

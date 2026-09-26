@@ -34,23 +34,25 @@ import type {
 const API = 'http://localhost:5066';
 
 const QUICK_ACTIONS = [
-  { label: "What's expiring soon?",  icon: Clock,         color: '#B85445', message: "What items and batches are expiring soonest?" },
-  { label: "What's running low?",    icon: PackageSearch, color: '#C99A45', message: 'Check for low stock ingredients that need replenishment' },
-  { label: "What should I order?",   icon: Sparkles,      color: '#173F35', message: 'What ingredients should we order based on current stock and consumption?' },
-  { label: "Show today's waste",     icon: AlertTriangle, color: '#B85445', message: 'Analyze recorded waste by ingredient and reason for the last 30 days' },
-  { label: 'How to receive stock',   icon: Sparkles,      color: '#4F8A70', message: 'Show me how to receive a new stock batch' },
-  { label: 'Sales & usage summary',  icon: TrendingUp,    color: '#4F8A70', message: 'Analyze recorded sales and ingredient consumption for the last 30 days' },
+  { label: 'Guide: Receive Stock',  icon: Sparkles,     color: '#3b82f6', message: 'Show me how to receive a new stock batch' },
+  { label: 'Check Low Stock',       icon: PackageSearch, color: '#f59e0b', message: 'Check for low stock ingredients that need replenishment' },
+  { label: 'Investigate Anomaly',   icon: AlertTriangle, color: '#ef4444', message: 'Investigate stock discrepancies and anomalies across all ingredients' },
+  { label: 'Optimize Levels',       icon: TrendingUp,    color: '#8b5cf6', message: 'Analyze and optimize reorder levels based on 90-day consumption history' },
+  { label: 'Emergency Shortage',    icon: ShieldAlert,   color: '#ec4899', message: 'Emergency — we have critically low stock on a key ingredient' },
+  { label: 'Analyze Sales',          icon: TrendingUp,   color: '#22c55e', message: 'Analyze recorded sales performance for the last 30 days' },
+  { label: 'Track Consumption',      icon: PackageSearch, color: '#38bdf8', message: 'Analyze ingredient consumption and stock movements for the last 30 days' },
+  { label: 'Analyze Waste',          icon: AlertTriangle, color: '#f97316', message: 'Analyze recorded waste by ingredient and reason for the last 30 days' },
+  { label: 'Full C3 Report',         icon: Sparkles,    color: '#a855f7', message: 'Give me a complete sales, consumption, recipe, and waste report for the last 30 days using only recorded database data' },
 ];
 
 const WORKFLOW_COLORS: Record<string, string> = {
-  SALES_CONSUMPTION_WASTE:   '#173F35',
-  GUIDED_WORKFLOW:         '#4F8A70',
-  LOW_STOCK_REPLENISHMENT: '#C99A45',
-  ANOMALY_INVESTIGATION:   '#B85445',
-  INVENTORY_OPTIMIZATION:  '#173F35',
-  EMERGENCY_SHORTAGE:      '#B85445',
+  SALES_CONSUMPTION_WASTE:   '#a855f7',
+  GUIDED_WORKFLOW:         '#3b82f6',
+  LOW_STOCK_REPLENISHMENT: '#f59e0b',
+  ANOMALY_INVESTIGATION:   '#ef4444',
+  INVENTORY_OPTIMIZATION:  '#8b5cf6',
+  EMERGENCY_SHORTAGE:      '#ec4899',
 };
-
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -206,7 +208,7 @@ const ChatBubble: React.FC<{
                 return <ThinkingIndicator key={i} text={ev.text ?? 'Thinking…'} />;
               }
               if (ev.type === 'intent') {
-                const col = WORKFLOW_COLORS[ev.intent ?? ''] ?? '#4F8A70';
+                const col = WORKFLOW_COLORS[ev.intent ?? ''] ?? '#6366f1';
                 return (
                   <div key={i} className="ai-intent-badge" style={{ borderColor: col, color: col }}>
                     <Brain size={11} /> {ev.intent?.replace(/_/g, ' ')}
@@ -542,12 +544,12 @@ export const AiAssistantChat: React.FC = () => {
       {/* ── Header ── */}
       <div className="hub-hero" style={{ marginBottom: '1rem' }}>
         <div className="hub-hero-text">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Sparkles size={20} className="text-accent" />
-            Savory Assistant
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sparkles size={22} className="text-accent" />
+            Inventory AI Assistant
           </h2>
           <p>
-            Your kitchen &amp; inventory helper · Logged in as {user?.fullName || 'User'} ({user?.role?.replace(/_/g, ' ')})
+            Powered by Gemini 2.0 Flash · {user?.role} · 4 intelligent workflows available
           </p>
         </div>
       </div>
@@ -594,21 +596,20 @@ export const AiAssistantChat: React.FC = () => {
           <div className="ai-messages">
             {messages.length === 0 && (
               <div className="ai-empty-state">
-                <Bot size={44} style={{ opacity: 0.35, color: '#4F8A70' }} />
-                <h4 style={{ marginTop: '0.75rem', fontWeight: 600 }}>Savory Assistant Ready</h4>
-                <p className="text-muted text-sm" style={{ marginTop: '0.25rem' }}>
-                  Ask me about pantry stock levels, expiring batches, recommended purchases, or sales and waste logs.
+                <Bot size={44} style={{ opacity: 0.25 }} />
+                <p className="text-muted" style={{ marginTop: '0.75rem' }}>
+                  Ask me about sales, consumption, recipes, or waste, or tap a Quick Action to get started.
                 </p>
                 <div className="ai-capabilities">
                   {[
-                    { icon: PackageSearch, label: 'Low-Stock Replenishment',    color: '#C99A45' },
-                    { icon: AlertTriangle, label: 'Anomaly Investigation',      color: '#B85445' },
-                    { icon: Settings2,     label: 'Inventory Optimization',     color: '#173F35' },
-                    { icon: ShieldAlert,   label: 'Emergency Shortage Response', color: '#B85445' },
-                    { icon: TrendingUp,    label: 'Sales Performance',          color: '#4F8A70' },
-                    { icon: PackageSearch, label: 'Ingredient Consumption',      color: '#2A6F97' },
-                    { icon: AlertTriangle, label: 'Waste Analysis',              color: '#C99A45' },
-                    { icon: Sparkles,      label: 'FEFO Traceability Audit',     color: '#173F35' },
+                    { icon: PackageSearch, label: 'Low-Stock Replenishment',    color: '#f59e0b' },
+                    { icon: AlertTriangle, label: 'Anomaly Investigation',      color: '#ef4444' },
+                    { icon: Settings2,     label: 'Inventory Optimization',     color: '#8b5cf6' },
+                    { icon: ShieldAlert,   label: 'Emergency Shortage Response', color: '#ec4899' },
+                    { icon: TrendingUp,    label: 'Sales Performance',          color: '#22c55e' },
+                    { icon: PackageSearch, label: 'Ingredient Consumption',      color: '#38bdf8' },
+                    { icon: AlertTriangle, label: 'Waste Analysis',              color: '#f97316' },
+                    { icon: Sparkles,      label: 'Combined C3 Report',          color: '#a855f7' },
                   ].map(c => (
                     <div key={c.label} className="ai-cap-item" style={{ '--cap-color': c.color } as React.CSSProperties}>
                       <c.icon size={16} style={{ color: c.color }} />

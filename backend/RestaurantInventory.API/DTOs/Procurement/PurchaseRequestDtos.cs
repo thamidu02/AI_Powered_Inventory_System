@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RestaurantInventory.API.DTOs.Procurement;
 
@@ -91,6 +91,7 @@ public class PurchaseRequestResponse
     public string? ApprovedByName { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public List<PurchaseRequestItemResponse> Items { get; set; } = new();
+    public List<PurchaseOrderSummaryResponse> PurchaseOrders { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

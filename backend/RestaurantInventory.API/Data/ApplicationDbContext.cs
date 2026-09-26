@@ -219,6 +219,12 @@ public class ApplicationDbContext : DbContext
             })
             .IsUnique();
 
+        modelBuilder.Entity<PurchaseOrder>()
+            .HasOne(po => po.PurchaseRequest)
+            .WithMany(pr => pr.PurchaseOrders)
+            .HasForeignKey(po => po.PurchaseRequestId)
+            .OnDelete(DeleteBehavior.SetNull);
+
 
 
         // SALES

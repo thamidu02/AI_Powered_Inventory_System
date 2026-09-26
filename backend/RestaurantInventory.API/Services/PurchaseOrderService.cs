@@ -19,6 +19,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     {
         var query = _context.PurchaseOrders
             .AsNoTracking()
+            .Include(po => po.PurchaseRequest)
             .Include(po => po.Supplier)
             .Include(po => po.CreatedBy)
             .Include(po => po.ApprovedBy)
@@ -43,6 +44,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     {
         var order = await _context.PurchaseOrders
             .AsNoTracking()
+            .Include(po => po.PurchaseRequest)
             .Include(po => po.Supplier)
             .Include(po => po.CreatedBy)
             .Include(po => po.ApprovedBy)
@@ -64,6 +66,24 @@ public class PurchaseOrderService : IPurchaseOrderService
             throw new InvalidOperationException("User not found.");
         }
 
+        if (request.PurchaseRequestId.HasValue)
+        {
+            var pr = await _context.PurchaseRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == request.PurchaseRequestId.Value);
+
+            if (pr == null)
+            {
+                throw new InvalidOperationException("Linked Purchase Request was not found.");
+            }
+
+            if (pr.Status != "APPROVED")
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create Purchase Order from Purchase Request with status '{pr.Status}'. The Purchase Request must be in APPROVED status.");
+            }
+        }
+
         await ValidateSupplierAsync(request.SupplierId);
 
         var itemTuples = request.Items
@@ -78,6 +98,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         var purchaseOrder = new PurchaseOrder
         {
             Id = Guid.NewGuid(),
+            PurchaseRequestId = request.PurchaseRequestId,
             SupplierId = request.SupplierId,
             CreatedById = userId,
             ApprovedById = null,
@@ -127,6 +148,24 @@ public class PurchaseOrderService : IPurchaseOrderService
                 $"Purchase order cannot be modified because its current status is '{existingOrder.Status}'. Only DRAFT purchase orders can be edited.");
         }
 
+        if (request.PurchaseRequestId.HasValue)
+        {
+            var pr = await _context.PurchaseRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == request.PurchaseRequestId.Value);
+
+            if (pr == null)
+            {
+                throw new InvalidOperationException("Linked Purchase Request was not found.");
+            }
+
+            if (pr.Status != "APPROVED")
+            {
+                throw new InvalidOperationException(
+                    $"Cannot link Purchase Order to Purchase Request with status '{pr.Status}'. The Purchase Request must be in APPROVED status.");
+            }
+        }
+
         await ValidateSupplierAsync(request.SupplierId);
 
         var itemTuples = request.Items
@@ -141,6 +180,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
+            existingOrder.PurchaseRequestId = request.PurchaseRequestId;
             existingOrder.SupplierId = request.SupplierId;
             existingOrder.ExpectedDeliveryDate = request.ExpectedDeliveryDate;
             existingOrder.TotalAmount = totalAmount;
@@ -295,10 +335,10 @@ public class PurchaseOrderService : IPurchaseOrderService
             throw new KeyNotFoundException("Purchase order not found.");
         }
 
-        if (purchaseOrder.Status != "APPROVED")
+        if (purchaseOrder.Status != "DRAFT" && purchaseOrder.Status != "APPROVED")
         {
             throw new InvalidOperationException(
-                $"Cannot mark purchase order as ORDERED from status '{purchaseOrder.Status}'. Only APPROVED purchase orders can be marked as ORDERED.");
+                $"Cannot mark purchase order as ORDERED from status '{purchaseOrder.Status}'. Only DRAFT purchase orders can be ordered.");
         }
 
         purchaseOrder.Status = "ORDERED";
@@ -464,6 +504,8 @@ public class PurchaseOrderService : IPurchaseOrderService
         return new PurchaseOrderResponse
         {
             Id = po.Id,
+            PurchaseRequestId = po.PurchaseRequestId,
+            PurchaseRequestReason = po.PurchaseRequest?.Reason,
             SupplierId = po.SupplierId,
             SupplierName = po.Supplier?.Name ?? string.Empty,
             Status = po.Status,

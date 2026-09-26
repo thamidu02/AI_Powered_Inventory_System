@@ -5,14 +5,13 @@ import {
   Boxes,
   Clock,
   Download,
-  List,
+  History,
   MapPin,
   Package,
   RefreshCw,
   Search,
   User as UserIcon,
   X,
-  GitCommit,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { StockBatchResponse, StockMovementResponse } from '../types';
@@ -39,12 +38,11 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline');
 
   const targetIngredientId = ingredientId || batch?.ingredientId;
   const targetBatchId = batch?.id;
   const titleIngredient =
-    ingredientName || batch?.ingredientName || (movements.length > 0 ? movements[0].ingredientName : 'Item');
+    ingredientName || batch?.ingredientName || (movements.length > 0 ? movements[0].ingredientName : 'Ingredient');
   const titleUnit = unit || (movements.length > 0 ? movements[0].unit : '');
   const titleSku = sku || (movements.length > 0 ? movements[0].sku : '');
 
@@ -63,7 +61,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
       setMovements(data);
     } catch (err) {
       console.error('Failed to load history:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load batch history.');
+      setError(err instanceof Error ? err.message : 'Failed to load stock movements history.');
     } finally {
       setLoading(false);
     }
@@ -73,6 +71,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
     fetchHistory();
   }, [targetBatchId, targetIngredientId]);
 
+  // Filtered movements based on filterType and searchTerm
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
       const type = (m.movementType || '').toUpperCase();
@@ -116,19 +115,21 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
       .reduce((sum, m) => sum + (m.quantity || 0), 0);
   }, [movements]);
 
+  // Export to CSV
   const handleExportCSV = () => {
     if (movements.length === 0) return;
     const headers = [
       'Date & Time',
       'Batch Number',
-      'Product',
-      'Action',
+      'Ingredient',
+      'Movement Type',
       'Quantity',
       'Unit',
       'Storage Location',
-      'Reference',
+      'Reference Type',
       'Reason',
       'Recorded By',
+      'User Email',
     ];
 
     const rows = filteredMovements.map((m) => [
@@ -142,27 +143,41 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
       `"${m.referenceType || ''}"`,
       `"${(m.reason || '').replace(/"/g, '""')}"`,
       `"${m.createdByName || ''}"`,
+      `"${m.createdByEmail || ''}"`,
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `batch_history_${titleIngredient.replace(/\s+/g, '_')}.csv`;
+    link.setAttribute('href', url);
+    const filename = batch
+      ? `consume_history_batch_${batch.batchNumber}.csv`
+      : `consume_history_${titleIngredient.replace(/\s+/g, '_')}.csv`;
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const getEventName = (type: string) => {
+  const getMovementBadge = (type: string) => {
     const t = (type || '').toUpperCase();
-    if (t === 'CONSUME') return 'Used in kitchen';
-    if (t === 'RECEIVE') return 'Received';
-    if (t === 'WASTE') return 'Wasted';
-    if (t.startsWith('ADJUSTMENT')) return 'Stock adjustment';
-    if (t.startsWith('TRANSFER')) return 'Transferred';
-    return type;
+    if (t === 'CONSUME') {
+      return <span className="badge badge-purple">CONSUMED</span>;
+    }
+    if (t === 'RECEIVE') {
+      return <span className="badge badge-emerald">RECEIVED</span>;
+    }
+    if (t === 'WASTE') {
+      return <span className="badge badge-rose">WASTE</span>;
+    }
+    if (t.startsWith('ADJUSTMENT')) {
+      return <span className="badge badge-amber">{t.replace('ADJUSTMENT_', 'ADJ ')}</span>;
+    }
+    if (t.startsWith('TRANSFER')) {
+      return <span className="badge badge-blue">{t.replace('TRANSFER_', 'XFER ')}</span>;
+    }
+    return <span className="badge badge-default">{type}</span>;
   };
 
   const isDeduction = (type: string) => {
@@ -173,316 +188,301 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-card modal-history-wide"
+        className="modal-content modal-history-wide"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '840px', width: '95%' }}
+        style={{ maxWidth: '960px', width: '95%' }}
       >
+        <button type="button" className="modal-close" onClick={onClose} title="Close">
+          <X size={20} />
+        </button>
+
         {/* Modal Header */}
-        <div className="modal-header">
-          <div className="modal-header-title">
-            <div className="modal-title-with-badge">
-              <h3>Batch History</h3>
-              {batch && <span className="pill-batch-code font-mono">Batch {batch.batchNumber}</span>}
-            </div>
+        <div className="modal-header" style={{ marginBottom: '1.25rem' }}>
+          <div className="modal-icon-badge bg-purple-glow">
+            <History size={24} className="text-purple" />
+          </div>
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              {batch ? 'Batch Consume & Movement History' : 'Ingredient Consume History'}
+              {batch && <span className="pill-batch-code font-mono">{batch.batchNumber}</span>}
+            </h3>
             <p>
-              History for <strong>{titleIngredient}</strong> {titleSku ? `(${titleSku})` : ''}
+              {batch ? (
+                <>
+                  Detailed consumption & movement audit log for <strong>{titleIngredient}</strong>
+                  {titleSku ? ` (${titleSku})` : ''} in batch <strong>{batch.batchNumber}</strong>
+                </>
+              ) : (
+                <>
+                  Full consumption & movement history for <strong>{titleIngredient}</strong>
+                  {titleSku ? ` (${titleSku})` : ''} across all batches
+                </>
+              )}
             </p>
           </div>
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="modal-body-scrollable">
-          {/* Friendly Summary Cards */}
-          <div className="history-kpis-grid">
-            <div className="history-kpi-card">
-              <div className="kpi-icon-wrap">
-                <ArrowDownRight size={16} className="text-emerald" />
-              </div>
-              <div className="kpi-body">
-                <span className="kpi-label">Total Used</span>
-                <span className="kpi-val text-emerald">
-                  {totalConsumed.toLocaleString(undefined, { maximumFractionDigits: 2 })} {titleUnit}
-                </span>
-              </div>
+        {/* Summary KPI Cards */}
+        <div className="history-kpis-grid">
+          <div className="history-kpi-card kpi-purple">
+            <div className="kpi-icon-wrap">
+              <ArrowDownRight size={18} className="text-purple" />
             </div>
-
-            <div className="history-kpi-card">
-              <div className="kpi-icon-wrap">
-                <ArrowUpRight size={16} className="text-blue" />
-              </div>
-              <div className="kpi-body">
-                <span className="kpi-label">Total Received</span>
-                <span className="kpi-val text-blue">
-                  {totalReceived.toLocaleString(undefined, { maximumFractionDigits: 2 })} {titleUnit}
-                </span>
-              </div>
-            </div>
-
-            <div className="history-kpi-card">
-              <div className="kpi-icon-wrap">
-                <Package size={16} className="text-rose" />
-              </div>
-              <div className="kpi-body">
-                <span className="kpi-label">Total Waste</span>
-                <span className="kpi-val text-rose">
-                  {totalWasted.toLocaleString(undefined, { maximumFractionDigits: 2 })} {titleUnit}
-                </span>
-              </div>
-            </div>
-
-            <div className="history-kpi-card">
-              <div className="kpi-icon-wrap">
-                <Boxes size={16} className="text-secondary" />
-              </div>
-              <div className="kpi-body">
-                <span className="kpi-label">
-                  {batch ? 'Current Batch Stock' : 'Recorded Events'}
-                </span>
-                <span className="kpi-val">
-                  {batch
-                    ? `${batch.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${titleUnit}`
-                    : movements.length}
-                </span>
-              </div>
+            <div className="kpi-body">
+              <span className="kpi-label">Total Consumed</span>
+              <span className="kpi-val text-purple">
+                {totalConsumed.toLocaleString(undefined, { maximumFractionDigits: 3 })}{' '}
+                <span className="kpi-unit">{titleUnit}</span>
+              </span>
             </div>
           </div>
 
-          {/* Filter & View Toolbar */}
-          <div className="history-toolbar">
-            <div className="history-filter-tabs">
-              <button
-                type="button"
-                className={`history-tab-btn ${filterType === 'ALL' ? 'active' : ''}`}
-                onClick={() => setFilterType('ALL')}
-              >
-                All ({movements.length})
-              </button>
-              <button
-                type="button"
-                className={`history-tab-btn ${filterType === 'CONSUME' ? 'active' : ''}`}
-                onClick={() => setFilterType('CONSUME')}
-              >
-                Used
-              </button>
-              <button
-                type="button"
-                className={`history-tab-btn ${filterType === 'RECEIVE' ? 'active' : ''}`}
-                onClick={() => setFilterType('RECEIVE')}
-              >
-                Received
-              </button>
-              <button
-                type="button"
-                className={`history-tab-btn ${filterType === 'WASTE' ? 'active' : ''}`}
-                onClick={() => setFilterType('WASTE')}
-              >
-                Waste
-              </button>
+          <div className="history-kpi-card kpi-emerald">
+            <div className="kpi-icon-wrap">
+              <ArrowUpRight size={18} className="text-emerald" />
             </div>
-
-            <div className="history-actions-bar">
-              <div className="view-toggle-chips">
-                <button
-                  type="button"
-                  className={`view-toggle-btn ${viewMode === 'timeline' ? 'active' : ''}`}
-                  onClick={() => setViewMode('timeline')}
-                  title="Timeline view"
-                >
-                  <GitCommit size={14} />
-                  <span>Timeline</span>
-                </button>
-                <button
-                  type="button"
-                  className={`view-toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
-                  onClick={() => setViewMode('table')}
-                  title="Table view"
-                >
-                  <List size={14} />
-                  <span>Table</span>
-                </button>
-              </div>
-
-              <div className="search-box history-search">
-                <Search size={14} className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={fetchHistory}
-                title="Refresh"
-              >
-                <RefreshCw size={14} className={loading ? 'spin' : ''} />
-              </button>
-
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
-                onClick={handleExportCSV}
-                disabled={movements.length === 0}
-              >
-                <Download size={13} />
-                <span>CSV</span>
-              </button>
+            <div className="kpi-body">
+              <span className="kpi-label">Total Received</span>
+              <span className="kpi-val text-emerald">
+                {totalReceived.toLocaleString(undefined, { maximumFractionDigits: 3 })}{' '}
+                <span className="kpi-unit">{titleUnit}</span>
+              </span>
             </div>
           </div>
 
-          {error && <div className="alert-error mb-3">{error}</div>}
-
-          {/* Timeline View */}
-          {viewMode === 'timeline' && (
-            <div className="traceability-timeline-container">
-              {loading && movements.length === 0 ? (
-                <div className="table-loading-box" style={{ minHeight: '160px' }}>
-                  <RefreshCw size={20} className="spin text-accent mb-2" />
-                  <span>Loading history...</span>
-                </div>
-              ) : filteredMovements.length === 0 ? (
-                <div className="empty-box" style={{ padding: '2rem 1rem' }}>
-                  <Clock size={32} className="text-muted mb-2" />
-                  <h4>No events recorded</h4>
-                  <p className="text-muted text-sm">No stock actions recorded for this item yet.</p>
-                </div>
-              ) : (
-                <div className="vertical-timeline">
-                  {filteredMovements.map((m) => {
-                    const deduction = isDeduction(m.movementType);
-                    const dateObj = new Date(m.createdAt);
-
-                    return (
-                      <div key={m.id} className="timeline-node">
-                        <div className="timeline-marker">
-                          <div className={`marker-dot ${deduction ? 'bg-rose' : 'bg-sage'}`} />
-                        </div>
-
-                        <div className="timeline-card">
-                          <div className="timeline-card-header">
-                            <div className="timeline-type-row">
-                              <strong className="text-primary">{getEventName(m.movementType)}</strong>
-                              {m.batchNumber && (
-                                <span className="font-mono text-xs text-muted">
-                                  Batch {m.batchNumber}
-                                </span>
-                              )}
-                            </div>
-                            <span className="timeline-timestamp">
-                              {dateObj.toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                              })}{' '}
-                              at{' '}
-                              {dateObj.toLocaleTimeString(undefined, {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-
-                          <div className="timeline-card-body">
-                            <div className="timeline-qty-highlight">
-                              <span className={`qty-sign ${deduction ? 'text-rose' : 'text-emerald'}`}>
-                                {deduction ? '-' : '+'}
-                                {m.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })} {m.unit}
-                              </span>
-                              {m.storageLocationName && (
-                                <span className="location-tag">
-                                  <MapPin size={11} className="inline-icon text-muted" />
-                                  {m.storageLocationName}
-                                </span>
-                              )}
-                            </div>
-
-                            {m.reason && (
-                              <p className="timeline-reason text-secondary text-sm">
-                                "{m.reason}"
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="timeline-card-footer">
-                            <span className="text-muted text-xs">
-                              <UserIcon size={11} className="inline-icon" />
-                              Recorded by {m.createdByName || 'Staff'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+          <div className="history-kpi-card kpi-rose">
+            <div className="kpi-icon-wrap">
+              <Package size={18} className="text-rose" />
             </div>
-          )}
+            <div className="kpi-body">
+              <span className="kpi-label">Total Waste</span>
+              <span className="kpi-val text-rose">
+                {totalWasted.toLocaleString(undefined, { maximumFractionDigits: 3 })}{' '}
+                <span className="kpi-unit">{titleUnit}</span>
+              </span>
+            </div>
+          </div>
 
-          {/* Table View */}
-          {viewMode === 'table' && (
-            <div className="table-card">
-              <div className="table-responsive-wrapper">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Action</th>
-                      <th>Quantity</th>
-                      {!batch && <th>Batch</th>}
-                      <th>Location</th>
-                      <th>Reason / Note</th>
-                      <th>Recorded by</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMovements.map((m) => {
-                      const deduction = isDeduction(m.movementType);
-                      const dateObj = new Date(m.createdAt);
+          <div className="history-kpi-card kpi-blue">
+            <div className="kpi-icon-wrap">
+              <Boxes size={18} className="text-blue" />
+            </div>
+            <div className="kpi-body">
+              <span className="kpi-label">
+                {batch ? 'Current Batch Stock' : 'Total Movement Records'}
+              </span>
+              <span className="kpi-val text-blue">
+                {batch
+                  ? `${batch.quantity.toLocaleString(undefined, { maximumFractionDigits: 3 })} ${titleUnit}`
+                  : movements.length}
+              </span>
+            </div>
+          </div>
+        </div>
 
-                      return (
-                        <tr key={m.id}>
-                          <td className="text-nowrap text-sm">
+        {/* Filter and Search Bar */}
+        <div className="history-toolbar">
+          <div className="history-filter-tabs">
+            <button
+              type="button"
+              className={`history-tab-btn ${filterType === 'ALL' ? 'active' : ''}`}
+              onClick={() => setFilterType('ALL')}
+            >
+              All Events ({movements.length})
+            </button>
+            <button
+              type="button"
+              className={`history-tab-btn ${filterType === 'CONSUME' ? 'active' : ''}`}
+              onClick={() => setFilterType('CONSUME')}
+            >
+              Consumed Only (
+              {movements.filter((m) => (m.movementType || '').toUpperCase() === 'CONSUME').length}
+              )
+            </button>
+            <button
+              type="button"
+              className={`history-tab-btn ${filterType === 'RECEIVE' ? 'active' : ''}`}
+              onClick={() => setFilterType('RECEIVE')}
+            >
+              Received (
+              {movements.filter((m) => (m.movementType || '').toUpperCase() === 'RECEIVE').length}
+              )
+            </button>
+            <button
+              type="button"
+              className={`history-tab-btn ${filterType === 'WASTE' ? 'active' : ''}`}
+              onClick={() => setFilterType('WASTE')}
+            >
+              Waste (
+              {movements.filter((m) => (m.movementType || '').toUpperCase() === 'WASTE').length}
+              )
+            </button>
+          </div>
+
+          <div className="history-actions-bar">
+            <div className="input-with-icon search-input history-search">
+              <Search size={16} className="input-icon" />
+              <input
+                type="text"
+                placeholder="Filter by reason, ref, user..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={fetchHistory}
+              title="Refresh Movement History"
+            >
+              <RefreshCw size={15} className={loading ? 'spin' : ''} />
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={handleExportCSV}
+              disabled={movements.length === 0}
+              title="Export history to CSV"
+            >
+              <Download size={14} />
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        {error && <div className="alert-error mb-3">{error}</div>}
+
+        {/* History Table */}
+        <div className="history-table-container">
+          {loading && movements.length === 0 ? (
+            <div className="table-loading" style={{ minHeight: '220px' }}>
+              <RefreshCw size={24} className="spin text-purple" />
+              <span>Fetching live consume and movement history...</span>
+            </div>
+          ) : filteredMovements.length === 0 ? (
+            <div className="empty-state" style={{ padding: '3rem 1rem' }}>
+              <Clock size={40} className="empty-icon text-muted" />
+              <h4>No Movement Records Found</h4>
+              <p className="text-muted text-sm">
+                {searchTerm || filterType !== 'ALL'
+                  ? 'No events match the selected filters.'
+                  : 'No stock movements have been recorded for this item yet.'}
+              </p>
+            </div>
+          ) : (
+            <table className="custom-table history-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Quantity</th>
+                  {!batch && <th>Batch</th>}
+                  <th>Location</th>
+                  <th>Reason / Reference</th>
+                  <th>Performed By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMovements.map((m) => {
+                  const deduction = isDeduction(m.movementType);
+                  const dateObj = new Date(m.createdAt);
+                  return (
+                    <tr key={m.id}>
+                      <td className="text-nowrap">
+                        <div className="flex items-center gap-1">
+                          <Clock size={12} className="text-muted" />
+                          <span className="text-sm font-medium">
                             {dateObj.toLocaleDateString(undefined, {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
                             })}
-                          </td>
-                          <td>
-                            <strong>{getEventName(m.movementType)}</strong>
-                          </td>
-                          <td>
-                            <span className={`font-mono font-bold ${deduction ? 'text-rose' : 'text-emerald'}`}>
-                              {deduction ? '-' : '+'}
-                              {m.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })} {m.unit}
-                            </span>
-                          </td>
-                          {!batch && <td className="font-mono text-xs">{m.batchNumber || '—'}</td>}
-                          <td>{m.storageLocationName || '—'}</td>
-                          <td className="text-sm text-secondary">{m.reason || m.referenceType || '—'}</td>
-                          <td className="text-sm">{m.createdByName || '—'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>
+                          {dateObj.toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </div>
+                      </td>
+
+                      <td>{getMovementBadge(m.movementType)}</td>
+
+                      <td className="text-nowrap">
+                        <span
+                          className={`font-mono font-bold ${
+                            deduction ? 'text-rose' : 'text-emerald'
+                          }`}
+                        >
+                          {deduction ? '-' : '+'}
+                          {m.quantity.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 3,
+                          })}{' '}
+                          <span className="text-xs text-muted">{m.unit}</span>
+                        </span>
+                      </td>
+
+                      {!batch && (
+                        <td>
+                          <span className="font-mono text-xs text-accent">
+                            {m.batchNumber || '—'}
+                          </span>
+                        </td>
+                      )}
+
+                      <td>
+                        <span className="location-pill text-xs">
+                          <MapPin size={11} className="inline-icon text-muted" />
+                          {m.storageLocationName || '—'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="text-sm">
+                          {m.reason || (
+                            <span className="text-muted italic">No reason specified</span>
+                          )}
+                        </div>
+                        {m.referenceType && (
+                          <div className="text-xs text-muted">
+                            Ref: <span className="font-mono">{m.referenceType}</span>
+                            {m.referenceId ? ` (${m.referenceId.substring(0, 8)}...)` : ''}
+                          </div>
+                        )}
+                      </td>
+
+                      <td>
+                        <div className="flex items-center gap-1 text-sm">
+                          <UserIcon size={12} className="text-muted" />
+                          <span>{m.createdByName || 'System User'}</span>
+                        </div>
+                        {m.createdByEmail && (
+                          <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>
+                            {m.createdByEmail}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="modal-footer-actions">
+        <div className="modal-actions" style={{ marginTop: '1.25rem' }}>
+          <div className="text-muted text-xs flex items-center gap-1">
+            <History size={12} />
+            <span>
+              Showing {filteredMovements.length} of {movements.length} total events
+            </span>
+          </div>
           <button type="button" className="btn-secondary" onClick={onClose}>
             Close
           </button>
