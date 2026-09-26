@@ -18,6 +18,13 @@ import 'package:restaurant_mobile/features/receiving/models/storage_location_mod
 import 'package:restaurant_mobile/features/receiving/providers/receiving_provider.dart';
 import 'package:restaurant_mobile/features/receiving/screens/goods_intake_screen.dart';
 import 'package:restaurant_mobile/features/receiving/services/receiving_service.dart';
+import 'package:restaurant_mobile/features/kitchen/models/menu_item_model.dart';
+import 'package:restaurant_mobile/features/kitchen/models/recipe_model.dart';
+import 'package:restaurant_mobile/features/kitchen/models/sale_model.dart';
+import 'package:restaurant_mobile/features/kitchen/models/waste_model.dart';
+import 'package:restaurant_mobile/features/kitchen/providers/kitchen_provider.dart';
+import 'package:restaurant_mobile/features/kitchen/screens/kitchen_hub_screen.dart';
+import 'package:restaurant_mobile/features/kitchen/services/kitchen_service.dart';
 import 'package:restaurant_mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -400,6 +407,142 @@ void main() {
       expect(find.text('Whole Milk'), findsOneWidget);
       expect(find.text('Due: 40.0 liters'), findsOneWidget);
       expect(find.text('Confirm Stock Intake (1 items)'), findsOneWidget);
+    });
+  });
+
+  group('Step 5 Kitchen Operations Unit Tests', () {
+    test('MenuItemModel and RecipeModel parse JSON correctly', () {
+      final menuJson = {
+        'id': 'm-1',
+        'name': 'Gourmet Burger',
+        'description': 'Brioche bun with Angus beef patty',
+        'sellingPrice': 15.50,
+        'isActive': true,
+        'recipeCount': 1,
+      };
+
+      final item = MenuItemModel.fromJson(menuJson);
+      expect(item.id, equals('m-1'));
+      expect(item.name, equals('Gourmet Burger'));
+      expect(item.sellingPrice, equals(15.50));
+      expect(item.isActive, isTrue);
+
+      final recipeJson = {
+        'id': 'r-1',
+        'menuItemId': 'm-1',
+        'menuItemName': 'Gourmet Burger',
+        'version': 2,
+        'isActive': true,
+        'ingredients': [
+          {
+            'ingredientId': 'ing-beef',
+            'ingredientName': 'Angus Beef',
+            'unit': 'grams',
+            'quantityRequired': 200.0,
+          },
+        ],
+      };
+
+      final recipe = RecipeModel.fromJson(recipeJson);
+      expect(recipe.version, equals(2));
+      expect(recipe.ingredients.length, equals(1));
+      expect(recipe.ingredients.first.quantityRequired, equals(200.0));
+    });
+
+    test('SaleModel computes shortId and total dishes count correctly', () {
+      final saleJson = {
+        'id': 'sale-11223344-5566',
+        'recordedById': 'user-1',
+        'recordedByName': 'Chef Mario',
+        'saleDate': '2026-09-26T12:00:00Z',
+        'totalAmount': 31.00,
+        'status': 'COMPLETED',
+        'items': [
+          {
+            'id': 'si-1',
+            'menuItemId': 'm-1',
+            'menuItemName': 'Gourmet Burger',
+            'quantity': 2,
+            'unitPrice': 15.50,
+            'subtotal': 31.00,
+          },
+        ],
+      };
+
+      final sale = SaleModel.fromJson(saleJson);
+      expect(sale.shortId, equals('ORD-SALE-112'));
+      expect(sale.totalDishesCount, equals(2));
+      expect(sale.totalAmount, equals(31.00));
+    });
+
+    test('WasteRecordModel parses status and reason badges correctly', () {
+      final wasteJson = {
+        'id': 'wst-1234',
+        'ingredientId': 'ing-milk',
+        'ingredientName': 'Whole Milk',
+        'stockBatchId': 'batch-milk-1',
+        'stockBatchNumber': 'B-MILK-99',
+        'quantity': 3.5,
+        'reason': 'EXPIRED',
+        'reportedById': 'u-1',
+        'reportedByName': 'Sous Chef',
+        'status': 'PENDING',
+        'recordedAt': '2026-09-26T10:00:00Z',
+      };
+
+      final waste = WasteRecordModel.fromJson(wasteJson);
+      expect(waste.isConfirmed, isFalse);
+      expect(waste.quantity, equals(3.5));
+      expect(waste.reason, equals('EXPIRED'));
+      expect(waste.stockBatchNumber, equals('B-MILK-99'));
+    });
+  });
+
+  group('Step 5 Widget Tests', () {
+    testWidgets('KitchenHubScreen renders tabs, menu list, and action buttons', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = await StorageService.initialize();
+      final api = ApiService(storage: storage);
+      final authService = AuthService(api: api, storage: storage);
+      final inventoryService = InventoryService(api: api);
+      final receivingService = ReceivingService(api: api);
+      final kitchenService = KitchenService(api: api);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<StorageService>.value(value: storage),
+            Provider<ApiService>.value(value: api),
+            Provider<AuthService>.value(value: authService),
+            Provider<InventoryService>.value(value: inventoryService),
+            Provider<ReceivingService>.value(value: receivingService),
+            Provider<KitchenService>.value(value: kitchenService),
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(authService: authService),
+            ),
+            ChangeNotifierProvider<InventoryProvider>(
+              create: (_) => InventoryProvider(inventoryService: inventoryService),
+            ),
+            ChangeNotifierProvider<ReceivingProvider>(
+              create: (_) => ReceivingProvider(receivingService: receivingService),
+            ),
+            ChangeNotifierProvider<KitchenProvider>(
+              create: (_) => KitchenProvider(kitchenService: kitchenService),
+            ),
+          ],
+          child: const MaterialApp(
+            home: KitchenHubScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kitchen Operations'), findsOneWidget);
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(find.text('Menu & POS (0)'), findsOneWidget);
+      expect(find.text('Sales (0)'), findsOneWidget);
+      expect(find.text('Waste (0)'), findsOneWidget);
     });
   });
 }

@@ -4,6 +4,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../inventory/screens/inventory_list_screen.dart';
 import '../../receiving/screens/receiving_list_screen.dart';
+import '../../kitchen/screens/kitchen_hub_screen.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -171,15 +172,32 @@ class HomeDashboardScreen extends StatelessWidget {
 
             _buildActionCard(
               context,
+              icon: Icons.restaurant_menu_outlined,
+              iconColor: Colors.deepOrange,
+              title: 'Kitchen Prep & Waste',
+              subtitle: 'Log dish preparation, recipe consumption, and food waste',
+              badgeText: 'Live',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const KitchenHubScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+
+            _buildActionCard(
+              context,
               icon: Icons.psychology_outlined,
               iconColor: Colors.purple,
               title: 'AI Assistant',
               subtitle: 'Ask inventory queries and review emergency proposals',
-              badgeText: 'Step 5',
+              badgeText: 'Step 6',
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('AI Assistant will be integrated in Step 5!'),
+                    content: Text('AI Assistant will be integrated in Step 6!'),
                     duration: Duration(seconds: 2),
                   ),
                 );
