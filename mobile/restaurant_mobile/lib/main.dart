@@ -3,13 +3,24 @@ import 'package:provider/provider.dart';
 import 'core/services/api_service.dart';
 import 'core/services/storage_service.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/home/screens/home_dashboard_screen.dart';
+import 'features/inventory/providers/inventory_provider.dart';
+import 'features/inventory/services/inventory_service.dart';
+import 'features/receiving/providers/receiving_provider.dart';
+import 'features/receiving/services/receiving_service.dart';
+import 'features/kitchen/providers/kitchen_provider.dart';
+import 'features/kitchen/services/kitchen_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final storageService = await StorageService.initialize();
   final apiService = ApiService(storage: storageService);
   final authService = AuthService(api: apiService, storage: storageService);
+  final inventoryService = InventoryService(api: apiService);
+  final receivingService = ReceivingService(api: apiService);
+  final kitchenService = KitchenService(api: apiService);
 
   runApp(
     MultiProvider(
@@ -17,8 +28,20 @@ void main() async {
         Provider<StorageService>.value(value: storageService),
         Provider<ApiService>.value(value: apiService),
         Provider<AuthService>.value(value: authService),
+        Provider<InventoryService>.value(value: inventoryService),
+        Provider<ReceivingService>.value(value: receivingService),
+        Provider<KitchenService>.value(value: kitchenService),
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(authService: authService),
+        ),
+        ChangeNotifierProvider<InventoryProvider>(
+          create: (_) => InventoryProvider(inventoryService: inventoryService),
+        ),
+        ChangeNotifierProvider<ReceivingProvider>(
+          create: (_) => ReceivingProvider(receivingService: receivingService),
+        ),
+        ChangeNotifierProvider<KitchenProvider>(
+          create: (_) => KitchenProvider(kitchenService: kitchenService),
         ),
       ],
       child: const RestaurantInventoryApp(),
@@ -32,7 +55,7 @@ class RestaurantInventoryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Restaurant Inventory Mobile',
+      title: 'SavoryInventory Mobile',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -61,75 +84,9 @@ class AuthGateScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
 
     if (auth.isAuthenticated) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Restaurant Operations'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => context.read<AuthProvider>().logout(),
-              tooltip: 'Sign Out',
-            ),
-          ],
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.verified_user, color: Colors.green, size: 64),
-              const SizedBox(height: 16),
-              Text(
-                'Welcome, ${auth.user?.fullName ?? "Staff"}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Chip(
-                label: Text(auth.user?.role ?? 'Staff'),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              ),
-              const SizedBox(height: 16),
-              const Text('Session active with JWT authentication.'),
-            ],
-          ),
-        ),
-      );
+      return const HomeDashboardScreen();
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Restaurant Inventory'),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.restaurant_menu,
-                size: 72,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Restaurant Inventory Mobile',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Network and Auth layer configured (Step 1 complete).\nReady for Step 2 Login Screen.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return const LoginScreen();
   }
 }
