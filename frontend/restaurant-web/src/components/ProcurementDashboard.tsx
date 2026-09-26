@@ -20,7 +20,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { api } from '../services/api';
-import type { SupplierResponse } from '../types';
+import type { SupplierResponse, PurchaseRequestResponse } from '../types';
 import { useAuth } from '../context/useAuth';
 import { PurchaseRequestsView } from './PurchaseRequestsView';
 import { PurchaseOrdersView } from './PurchaseOrdersView';
@@ -31,7 +31,8 @@ interface ProcurementDashboardProps {
 
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSuccess }) => {
   const { user } = useAuth();
-  const [subTab, setSubTab] = useState<'orders' | 'requests' | 'suppliers'>('orders');
+  const [subTab, setSubTab] = useState<'requests' | 'orders' | 'suppliers'>('requests');
+  const [selectedPrForPo, setSelectedPrForPo] = useState<PurchaseRequestResponse | null>(null);
 
   // Data states
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -261,17 +262,9 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
 
   return (
     <div className="view-container">
-      {/* Subtabs: Purchase Orders vs Purchase Requests vs Suppliers */}
-      <div className="catalog-header" style={{ marginBottom: '1.25rem' }}>
+      {/* Subtabs: Purchase Requests vs Purchase Orders vs Suppliers */}
+      <div className="catalog-header">
         <div className="catalog-tabs">
-          <button
-            type="button"
-            className={`catalog-tab ${subTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setSubTab('orders')}
-          >
-            <ShoppingBag size={16} />
-            <span>Purchase Orders</span>
-          </button>
           <button
             type="button"
             className={`catalog-tab ${subTab === 'requests' ? 'active' : ''}`}
@@ -282,33 +275,57 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
           </button>
           <button
             type="button"
+            className={`catalog-tab ${subTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setSubTab('orders')}
+          >
+            <ShoppingBag size={16} />
+            <span>Purchase Orders</span>
+          </button>
+          <button
+            type="button"
             className={`catalog-tab ${subTab === 'suppliers' ? 'active' : ''}`}
             onClick={() => setSubTab('suppliers')}
           >
             <Building2 size={16} />
-            <span>Supplier Directory ({suppliers.length})</span>
+            <span>Suppliers ({suppliers.length})</span>
           </button>
         </div>
       </div>
 
-      {subTab === 'orders' && <PurchaseOrdersView onSuccess={onSuccess} />}
-      {subTab === 'requests' && <PurchaseRequestsView onSuccess={onSuccess} />}
+      {subTab === 'requests' && (
+        <PurchaseRequestsView
+          onSuccess={onSuccess}
+          onCreatePoFromPr={(pr) => {
+            setSelectedPrForPo(pr);
+            setSubTab('orders');
+          }}
+        />
+      )}
+      {subTab === 'orders' && (
+        <PurchaseOrdersView
+          onSuccess={onSuccess}
+          preloadedPr={selectedPrForPo}
+          onClearPreloadedPr={() => setSelectedPrForPo(null)}
+          onNavigateToApprovedPrs={() => setSubTab('requests')}
+        />
+      )}
       {subTab === 'suppliers' && (
         <>
           {/* Header Banner */}
-          <div className="hub-hero">
-            <div className="hub-hero-text">
-              <h2>Supplier Directory & Vendor Profiles</h2>
-              <p>
-                Manage restaurant vendor relationships, contact profiles, address directories, and payment terms.
-              </p>
-            </div>
-            <div className="hub-role-status">
-              <span className="text-muted text-xs">LOGGED IN AS</span>
-              <strong>{user?.fullName}</strong>
-              <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
-            </div>
-          </div>
+      <div className="hub-hero">
+        <div className="hub-hero-text">
+          <h2>Procurement & Supplier Management</h2>
+          <p>
+            Manage restaurant vendor relationships, contact profiles, address directories, and payment terms.
+            Vendors managed here provide ingredient supply catalogs for procurement orders.
+          </p>
+        </div>
+        <div className="hub-role-status">
+          <span className="text-muted text-xs">LOGGED IN AS</span>
+          <strong>{user?.fullName}</strong>
+          <span className="role-pill-accent">{user?.role?.replace(/_/g, ' ')}</span>
+        </div>
+      </div>
 
       {/* Global Alerts */}
       {error && (
