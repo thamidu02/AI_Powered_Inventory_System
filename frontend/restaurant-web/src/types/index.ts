@@ -659,6 +659,11 @@ export interface DemandPlanResponse {
   riskStatus: string;
   confidenceScore?: number;
   generatedBy: string;
+  predictionSource?: string;   // 'ML' | 'RULE_BASED'
+  modelType?: string;           // e.g. 'RandomForestRegressor'
+  trainingRecords?: number;
+  mae?: number;
+  dailyPredictions?: number[];
   reason: string;
 }
 
