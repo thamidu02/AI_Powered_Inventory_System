@@ -33,4 +33,12 @@ public interface IPlanningService
     Task<PlanningRiskSummaryResponse> GetRiskAnalyticsAsync(
         DateTime periodStart,
         DateTime periodEnd);
+
+    /// <summary>
+    /// Returns daily ingredient demand records (sales × recipe consumption) for the ML pipeline.
+    /// </summary>
+    Task<IReadOnlyList<DemandHistoryRecordDto>> GetDemandHistoryAsync(
+        DateTime from,
+        DateTime to,
+        Guid? ingredientId = null);
 }
