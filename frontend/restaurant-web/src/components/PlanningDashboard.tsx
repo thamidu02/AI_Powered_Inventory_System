@@ -12,8 +12,10 @@ import {
   BarChart3,
   ShoppingCart,
   ShieldAlert,
+  Brain,
 } from 'lucide-react';
 import { api } from '../services/api';
+import type { MlForecastItem, MlStatusResponse } from '../services/api';
 import type {
   DemandPlanResponse,
   PlanningRiskSummaryResponse,
@@ -43,15 +45,95 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [mlStatus, setMlStatus] = useState<MlStatusResponse | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState<string | null>(null);
+  const [mlForecastCount, setMlForecastCount] = useState(0);
 
   const fetchPlanningData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      setMlError(null);
+
+      // 1. Fetch rule-based plans + risks from .NET backend
       const [forecastData, risksData] = await Promise.all([
         api.getPlanningForecast(periodStart, periodEnd),
         api.getPlanningRisks(periodStart, periodEnd),
       ]);
+
+      // 2. Try to fetch ML predictions directly from Python service
+      let mlCount = 0;
+      try {
+        const mlResp = await api.getMlForecast(7);
+        if (mlResp?.status === 'SUCCESS' && mlResp.forecasts?.length > 0) {
+          // Build lookup: ingredientId -> ML forecast item
+          const mlMap = new Map<string, MlForecastItem>();
+          for (const f of mlResp.forecasts) {
+            mlMap.set(f.ingredientId, f);
+          }
+
+          // Merge ML into rule-based plans — override forecast values when ML available
+          for (const plan of forecastData) {
+            const ml = mlMap.get(plan.ingredientId);
+            if (!ml) continue;
+
+            const mlWeekly = ml.weeklyForecast;
+            const mlDaily  = ml.dailyAverageDemand;
+            const mlProjected = plan.currentStock - mlWeekly;
+            const mlShortage  = Math.max(0, mlWeekly - plan.currentStock);
+            const mlCoverage  = mlDaily > 0 ? Math.round(plan.currentStock / mlDaily * 10) / 10 : 999;
+            const mlReorder   = mlProjected < plan.minimumStockLevel || plan.currentStock < plan.minimumStockLevel;
+            let mlRisk = 'NORMAL';
+            if (mlProjected < 0 || plan.currentStock < plan.minimumStockLevel) mlRisk = 'STOCK_RISK';
+            else if (plan.maximumStockLevel > 0 && plan.currentStock > plan.maximumStockLevel) mlRisk = 'OVERSTOCK_RISK';
+            else if (plan.minimumStockLevel > 0 && mlWeekly > plan.minimumStockLevel * 1.5) mlRisk = 'HIGH_DEMAND';
+
+            let mlOrderQty = 0;
+            if (mlReorder) {
+              const target = plan.maximumStockLevel > 0 ? plan.maximumStockLevel : mlWeekly + plan.minimumStockLevel;
+              mlOrderQty = Math.max(0, target - Math.max(0, mlProjected));
+            }
+
+            // Mutate in-place (plan objects are plain JSON, safe to mutate)
+            if (ml.predictionSource === 'ML') {
+              plan.weeklyForecast       = Math.round(mlWeekly * 100) / 100;
+              plan.dailyAverageDemand   = Math.round(mlDaily * 100) / 100;
+              plan.projectedStock       = Math.round(mlProjected * 100) / 100;
+              plan.projectedShortage    = Math.round(mlShortage * 100) / 100;
+              plan.stockCoverageDays    = mlCoverage;
+              plan.reorderRequired      = mlReorder;
+              plan.recommendedOrderQuantity = Math.round(mlOrderQty * 100) / 100;
+              plan.recommendation       = mlReorder ? 'REORDER' : 'NO_REORDER';
+              plan.riskStatus           = mlRisk;
+              plan.predictionSource     = 'ML';
+              plan.generatedBy          = 'ML_AI_ENRICHED';
+              plan.modelType            = ml.modelType;
+              plan.mae                  = ml.mae;
+              plan.trainingRecords      = ml.trainingRecords;
+              plan.confidenceScore      = ml.confidenceScore;
+              plan.dailyPredictions     = ml.dailyPredictions;
+              mlCount++;
+            }
+          }
+
+          // Also update the risk summary counts based on merged plans
+          if (risksData) {
+            risksData.reorderRequiredCount = forecastData.filter(p => p.reorderRequired).length;
+            risksData.stockRiskCount       = forecastData.filter(p => p.riskStatus === 'STOCK_RISK').length;
+            risksData.highDemandCount      = forecastData.filter(p => p.riskStatus === 'HIGH_DEMAND').length;
+            risksData.overstockRiskCount   = forecastData.filter(p => p.riskStatus === 'OVERSTOCK_RISK').length;
+          }
+        }
+
+        // Load ML status
+        const status = await api.getMlStatus();
+        setMlStatus(status);
+      } catch {
+        setMlError('ML service offline — showing rule-based forecasts.');
+      }
+
+      setMlForecastCount(mlCount);
       setPlans(forecastData);
       setRiskSummary(risksData);
     } catch (err: any) {
@@ -60,6 +142,19 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
       setLoading(false);
     }
   }, [periodStart, periodEnd]);
+
+  const handleRetrain = async () => {
+    setMlLoading(true);
+    setMlError(null);
+    try {
+      await api.triggerMlTraining(true);
+      await fetchPlanningData();
+    } catch {
+      setMlError('Failed to retrain ML model.');
+    } finally {
+      setMlLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchPlanningData();
@@ -133,13 +228,42 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                   Demand &amp; Inventory Planning
                 </h1>
                 <p className="text-muted text-xs" style={{ margin: '0.2rem 0 0 0' }}>
-                  Rule-based 7-day demand forecasting, stock risk assessment, and replenishment recommendations.
+                  ML-driven 7-day demand forecasting with rule-based fallback, stock risk assessment, and replenishment recommendations.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* ML Status pill */}
+            {mlStatus && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  background: mlStatus.model_loaded && !mlStatus.is_stale
+                    ? 'rgba(139, 92, 246, 0.15)'
+                    : 'rgba(245, 158, 11, 0.15)',
+                  color: mlStatus.model_loaded && !mlStatus.is_stale
+                    ? 'var(--accent)'
+                    : '#f59e0b',
+                  border: `1px solid ${mlStatus.model_loaded && !mlStatus.is_stale ? 'rgba(139,92,246,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                }}
+              >
+                <Brain size={12} />
+                {mlStatus.model_loaded && !mlStatus.is_stale
+                  ? `ML Active · ${mlForecastCount} predictions`
+                  : mlStatus.model_loaded
+                  ? 'ML Stale'
+                  : 'ML Not Trained'}
+                {mlStatus.mae != null && (
+                  <span style={{ opacity: 0.75 }}>· MAE {Number(mlStatus.mae).toFixed(3)}</span>
+                )}
+              </div>
+            )}
+            {mlError && (
+              <span className="text-xs" style={{ color: '#f59e0b' }}>{mlError}</span>
+            )}
+
             <div className="input-with-icon px-3 py-1.5 rounded-lg border border-border bg-input flex items-center gap-2">
               <Calendar size={14} className="text-secondary" />
               <input
@@ -156,6 +280,25 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                 className="bg-transparent text-xs text-main border-none outline-none cursor-pointer"
               />
             </div>
+
+            {/* Retrain ML model */}
+            <button
+              type="button"
+              onClick={handleRetrain}
+              disabled={mlLoading || loading}
+              className="btn-action flex items-center gap-2"
+              style={{
+                background: 'rgba(139, 92, 246, 0.15)',
+                border: '1px solid rgba(139,92,246,0.35)',
+                color: 'var(--accent)',
+                fontSize: '0.78rem',
+                padding: '0.35rem 0.75rem',
+              }}
+              title="Re-train the Random Forest model on latest 60 days of data"
+            >
+              <Brain size={13} className={mlLoading ? 'animate-spin' : ''} />
+              <span>{mlLoading ? 'Training…' : 'Retrain AI'}</span>
+            </button>
 
             <button
               type="button"
@@ -319,6 +462,20 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                     <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
                       (~{plan.dailyAverageDemand} {plan.unit}/day)
                     </div>
+                    {/* ML vs Rule-Based badge */}
+                    {plan.predictionSource === 'ML' ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Brain size={10} style={{ color: 'var(--accent)' }} />
+                        <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 600 }}>ML</span>
+                        {plan.mae != null && (
+                          <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>MAE: {plan.mae}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-xs" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        Rule-Based
+                      </div>
+                    )}
                   </td>
                   <td>
                     <div
