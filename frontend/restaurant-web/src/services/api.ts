@@ -441,4 +441,47 @@ export const api = {
     request<PlanningRiskSummaryResponse>(
       `/api/Planning/risks?periodStart=${encodeURIComponent(periodStart)}&periodEnd=${encodeURIComponent(periodEnd)}`
     ),
+  // Direct ML service endpoints (Python AI service at port 8000)
+  getMlForecast: (days = 7): Promise<MlForecastApiResponse> =>
+    fetch(`http://localhost:8000/ml/forecast?days=${days}`).then(r => r.json()),
+  getMlStatus: (): Promise<MlStatusResponse> =>
+    fetch('http://localhost:8000/ml/status').then(r => r.json()),
+  triggerMlTraining: (force = true): Promise<Record<string, unknown>> =>
+    fetch('http://localhost:8000/ml/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lookback_days: 60, force }),
+    }).then(r => r.json()),
 };
+
+// ML service response types
+export interface MlForecastItem {
+  ingredientId: string;
+  ingredientName: string;
+  unit: string;
+  forecastPeriodDays: number;
+  weeklyForecast: number;
+  dailyAverageDemand: number;
+  dailyPredictions: number[];
+  predictionSource: 'ML' | 'RULE_BASED';
+  modelType: string;
+  trainingRecords: number;
+  mae: number;
+  confidenceScore: number;
+}
+
+export interface MlForecastApiResponse {
+  status: string;
+  forecast_days: number;
+  forecasts: MlForecastItem[];
+  metadata: Record<string, unknown>;
+}
+
+export interface MlStatusResponse {
+  status: string;
+  is_stale: boolean;
+  model_loaded: boolean;
+  trained_at: string | null;
+  mae: number | null;
+  rmse: number | null;
+}
