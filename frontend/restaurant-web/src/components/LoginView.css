@@ -1,0 +1,367 @@
+/* ==========================================================================
+   Acumatica-Inspired White & Blue Cloud ERP Login Theme
+   ========================================================================== */
+
+.acumatica-login-root {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Left Hero Banner */
+.acumatica-hero-pane {
+  flex: 1.35;
+  position: relative;
+  min-height: 100vh;
+  background-color: #0f172a;
+  overflow: hidden;
+}
+
+.acumatica-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  display: block;
+}
+
+.acumatica-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.15) 0%,
+    rgba(0, 122, 204, 0.12) 60%,
+    rgba(15, 23, 42, 0.4) 100%
+  );
+  pointer-events: none;
+}
+
+
+
+/* Right Form Container */
+.acumatica-form-pane {
+  flex: 1;
+  min-width: 420px;
+  max-width: 560px;
+  min-height: 100vh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3.5rem 3rem 2rem;
+  box-sizing: border-box;
+}
+
+.acumatica-form-content {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* Acumatica Brand Header */
+.acumatica-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 3rem;
+  text-decoration: none;
+}
+
+.acumatica-logo-sphere {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #38bdf8 0%, #007acc 55%, #0369a1 100%);
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.acumatica-logo-inner-ring {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3.5px solid #ffffff;
+  opacity: 0.95;
+}
+
+.acumatica-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.acumatica-brand-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.acumatica-brand-title span {
+  color: #007acc;
+  font-weight: 800;
+}
+
+.acumatica-brand-tagline {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+/* Credentials Header */
+.acumatica-header {
+  margin-bottom: 1.5rem;
+}
+
+.acumatica-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 0.35rem 0;
+  letter-spacing: -0.01em;
+}
+
+.acumatica-header p {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Alert Error */
+.acumatica-alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 0.65rem 0.85rem;
+  border-radius: 4px;
+  font-size: 0.825rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Form Styles */
+.acumatica-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.acumatica-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.acumatica-field label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.acumatica-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.acumatica-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.acumatica-input {
+  width: 100%;
+  height: 40px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0 0.85rem 0 2.4rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.acumatica-input:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.acumatica-input::placeholder {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+/* Actions Row */
+.acumatica-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.acumatica-btn-signin {
+  background: #007acc;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.55rem 1.65rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 38px;
+}
+
+.acumatica-btn-signin:hover:not(:disabled) {
+  background: #005f9e;
+  box-shadow: 0 2px 6px rgba(0, 122, 204, 0.3);
+}
+
+.acumatica-btn-signin:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.acumatica-link-forgot {
+  font-size: 0.825rem;
+  color: #007acc;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+}
+
+.acumatica-link-forgot:hover {
+  text-decoration: underline;
+  color: #005f9e;
+}
+
+/* Demo Role Testing Accounts */
+.acumatica-demo-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.acumatica-demo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.acumatica-demo-header span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.acumatica-demo-badge {
+  font-size: 0.68rem;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  border-radius: 3px;
+  padding: 0.15rem 0.4rem;
+  font-weight: 600;
+}
+
+.acumatica-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.acumatica-role-pill {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.acumatica-role-pill:hover {
+  background: #f0f9ff;
+  border-color: #007acc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 122, 204, 0.1);
+}
+
+.acumatica-role-pill-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.acumatica-role-pill-role {
+  font-size: 0.68rem;
+  color: #007acc;
+  font-weight: 500;
+}
+
+/* Footer Section */
+.acumatica-footer {
+  padding-top: 2rem;
+  margin-top: auto;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.acumatica-footer-copy {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.acumatica-footer-version {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 960px) {
+  .acumatica-hero-pane {
+    display: none;
+  }
+  .acumatica-form-pane {
+    max-width: 100%;
+    min-width: 100%;
+    padding: 2.5rem 1.5rem;
+  }
+}
