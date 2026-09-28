@@ -20,13 +20,16 @@ FEATURE_COLUMNS = [
     "rolling_mean_3",
     "rolling_mean_7",
     "rolling_mean_14",
+    "temperature",
+    "rain_probability",
+    "is_rainy",
 ]
 
 
 def extract_features_for_ingredient(df_ing: pd.DataFrame) -> pd.DataFrame:
     """
     Given a single ingredient's daily time-series DataFrame sorted by date:
-    Compute calendar, lag, and rolling features strictly using historical values.
+    Compute calendar, lag, rolling, and historical weather features strictly using historical values.
     """
     df = df_ing.copy().sort_values(by="date").reset_index(drop=True)
 
@@ -45,6 +48,22 @@ def extract_features_for_ingredient(df_ing: pd.DataFrame) -> pd.DataFrame:
     df["rolling_mean_3"] = df["demand"].shift(1).rolling(window=3, min_periods=1).mean()
     df["rolling_mean_7"] = df["demand"].shift(1).rolling(window=7, min_periods=1).mean()
     df["rolling_mean_14"] = df["demand"].shift(1).rolling(window=14, min_periods=1).mean()
+
+    # Weather features from historical records (if present, otherwise neutral defaults)
+    if "temperature" not in df.columns:
+        df["temperature"] = 20.0
+    else:
+        df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce").fillna(20.0)
+
+    if "rain_probability" not in df.columns:
+        df["rain_probability"] = 0.0
+    else:
+        df["rain_probability"] = pd.to_numeric(df["rain_probability"], errors="coerce").fillna(0.0)
+
+    if "is_rainy" not in df.columns:
+        df["is_rainy"] = (df["rain_probability"] >= 0.4).astype(float)
+    else:
+        df["is_rainy"] = pd.to_numeric(df["is_rainy"], errors="coerce").fillna(0.0)
 
     # Backfill earliest rows where lag_7/lag_14 might be NaN with available rolling mean or lag_1
     df["lag_1"] = df["lag_1"].bfill().fillna(0.0)
@@ -85,9 +104,10 @@ def prepare_training_features(df_daily: pd.DataFrame) -> tuple[pd.DataFrame, pd.
 def build_future_feature_row(
     target_date: pd.Timestamp,
     past_demands: list[float],
+    weather_info: dict[str, Any] | None = None,
 ) -> dict[str, float]:
     """
-    Construct feature vector for a future prediction date given the recent historical/predicted demand series.
+    Construct feature vector for a future prediction date given recent demands and future forecasted weather.
     past_demands[-1] is yesterday's demand, past_demands[-2] is 2 days ago, etc.
     """
     dow = target_date.dayofweek
@@ -110,6 +130,24 @@ def build_future_feature_row(
     win14 = past_demands[-14:] if len(past_demands) >= 14 else past_demands
     rm14 = sum(win14) / max(1, len(win14))
 
+    # Weather extraction
+    temp = 20.0
+    rain_prob = 0.0
+    is_rainy = 0.0
+
+    if weather_info:
+        # Check temperature (min/max avg or direct)
+        if "tempMax" in weather_info and "tempMin" in weather_info:
+            temp = float(weather_info["tempMax"] + weather_info["tempMin"]) / 2.0
+        elif "temperature" in weather_info:
+            temp = float(weather_info["temperature"])
+
+        rain_prob = float(weather_info.get("rainProbability", 0.0))
+        cond = str(weather_info.get("condition", "")).lower()
+        desc = str(weather_info.get("description", "")).lower()
+        if "rain" in cond or "drizzle" in cond or "thunder" in cond or "rain" in desc or rain_prob >= 0.4:
+            is_rainy = 1.0
+
     return {
         "day_of_week": float(dow),
         "is_weekend": float(is_we),
@@ -121,4 +159,7 @@ def build_future_feature_row(
         "rolling_mean_3": float(rm3),
         "rolling_mean_7": float(rm7),
         "rolling_mean_14": float(rm14),
+        "temperature": float(temp),
+        "rain_probability": float(rain_prob),
+        "is_rainy": float(is_rainy),
     }
