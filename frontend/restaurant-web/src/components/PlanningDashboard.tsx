@@ -13,6 +13,11 @@ import {
   ShoppingCart,
   ShieldAlert,
   Brain,
+  CloudRain,
+  Sun,
+  Cloud,
+  Thermometer,
+  Wind,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { MlForecastItem, MlStatusResponse } from '../services/api';
@@ -41,6 +46,7 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
   const [periodEnd, setPeriodEnd] = useState<string>(defaultDates.end);
   const [plans, setPlans] = useState<DemandPlanResponse[]>([]);
   const [riskSummary, setRiskSummary] = useState<PlanningRiskSummaryResponse | null>(null);
+  const [weather, setWeather] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -56,11 +62,16 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
       setError(null);
       setMlError(null);
 
-      // 1. Fetch rule-based plans + risks from .NET backend
-      const [forecastData, risksData] = await Promise.all([
+      // 1. Fetch rule-based plans, risks, and weather forecast from backend
+      const [forecastData, risksData, weatherData] = await Promise.all([
         api.getPlanningForecast(periodStart, periodEnd),
         api.getPlanningRisks(periodStart, periodEnd),
+        api.getWeatherForecast().catch(() => null),
       ]);
+
+      if (weatherData) {
+        setWeather(weatherData);
+      }
 
       // 2. Try to fetch ML predictions directly from Python service
       let mlCount = 0;
@@ -113,6 +124,10 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
               plan.trainingRecords      = ml.trainingRecords;
               plan.confidenceScore      = ml.confidenceScore;
               plan.dailyPredictions     = ml.dailyPredictions;
+              if (ml.weatherInfluence) {
+                plan.weatherInfluence   = ml.weatherInfluence as any;
+                plan.weatherAvailable   = true;
+              }
               mlCount++;
             }
           }
@@ -332,6 +347,81 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
         </div>
       )}
 
+      {/* Weather Forecast & Environmental Impact Banner */}
+      {weather?.current && (
+        <div
+          className="glass-card p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08))',
+            border: '1px solid rgba(6, 182, 212, 0.25)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center justify-center rounded-lg"
+              style={{
+                width: 42,
+                height: 42,
+                background: 'rgba(6, 182, 212, 0.15)',
+                color: '#06b6d4',
+              }}
+            >
+              {weather.current.condition?.toLowerCase().includes('rain') ? (
+                <CloudRain size={22} />
+              ) : weather.current.condition?.toLowerCase().includes('cloud') ? (
+                <Cloud size={22} />
+              ) : (
+                <Sun size={22} />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-main">
+                  {weather.city || 'Local Area'} Weather: {weather.current.condition} ({weather.current.temperature}°C)
+                </span>
+                <span
+                  className="px-2 py-0.5 rounded text-xs font-semibold"
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: 'var(--accent)',
+                    fontSize: '0.68rem',
+                  }}
+                >
+                  ⚡ AI Weather-Aware
+                </span>
+              </div>
+              <p className="text-muted text-xs" style={{ margin: '0.15rem 0 0 0' }}>
+                Rain probability: {Math.round((weather.current.rainProbability || 0) * 100)}% · Humidity: {weather.current.humidity}% · {weather.overallRecommendation || weather.current.description}
+              </p>
+            </div>
+          </div>
+
+          {/* 5-day mini forecast chips */}
+          {weather.forecast && weather.forecast.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
+              {weather.forecast.slice(0, 5).map((f: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex flex-col items-center px-2 py-1 rounded-md"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    minWidth: 54,
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  <span className="text-muted font-medium">{f.dayOfWeek?.slice(0, 3) || `Day ${idx + 1}`}</span>
+                  <span className="font-bold text-main">{Math.round(f.tempMax || f.tempMin || 20)}°</span>
+                  <span style={{ color: '#06b6d4', fontSize: '0.60rem' }}>
+                    {f.condition?.toLowerCase().includes('rain') ? '🌧️' : '☀️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* KPI Stat Cards Grid */}
       <div className="stats-grid">
         <div className="stat-card">
@@ -473,11 +563,58 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                     </div>
                     {/* ML vs Rule-Based badge */}
                     {plan.predictionSource === 'ML' ? (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Brain size={10} style={{ color: 'var(--accent)' }} />
-                        <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 600 }}>ML</span>
-                        {plan.mae != null && (
-                          <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>MAE: {plan.mae}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1">
+                          <Brain size={10} style={{ color: 'var(--accent)' }} />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 600 }}>ML</span>
+                          {plan.mae != null && (
+                            <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>MAE: {plan.mae}</span>
+                          )}
+                        </div>
+                        {/* Weather Influence Pill */}
+                        {plan.weatherInfluence && (
+                          <div
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-help"
+                            style={{
+                              fontSize: '0.60rem',
+                              fontWeight: 600,
+                              background:
+                                plan.weatherInfluence.impact === 'INCREASED'
+                                  ? 'rgba(6, 182, 212, 0.15)'
+                                  : plan.weatherInfluence.impact === 'DECREASED'
+                                  ? 'rgba(245, 158, 11, 0.15)'
+                                  : 'rgba(255, 255, 255, 0.05)',
+                              color:
+                                plan.weatherInfluence.impact === 'INCREASED'
+                                  ? '#06b6d4'
+                                  : plan.weatherInfluence.impact === 'DECREASED'
+                                  ? '#f59e0b'
+                                  : 'var(--text-muted)',
+                              border: `1px solid ${
+                                plan.weatherInfluence.impact === 'INCREASED'
+                                  ? 'rgba(6, 182, 212, 0.3)'
+                                  : plan.weatherInfluence.impact === 'DECREASED'
+                                  ? 'rgba(245, 158, 11, 0.3)'
+                                  : 'rgba(255, 255, 255, 0.1)'
+                              }`,
+                            }}
+                            title={plan.weatherInfluence.explanation}
+                          >
+                            {plan.weatherInfluence.impact === 'INCREASED' ? (
+                              <CloudRain size={9} />
+                            ) : plan.weatherInfluence.impact === 'DECREASED' ? (
+                              <Sun size={9} />
+                            ) : (
+                              <Cloud size={9} />
+                            )}
+                            <span>
+                              {plan.weatherInfluence.impact === 'INCREASED'
+                                ? 'Weather Surge'
+                                : plan.weatherInfluence.impact === 'DECREASED'
+                                ? 'Weather Drop'
+                                : 'Weather Neutral'}
+                            </span>
+                          </div>
                         )}
                       </div>
                     ) : (

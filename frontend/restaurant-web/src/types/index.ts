@@ -652,6 +652,17 @@ export interface AiWorkflowSummary {
   stepCount:    number;
 }
 
+export interface WeatherInfluence {
+  condition: string;
+  temperature: number;
+  rainProbability: number;
+  rainfall?: number;
+  impact: 'INCREASED' | 'DECREASED' | 'NEUTRAL' | string;
+  explanation: string;
+  baselineDemand?: number;
+  weatherAdjustedDemand?: number;
+}
+
 export interface DemandPlanResponse {
   id: string;
   ingredientId: string;
@@ -680,6 +691,10 @@ export interface DemandPlanResponse {
   mae?: number;
   dailyPredictions?: number[];
   reason: string;
+  weatherMultiplier?: number;
+  weatherImpact?: string;
+  weatherAvailable?: boolean;
+  weatherInfluence?: WeatherInfluence;
 }
 
 export interface PlanningRecommendationResponse {
