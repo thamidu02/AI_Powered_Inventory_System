@@ -23,4 +23,7 @@ public class PurchaseRequest : BaseEntity
 
     public ICollection<PurchaseRequestItem> Items { get; set; }
         = new List<PurchaseRequestItem>();
+
+    public ICollection<PurchaseOrder> PurchaseOrders { get; set; }
+        = new List<PurchaseOrder>();
 }

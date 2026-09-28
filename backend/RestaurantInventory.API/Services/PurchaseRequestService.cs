@@ -21,6 +21,8 @@ public class PurchaseRequestService : IPurchaseRequestService
             .AsNoTracking()
             .Include(pr => pr.RequestedBy)
             .Include(pr => pr.ApprovedBy)
+            .Include(pr => pr.PurchaseOrders)
+                .ThenInclude(po => po.Supplier)
             .Include(pr => pr.Items)
                 .ThenInclude(item => item.Ingredient)
             .Include(pr => pr.Items)
@@ -46,6 +48,8 @@ public class PurchaseRequestService : IPurchaseRequestService
             .AsNoTracking()
             .Include(pr => pr.RequestedBy)
             .Include(pr => pr.ApprovedBy)
+            .Include(pr => pr.PurchaseOrders)
+                .ThenInclude(po => po.Supplier)
             .Include(pr => pr.Items)
                 .ThenInclude(item => item.Ingredient)
             .Include(pr => pr.Items)
@@ -435,6 +439,16 @@ public class PurchaseRequestService : IPurchaseRequestService
                 Notes = item.Notes,
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt
+            }).ToList(),
+            PurchaseOrders = pr.PurchaseOrders.Select(po => new PurchaseOrderSummaryResponse
+            {
+                Id = po.Id,
+                SupplierId = po.SupplierId,
+                SupplierName = po.Supplier?.Name ?? string.Empty,
+                Status = po.Status,
+                TotalAmount = po.TotalAmount,
+                OrderDate = po.OrderDate,
+                CreatedAt = po.CreatedAt
             }).ToList()
         };
     }

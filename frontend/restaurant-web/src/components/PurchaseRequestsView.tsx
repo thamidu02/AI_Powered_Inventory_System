@@ -29,6 +29,7 @@ import { useAuth } from '../context/useAuth';
 
 interface PurchaseRequestsViewProps {
   onSuccess?: (msg: string) => void;
+  onCreatePoFromPr?: (request: PurchaseRequestResponse) => void;
 }
 
 interface FormItemState {
@@ -55,11 +56,16 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSuccess }) => {
+export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({
+  onSuccess,
+  onCreatePoFromPr,
+}) => {
   const { user } = useAuth();
 
   // Permissions
   const isManager = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'SYSTEM_ADMIN';
+  const canManageProcurement =
+    user?.role === 'SYSTEM_ADMIN' || user?.role === 'PROCUREMENT_OFFICER';
 
   // Data states
   const [requests, setRequests] = useState<PurchaseRequestResponse[]>([]);
@@ -252,7 +258,7 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.createPurchaseRequest({
+      const created = await api.createPurchaseRequest({
         reason: formReason.trim() || null,
         items: formItems.map((i) => ({
           ingredientId: i.ingredientId,
@@ -263,7 +269,8 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
       });
 
       setShowCreateModal(false);
-      notify('Purchase request created successfully as Draft.');
+      const code = created?.id ? `PR-${created.id.substring(0, 8).toUpperCase()}` : 'Purchase request';
+      notify(`Purchase Request ${code} created successfully as Draft.`);
       await loadRequests();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to create purchase request.');
@@ -291,8 +298,9 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
         })),
       });
 
+      const code = `PR-${editingRequest.id.substring(0, 8).toUpperCase()}`;
       setEditingRequest(null);
-      notify('Purchase request updated successfully.');
+      notify(`Purchase Request ${code} updated successfully.`);
       await loadRequests();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to update purchase request.');
@@ -306,7 +314,8 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     try {
       await api.submitPurchaseRequest(id);
-      notify('Purchase request submitted for managerial approval.');
+      const code = `PR-${id.substring(0, 8).toUpperCase()}`;
+      notify(`Purchase Request ${code} submitted for managerial approval.`);
       if (viewingRequest?.id === id) {
         setViewingRequest(null);
       }
@@ -324,7 +333,8 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     try {
       await api.approvePurchaseRequest(id);
-      notify('Purchase request approved successfully.');
+      const code = `PR-${id.substring(0, 8).toUpperCase()}`;
+      notify(`Purchase Request ${code} approved successfully.`);
       if (viewingRequest?.id === id) {
         setViewingRequest(null);
       }
@@ -342,13 +352,14 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.rejectPurchaseRequest(rejectingRequest.id, {
+      const reqId = rejectingRequest.id;
+      const code = `PR-${reqId.substring(0, 8).toUpperCase()}`;
+      await api.rejectPurchaseRequest(reqId, {
         reason: rejectReason.trim() || undefined,
       });
-      const reqId = rejectingRequest.id;
       setRejectingRequest(null);
       setRejectReason('');
-      notify('Purchase request rejected.');
+      notify(`Purchase Request ${code} rejected.`);
       if (viewingRequest?.id === reqId) {
         setViewingRequest(null);
       }
@@ -366,10 +377,11 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.cancelPurchaseRequest(cancellingRequest.id);
       const reqId = cancellingRequest.id;
+      const code = `PR-${reqId.substring(0, 8).toUpperCase()}`;
+      await api.cancelPurchaseRequest(reqId);
       setCancellingRequest(null);
-      notify('Purchase request cancelled.');
+      notify(`Purchase Request ${code} cancelled.`);
       if (viewingRequest?.id === reqId) {
         setViewingRequest(null);
       }
@@ -387,10 +399,11 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.deletePurchaseRequest(deletingRequest.id);
       const reqId = deletingRequest.id;
+      const code = `PR-${reqId.substring(0, 8).toUpperCase()}`;
+      await api.deletePurchaseRequest(reqId);
       setDeletingRequest(null);
-      notify('Draft purchase request deleted successfully.');
+      notify(`Draft Purchase Request ${code} deleted successfully.`);
       if (viewingRequest?.id === reqId) {
         setViewingRequest(null);
       }
@@ -596,6 +609,7 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
                 <th>Requested Date</th>
                 <th>Requested By</th>
                 <th>Status</th>
+                <th>Linked POs</th>
                 <th>Items</th>
                 <th>Reason / Notes</th>
                 <th className="text-right">Actions</th>
@@ -628,6 +642,19 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
                     <span className="text-sm font-bold">{r.requestedByName || 'Staff'}</span>
                   </td>
                   <td>{getStatusBadge(r.status)}</td>
+                  <td>
+                    {r.purchaseOrders && r.purchaseOrders.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {r.purchaseOrders.map((po) => (
+                          <span key={po.id} className="badge badge-blue text-xs font-mono">
+                            PO-{po.id.substring(0, 8).toUpperCase()} ({po.status})
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="badge badge-default text-xs">No PO Created</span>
+                    )}
+                  </td>
                   <td>
                     <span className="badge badge-default">
                       {r.items.length} {r.items.length === 1 ? 'item' : 'items'}
@@ -664,6 +691,19 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
                         <Eye size={13} />
                         <span>View</span>
                       </button>
+
+                      {/* Create PO from Approved PR (Procurement / Admin) */}
+                      {r.status === 'APPROVED' && canManageProcurement && onCreatePoFromPr && (
+                        <button
+                          type="button"
+                          className="btn-table-action btn-batch-receive"
+                          onClick={() => onCreatePoFromPr(r)}
+                          title="Create Purchase Order from this approved PR"
+                        >
+                          <PlusCircle size={13} />
+                          <span>Create PO</span>
+                        </button>
+                      )}
 
                       {/* Edit (Draft only) */}
                       {r.status === 'DRAFT' && (
@@ -1283,8 +1323,64 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({ onSu
               </table>
             </div>
 
+            {/* Linked Purchase Orders (if any) */}
+            {viewingRequest.purchaseOrders && viewingRequest.purchaseOrders.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-bold mb-2">
+                  Linked Purchase Orders ({viewingRequest.purchaseOrders.length})
+                </h4>
+                <div className="table-card">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>PO ID</th>
+                        <th>Status</th>
+                        <th>Supplier</th>
+                        <th>Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewingRequest.purchaseOrders.map((po) => (
+                        <tr key={po.id}>
+                          <td>
+                            <span className="font-mono text-sm font-bold text-accent">
+                              PO-{po.id.substring(0, 8).toUpperCase()}
+                            </span>
+                          </td>
+                          <td>{getStatusBadge(po.status)}</td>
+                          <td>
+                            <span className="text-sm">{po.supplierName || '—'}</span>
+                          </td>
+                          <td>
+                            <span className="text-sm font-bold">
+                              ${po.totalAmount.toFixed(2)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons inside detail modal */}
             <div className="modal-actions">
+              {viewingRequest.status === 'APPROVED' && canManageProcurement && onCreatePoFromPr && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    const req = viewingRequest;
+                    setViewingRequest(null);
+                    onCreatePoFromPr(req);
+                  }}
+                >
+                  <PlusCircle size={14} />
+                  <span>Create Purchase Order from PR</span>
+                </button>
+              )}
+
               {viewingRequest.status === 'DRAFT' && (
                 <>
                   <button

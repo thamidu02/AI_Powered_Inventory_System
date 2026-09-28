@@ -401,6 +401,16 @@ export interface PurchaseRequestItemResponse {
   updatedAt: string;
 }
 
+export interface PurchaseOrderSummaryResponse {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  totalAmount: number;
+  orderDate?: string | null;
+  createdAt: string;
+}
+
 export interface PurchaseRequestResponse {
   id: string;
   status: string; // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, CANCELLED
@@ -412,6 +422,7 @@ export interface PurchaseRequestResponse {
   approvedByName?: string | null;
   approvedAt?: string | null;
   items: PurchaseRequestItemResponse[];
+  purchaseOrders?: PurchaseOrderSummaryResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -460,6 +471,8 @@ export interface PurchaseOrderItemResponse {
 
 export interface PurchaseOrderResponse {
   id: string;
+  purchaseRequestId?: string | null;
+  purchaseRequestReason?: string | null;
   supplierId: string;
   supplierName: string;
   status: string;
@@ -482,6 +495,7 @@ export interface CreatePurchaseOrderItemRequest {
 }
 
 export interface CreatePurchaseOrderRequest {
+  purchaseRequestId?: string | null;
   supplierId: string;
   expectedDeliveryDate?: string | null;
   items: CreatePurchaseOrderItemRequest[];
@@ -494,6 +508,7 @@ export interface UpdatePurchaseOrderItemRequest {
 }
 
 export interface UpdatePurchaseOrderRequest {
+  purchaseRequestId?: string | null;
   supplierId: string;
   expectedDeliveryDate?: string | null;
   items: UpdatePurchaseOrderItemRequest[];

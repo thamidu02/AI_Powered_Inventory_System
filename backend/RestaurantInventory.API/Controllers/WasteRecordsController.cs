@@ -20,15 +20,21 @@ public class WasteRecordsController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
-    public async Task<IActionResult> GetWasteRecords()
+    public async Task<IActionResult> GetWasteRecords(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100)
     {
-        // Keep this endpoint parameterless while returning enough history for
-        // the read-only AI analysis to apply its own requested date window.
-        return Ok(await _salesService.GetWasteRecordsAsync(page: 1, pageSize: 1000));
+        return Ok(await _salesService.GetWasteRecordsAsync(
+            from: from,
+            to: to,
+            page: page,
+            pageSize: pageSize));
     }
 
     [HttpGet("summary")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetWasteSummary(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
@@ -37,7 +43,7 @@ public class WasteRecordsController : ControllerBase
     }
 
     [HttpGet("{wasteRecordId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
     public async Task<IActionResult> GetById(Guid wasteRecordId)
     {
         var result = await _salesService.GetWasteRecordByIdAsync(wasteRecordId);

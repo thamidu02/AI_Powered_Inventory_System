@@ -5,33 +5,36 @@ import {
   Eye,
   Pencil,
   Trash2,
-  Send,
-  CheckCircle2,
-  XCircle,
   Ban,
   Truck,
   AlertTriangle,
   Search,
   RefreshCw,
   X,
-  Clock,
-  UserCheck,
   Building2,
   Plus,
   PackageCheck,
+  ClipboardList,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type {
   PurchaseOrderResponse,
   PurchaseOrderItemResponse,
+  PurchaseRequestResponse,
+  PurchaseRequestItemResponse,
   IngredientResponse,
   SupplierResponse,
+  InventoryResponse,
 } from '../types';
 import { useAuth } from '../context/useAuth';
 import { ReceiveGoodsModal } from './ReceiveGoodsModal';
 
 interface PurchaseOrdersViewProps {
   onSuccess?: (msg: string) => void;
+  preloadedPr?: PurchaseRequestResponse | null;
+  onClearPreloadedPr?: () => void;
+  onNavigateToApprovedPrs?: () => void;
 }
 
 interface FormOrderItemState {
@@ -65,14 +68,17 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSuccess }) => {
+export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
+  onSuccess,
+  preloadedPr,
+  onClearPreloadedPr,
+  onNavigateToApprovedPrs,
+}) => {
   const { user } = useAuth();
 
   // Role permissions
   const canManageProcurement =
     user?.role === 'SYSTEM_ADMIN' || user?.role === 'PROCUREMENT_OFFICER';
-  const isManager =
-    user?.role === 'RESTAURANT_MANAGER' || user?.role === 'SYSTEM_ADMIN';
   const canCancel =
     user?.role === 'SYSTEM_ADMIN' ||
     user?.role === 'RESTAURANT_MANAGER' ||
@@ -87,6 +93,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   const [orders, setOrders] = useState<PurchaseOrderResponse[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
   const [ingredients, setIngredients] = useState<IngredientResponse[]>([]);
+  const [inventory, setInventory] = useState<InventoryResponse[]>([]);
+  const [approvedPrsCount, setApprovedPrsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -103,7 +111,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   const [viewingOrder, setViewingOrder] = useState<PurchaseOrderResponse | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<PurchaseOrderResponse | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<PurchaseOrderResponse | null>(null);
-  const [rejectingOrder, setRejectingOrder] = useState<PurchaseOrderResponse | null>(null);
   const [receivingOrder, setReceivingOrder] = useState<PurchaseOrderResponse | null>(null);
 
   const [formBusy, setFormBusy] = useState<boolean>(false);
@@ -111,6 +118,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
 
   // Form input states
   const [formSupplierId, setFormSupplierId] = useState<string>('');
+  const [formPurchaseRequestId, setFormPurchaseRequestId] = useState<string | null>(null);
+  const [activePreloadedPr, setActivePreloadedPr] = useState<PurchaseRequestResponse | null>(null);
   const [formExpectedDate, setFormExpectedDate] = useState<string>('');
   const [formItems, setFormItems] = useState<FormOrderItemState[]>([
     { ingredientId: '', orderedQuantity: '1', unitPrice: '0.00' },
@@ -144,18 +153,103 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   // Load lookup data
   const loadLookups = useCallback(async () => {
     try {
-      const [supps, ings] = await Promise.all([api.getSuppliers(), api.getIngredients()]);
+      const [supps, ings, prs, inv] = await Promise.all([
+        api.getSuppliers(),
+        api.getIngredients(),
+        api.getPurchaseRequests('APPROVED'),
+        api.getInventory().catch(() => []),
+      ]);
       setSuppliers(supps.filter((s) => s.isActive));
       setIngredients(ings);
+      setInventory(inv || []);
+      // Count approved PRs that have no purchase orders or have unfulfilled orders
+      const waitingPrs = prs.filter(
+        (p) => !p.purchaseOrders || p.purchaseOrders.length === 0
+      );
+      setApprovedPrsCount(waitingPrs.length > 0 ? waitingPrs.length : prs.length);
     } catch {
       // Lookups fail gracefully
     }
   }, []);
 
+  // Helper to determine authoritative estimated unit price from PO history or inventory batch costs
+  const getEstimatedUnitPrice = useCallback(
+    (ingredientId: string, supplierId?: string): string => {
+      if (!ingredientId) return '0.00';
+
+      // 1. Check historical purchase orders from this specific supplier first
+      if (supplierId) {
+        for (const order of orders) {
+          if (order.supplierId === supplierId) {
+            const matchingItem = order.items?.find(
+              (i) => i.ingredientId === ingredientId && i.unitPrice > 0
+            );
+            if (matchingItem) {
+              return matchingItem.unitPrice.toFixed(2);
+            }
+          }
+        }
+      }
+
+      // 2. Check historical purchase orders from any supplier
+      for (const order of orders) {
+        const matchingItem = order.items?.find(
+          (i) => i.ingredientId === ingredientId && i.unitPrice > 0
+        );
+        if (matchingItem) {
+          return matchingItem.unitPrice.toFixed(2);
+        }
+      }
+
+      // 3. Check inventory batches for recent unit cost
+      const invItem = inventory.find((inv) => inv.ingredientId === ingredientId);
+      if (invItem && invItem.batches && invItem.batches.length > 0) {
+        const validBatch = invItem.batches.find((b) => b.unitCost && b.unitCost > 0);
+        if (validBatch && validBatch.unitCost) {
+          return validBatch.unitCost.toFixed(2);
+        }
+      }
+
+      return '0.00';
+    },
+    [orders, inventory]
+  );
+
   useEffect(() => {
     loadOrders();
     loadLookups();
   }, [loadOrders, loadLookups]);
+
+  useEffect(() => {
+    if (preloadedPr) {
+      const suggestedSupplier =
+        preloadedPr.items.find((i) => i.suggestedSupplierId)?.suggestedSupplierId || '';
+      setFormSupplierId(suggestedSupplier);
+      setFormExpectedDate('');
+      setFormPurchaseRequestId(preloadedPr.id);
+      setActivePreloadedPr(preloadedPr);
+
+      const prefilledItems = preloadedPr.items.map((item: PurchaseRequestItemResponse) => {
+        const estPrice = getEstimatedUnitPrice(item.ingredientId, suggestedSupplier);
+        return {
+          ingredientId: item.ingredientId,
+          orderedQuantity: item.requestedQuantity.toString(),
+          unitPrice: estPrice,
+        };
+      });
+
+      setFormItems(
+        prefilledItems.length > 0
+          ? prefilledItems
+          : [{ ingredientId: '', orderedQuantity: '1', unitPrice: '0.00' }]
+      );
+      setModalError(null);
+      setShowCreateModal(true);
+      if (onClearPreloadedPr) {
+        onClearPreloadedPr();
+      }
+    }
+  }, [preloadedPr, onClearPreloadedPr, getEstimatedUnitPrice]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
@@ -180,8 +274,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
 
   // Stats calculation
   const totalCount = orders.length;
-  const pendingCount = orders.filter((o) => o.status === 'PENDING_APPROVAL').length;
-  const approvedCount = orders.filter((o) => o.status === 'APPROVED').length;
   const orderedCount = orders.filter((o) => o.status === 'ORDERED').length;
   const partiallyReceivedCount = orders.filter((o) => o.status === 'PARTIALLY_RECEIVED').length;
   const completedCount = orders.filter((o) => o.status === 'COMPLETED').length;
@@ -200,6 +292,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
   const handleOpenCreate = () => {
     setFormSupplierId('');
     setFormExpectedDate('');
+    setFormPurchaseRequestId(null);
+    setActivePreloadedPr(null);
     setFormItems([{ ingredientId: '', orderedQuantity: '1', unitPrice: '0.00' }]);
     setModalError(null);
     setShowCreateModal(true);
@@ -238,7 +332,19 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
 
   const handleItemChange = (index: number, field: keyof FormOrderItemState, value: string) => {
     setFormItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        if (field === 'ingredientId' && value) {
+          if (updated.unitPrice === '0.00' || updated.unitPrice === '0' || !updated.unitPrice) {
+            const est = getEstimatedUnitPrice(value, formSupplierId);
+            if (est !== '0.00') {
+              updated.unitPrice = est;
+            }
+          }
+        }
+        return updated;
+      })
     );
   };
 
@@ -297,8 +403,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.createPurchaseOrder({
+      const created = await api.createPurchaseOrder({
         supplierId: formSupplierId,
+        purchaseRequestId: formPurchaseRequestId || undefined,
         expectedDeliveryDate: formExpectedDate ? new Date(formExpectedDate).toISOString() : null,
         items: formItems.map((i) => ({
           ingredientId: i.ingredientId,
@@ -308,8 +415,12 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
       });
 
       setShowCreateModal(false);
-      notify('Purchase order created successfully as Draft.');
+      setFormPurchaseRequestId(null);
+      setActivePreloadedPr(null);
+      const code = created?.id ? `PO-${created.id.substring(0, 8).toUpperCase()}` : 'Purchase order';
+      notify(`Purchase Order ${code} created successfully as Draft.`);
       await loadOrders();
+      await loadLookups();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to create purchase order.');
     } finally {
@@ -328,6 +439,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     try {
       await api.updatePurchaseOrder(editingOrder.id, {
         supplierId: formSupplierId,
+        purchaseRequestId: editingOrder.purchaseRequestId || undefined,
         expectedDeliveryDate: formExpectedDate ? new Date(formExpectedDate).toISOString() : null,
         items: formItems.map((i) => ({
           ingredientId: i.ingredientId,
@@ -336,67 +448,12 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
         })),
       });
 
+      const code = `PO-${editingOrder.id.substring(0, 8).toUpperCase()}`;
       setEditingOrder(null);
-      notify('Purchase order updated successfully.');
+      notify(`Purchase Order ${code} updated successfully.`);
       await loadOrders();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Failed to update purchase order.');
-    } finally {
-      setFormBusy(false);
-    }
-  };
-
-  // Submit Draft PO for Approval
-  const handleSubmitOrder = async (id: string) => {
-    setFormBusy(true);
-    try {
-      await api.submitPurchaseOrder(id);
-      notify('Purchase order submitted for managerial approval.');
-      if (viewingOrder?.id === id) {
-        setViewingOrder(null);
-      }
-      await loadOrders();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit purchase order.');
-    } finally {
-      setFormBusy(false);
-    }
-  };
-
-  // Approve PO
-  const handleApproveOrder = async (id: string) => {
-    if (!isManager) return;
-    setFormBusy(true);
-    try {
-      await api.approvePurchaseOrder(id);
-      notify('Purchase order approved.');
-      if (viewingOrder?.id === id) {
-        setViewingOrder(null);
-      }
-      await loadOrders();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve purchase order.');
-    } finally {
-      setFormBusy(false);
-    }
-  };
-
-  // Reject PO
-  const handleConfirmReject = async () => {
-    if (!rejectingOrder || !isManager) return;
-    setFormBusy(true);
-    setModalError(null);
-    try {
-      await api.rejectPurchaseOrder(rejectingOrder.id);
-      const reqId = rejectingOrder.id;
-      setRejectingOrder(null);
-      notify('Purchase order rejected.');
-      if (viewingOrder?.id === reqId) {
-        setViewingOrder(null);
-      }
-      await loadOrders();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : 'Failed to reject purchase order.');
     } finally {
       setFormBusy(false);
     }
@@ -408,7 +465,8 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     setFormBusy(true);
     try {
       await api.markAsOrdered(id);
-      notify('Purchase order marked as ORDERED with vendor.');
+      const code = `PO-${id.substring(0, 8).toUpperCase()}`;
+      notify(`Purchase Order ${code} marked as ORDERED with vendor.`);
       if (viewingOrder?.id === id) {
         setViewingOrder(null);
       }
@@ -426,10 +484,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.cancelPurchaseOrder(cancellingOrder.id);
       const orderId = cancellingOrder.id;
+      const code = `PO-${orderId.substring(0, 8).toUpperCase()}`;
+      await api.cancelPurchaseOrder(orderId);
       setCancellingOrder(null);
-      notify('Purchase order cancelled.');
+      notify(`Purchase Order ${code} cancelled.`);
       if (viewingOrder?.id === orderId) {
         setViewingOrder(null);
       }
@@ -447,10 +506,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
     setFormBusy(true);
     setModalError(null);
     try {
-      await api.deletePurchaseOrder(deletingOrder.id);
       const orderId = deletingOrder.id;
+      const code = `PO-${orderId.substring(0, 8).toUpperCase()}`;
+      await api.deletePurchaseOrder(orderId);
       setDeletingOrder(null);
-      notify('Draft purchase order deleted successfully.');
+      notify(`Draft Purchase Order ${code} deleted successfully.`);
       if (viewingOrder?.id === orderId) {
         setViewingOrder(null);
       }
@@ -495,6 +555,41 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
         </div>
       )}
 
+      {/* Approved PRs Waiting for PO Banner (Procurement Officers / Admin) */}
+      {approvedPrsCount > 0 && canManageProcurement && onNavigateToApprovedPrs && (
+        <div
+          className="info-banner mb-4"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <ClipboardList size={18} className="text-emerald" />
+            <span style={{ color: 'var(--text-main)' }}>
+              <strong>{approvedPrsCount}</strong> Approved Purchase Request{approvedPrsCount === 1 ? '' : 's'}{' '}
+              ready for PO creation
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-secondary text-xs"
+            style={{
+              padding: '0.35rem 0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}
+            onClick={onNavigateToApprovedPrs}
+          >
+            <span>View Approved PRs →</span>
+          </button>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card">
@@ -509,24 +604,13 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon-wrapper bg-amber-glow">
-            <Clock size={22} className="text-amber" />
+          <div className="stat-icon-wrapper bg-purple-glow">
+            <Pencil size={22} className="text-accent" />
           </div>
           <div className="stat-content">
-            <span className="stat-label">Pending Approval</span>
-            <span className="stat-value text-amber">{pendingCount}</span>
-            <span className="stat-subtext">Awaiting manager authorization</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon-wrapper bg-emerald-glow">
-            <UserCheck size={22} className="text-emerald" />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Approved Orders</span>
-            <span className="stat-value text-emerald">{approvedCount}</span>
-            <span className="stat-subtext">Authorized & ready to place</span>
+            <span className="stat-label">Draft Orders</span>
+            <span className="stat-value text-muted">{draftCount}</span>
+            <span className="stat-subtext">Ready for review & placement</span>
           </div>
         </div>
 
@@ -538,6 +622,19 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
             <span className="stat-label">Ordered / In Transit</span>
             <span className="stat-value text-blue">{orderedCount}</span>
             <span className="stat-subtext">Placed with suppliers</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon-wrapper bg-emerald-glow">
+            <PackageCheck size={22} className="text-emerald" />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Received / Completed</span>
+            <span className="stat-value text-emerald">
+              {completedCount + partiallyReceivedCount}
+            </span>
+            <span className="stat-subtext">Stock received into inventory</span>
           </div>
         </div>
       </div>
@@ -571,20 +668,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
           </button>
           <button
             type="button"
-            className={`btn-filter ${statusFilter === 'PENDING_APPROVAL' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('PENDING_APPROVAL')}
-          >
-            Pending ({pendingCount})
-          </button>
-          <button
-            type="button"
-            className={`btn-filter ${statusFilter === 'APPROVED' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('APPROVED')}
-          >
-            Approved ({approvedCount})
-          </button>
-          <button
-            type="button"
             className={`btn-filter ${statusFilter === 'ORDERED' ? 'active' : ''}`}
             onClick={() => setStatusFilter('ORDERED')}
           >
@@ -603,13 +686,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
             onClick={() => setStatusFilter('COMPLETED')}
           >
             Completed ({completedCount})
-          </button>
-          <button
-            type="button"
-            className={`btn-filter ${statusFilter === 'REJECTED' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('REJECTED')}
-          >
-            Rejected
           </button>
           <button
             type="button"
@@ -676,6 +752,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
             <thead>
               <tr>
                 <th>PO ID</th>
+                <th>Source PR</th>
                 <th>Supplier</th>
                 <th>Order Date</th>
                 <th>Expected Delivery</th>
@@ -693,6 +770,15 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                     <span className="font-mono text-sm font-bold text-accent">
                       PO-{po.id.substring(0, 8).toUpperCase()}
                     </span>
+                  </td>
+                  <td>
+                    {po.purchaseRequestId ? (
+                      <span className="badge badge-purple font-mono text-xs" title={`Linked to PR-${po.purchaseRequestId}`}>
+                        PR-{po.purchaseRequestId.substring(0, 8).toUpperCase()}
+                      </span>
+                    ) : (
+                      <span className="text-muted text-xs">—</span>
+                    )}
                   </td>
                   <td>
                     <div className="ingredient-title">{po.supplierName}</div>
@@ -754,6 +840,20 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                         <span>View</span>
                       </button>
 
+                      {/* Explicit "Order PO" directly from DRAFT (Procurement Officer / Admin) */}
+                      {po.status === 'DRAFT' && canManageProcurement && (
+                        <button
+                          type="button"
+                          className="btn-table-action btn-batch-receive"
+                          onClick={() => handleMarkAsOrdered(po.id)}
+                          title="Place Order with Vendor (Transitions to ORDERED)"
+                          disabled={formBusy}
+                        >
+                          <Truck size={13} />
+                          <span>Order PO</span>
+                        </button>
+                      )}
+
                       {/* Edit (Draft only, procurement users) */}
                       {po.status === 'DRAFT' && canManageProcurement && (
                         <button
@@ -767,51 +867,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                         </button>
                       )}
 
-                      {/* Submit (Draft only, procurement users) */}
-                      {po.status === 'DRAFT' && canManageProcurement && (
-                        <button
-                          type="button"
-                          className="btn-table-action btn-batch-receive"
-                          onClick={() => handleSubmitOrder(po.id)}
-                          title="Submit For Approval"
-                          disabled={formBusy}
-                        >
-                          <Send size={13} />
-                          <span>Submit</span>
-                        </button>
-                      )}
-
-                      {/* Approve / Reject (Pending Approval, Manager/Admin only) */}
-                      {po.status === 'PENDING_APPROVAL' && isManager && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-table-action btn-batch-receive"
-                            onClick={() => handleApproveOrder(po.id)}
-                            title="Approve Order"
-                            disabled={formBusy}
-                          >
-                            <CheckCircle2 size={13} />
-                            <span>Approve</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-table-action btn-batch-waste"
-                            onClick={() => {
-                              setRejectingOrder(po);
-                              setModalError(null);
-                            }}
-                            title="Reject Order"
-                            disabled={formBusy}
-                          >
-                            <XCircle size={13} />
-                            <span>Reject</span>
-                          </button>
-                        </>
-                      )}
-
-                      {/* Mark as Ordered (Approved only, procurement users) */}
+                      {/* Mark as Ordered (Legacy APPROVED status support) */}
                       {po.status === 'APPROVED' && canManageProcurement && (
                         <button
                           type="button"
@@ -839,7 +895,7 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                         </button>
                       )}
 
-                      {/* Cancel (Non-terminal states: Draft, Pending, Approved, Ordered) */}
+                      {/* Cancel (Non-terminal states: Draft, Approved, Ordered) */}
                       {['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ORDERED'].includes(po.status) &&
                         canCancel && (
                           <button
@@ -909,6 +965,17 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
               </div>
             </div>
 
+            {activePreloadedPr && (
+              <div className="info-banner mb-4">
+                <ClipboardList size={16} className="text-accent" />
+                <span>
+                  Pre-filled from Approved Purchase Request{' '}
+                  <strong>PR-{activePreloadedPr.id.substring(0, 8).toUpperCase()}</strong>
+                  {activePreloadedPr.reason ? ` — "${activePreloadedPr.reason}"` : ''}
+                </span>
+              </div>
+            )}
+
             {modalError && (
               <div className="alert-error mb-4">
                 <AlertTriangle size={16} />
@@ -925,7 +992,22 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                   <select
                     required
                     value={formSupplierId}
-                    onChange={(e) => setFormSupplierId(e.target.value)}
+                    onChange={(e) => {
+                      const newSupId = e.target.value;
+                      setFormSupplierId(newSupId);
+                      setFormItems((prev) =>
+                        prev.map((it) => {
+                          if (!it.ingredientId) return it;
+                          if (it.unitPrice === '0.00' || it.unitPrice === '0' || !it.unitPrice) {
+                            const newPrice = getEstimatedUnitPrice(it.ingredientId, newSupId);
+                            if (newPrice !== '0.00') {
+                              return { ...it, unitPrice: newPrice };
+                            }
+                          }
+                          return it;
+                        })
+                      );
+                    }}
                     disabled={formBusy}
                   >
                     <option value="">-- Select Active Supplier --</option>
@@ -1398,6 +1480,15 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                 <div>{getStatusBadge(viewingOrder.status)}</div>
               </div>
 
+              {viewingOrder.purchaseRequestId && (
+                <div className="batch-context-summary" style={{ flexDirection: 'column', gap: '0.2rem', margin: 0 }}>
+                  <span className="text-xs text-muted">Source PR</span>
+                  <strong className="text-sm font-mono text-accent">
+                    PR-{viewingOrder.purchaseRequestId.substring(0, 8).toUpperCase()}
+                  </strong>
+                </div>
+              )}
+
               <div className="batch-context-summary" style={{ flexDirection: 'column', gap: '0.2rem', margin: 0 }}>
                 <span className="text-xs text-muted">Supplier</span>
                 <strong className="text-sm">{viewingOrder.supplierName}</strong>
@@ -1417,13 +1508,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                   {new Date(viewingOrder.createdAt).toLocaleDateString()}
                 </span>
               </div>
-
-              {viewingOrder.approvedByName && (
-                <div className="batch-context-summary" style={{ flexDirection: 'column', gap: '0.2rem', margin: 0 }}>
-                  <span className="text-xs text-muted">Approved By</span>
-                  <strong className="text-sm">{viewingOrder.approvedByName}</strong>
-                </div>
-              )}
 
               {viewingOrder.orderDate && (
                 <div className="batch-context-summary" style={{ flexDirection: 'column', gap: '0.2rem', margin: 0 }}>
@@ -1515,37 +1599,11 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                   <button
                     type="button"
                     className="btn-primary"
-                    onClick={() => handleSubmitOrder(viewingOrder.id)}
+                    onClick={() => handleMarkAsOrdered(viewingOrder.id)}
                     disabled={formBusy}
                   >
-                    <Send size={14} />
-                    <span>Submit For Approval</span>
-                  </button>
-                </>
-              )}
-
-              {viewingOrder.status === 'PENDING_APPROVAL' && isManager && (
-                <>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    style={{ borderColor: 'rgba(244, 63, 94, 0.4)', color: 'var(--rose)' }}
-                    onClick={() => {
-                      const ord = viewingOrder;
-                      setRejectingOrder(ord);
-                    }}
-                  >
-                    <XCircle size={14} />
-                    <span>Reject</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => handleApproveOrder(viewingOrder.id)}
-                    disabled={formBusy}
-                  >
-                    <CheckCircle2 size={14} />
-                    <span>Approve Order</span>
+                    <Truck size={14} />
+                    <span>Order PO</span>
                   </button>
                 </>
               )}
@@ -1600,73 +1658,6 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onSucces
                 onClick={() => setViewingOrder(null)}
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REJECT MODAL */}
-      {rejectingOrder && (
-        <div className="modal-overlay" onClick={() => !formBusy && setRejectingOrder(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="modal-close"
-              onClick={() => !formBusy && setRejectingOrder(null)}
-            >
-              <X size={18} />
-            </button>
-
-            <div className="modal-header">
-              <div className="modal-icon-badge bg-rose-glow">
-                <XCircle size={24} className="text-rose" />
-              </div>
-              <div>
-                <h3>Reject Purchase Order</h3>
-                <p>
-                  Reject authorization for PO-
-                  {rejectingOrder.id.substring(0, 8).toUpperCase()}
-                </p>
-              </div>
-            </div>
-
-            {modalError && (
-              <div className="alert-error mb-4">
-                <AlertTriangle size={16} />
-                <span>{modalError}</span>
-              </div>
-            )}
-
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Are you sure you want to reject this purchase order from supplier{' '}
-              <strong>&quot;{rejectingOrder.supplierName}&quot;</strong>? This will transition its
-              status to REJECTED and prevent it from being placed.
-            </p>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setRejectingOrder(null)}
-                disabled={formBusy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-danger"
-                onClick={handleConfirmReject}
-                disabled={formBusy}
-              >
-                {formBusy ? (
-                  <>
-                    <RefreshCw size={16} className="spin" />
-                    <span>Rejecting...</span>
-                  </>
-                ) : (
-                  <span>Confirm Rejection</span>
-                )}
               </button>
             </div>
           </div>
