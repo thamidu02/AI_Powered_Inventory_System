@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Any
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -161,10 +162,12 @@ async def get_forecast(
         )
 
 @app.post("/ml/forecast")
-async def post_forecast(req: ForecastRequest = ForecastRequest()):
+async def post_forecast(req: ForecastRequest | None = None):
     """
     Generate ML forward demand predictions with structured weather payload.
     """
+    if req is None:
+        req = ForecastRequest()
     try:
         results = await forecast_pipeline.generate_forecast(
             _get,
@@ -185,10 +188,12 @@ async def post_forecast(req: ForecastRequest = ForecastRequest()):
         )
 
 @app.post("/ml/train")
-async def train_model(req: TrainRequest = TrainRequest()):
+async def train_model(req: TrainRequest | None = None):
     """
     Trigger training and chronological validation of the Random Forest demand model.
     """
+    if req is None:
+        req = TrainRequest()
     try:
         result = await forecast_pipeline.train_and_evaluate(_get, lookback_days=req.lookback_days, force=req.force)
         return result
