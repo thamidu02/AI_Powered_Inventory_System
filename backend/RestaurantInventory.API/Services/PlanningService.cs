@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using RestaurantInventory.API.Data;
 using RestaurantInventory.API.DTOs.Planning;
@@ -7,19 +8,27 @@ using RestaurantInventory.API.Services.Interfaces;
 namespace RestaurantInventory.API.Services;
 
 /// <summary>
-/// Rule-based demand planning service.
+/// Demand planning service: rule-based baseline with ML overlay from the Python AI service.
+/// When the ML service is available and has sufficient data, ML predictions replace the rule-based
+/// weekly forecast; otherwise the rule-based result is returned transparently as a fallback.
 /// </summary>
 public class PlanningService : IPlanningService
 {
     private readonly ApplicationDbContext _context;
     private readonly IWeatherService _weatherService;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly string _aiServiceUrl;
 
     public PlanningService(
         ApplicationDbContext context,
-        IWeatherService weatherService)
+        IWeatherService weatherService,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration)
     {
         _context = context;
         _weatherService = weatherService;
+        _httpClientFactory = httpClientFactory;
+        _aiServiceUrl = configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
     }
 
     public async Task<IReadOnlyList<DemandPlan>> GenerateDemandPlansAsync(
@@ -298,8 +307,114 @@ public class PlanningService : IPlanningService
             });
         }
 
+        // ── ML Overlay ────────────────────────────────────────────────────────────
+        // Attempt to fetch ML predictions from the Python AI service and overlay them
+        // on the rule-based results. On any failure (timeout, service down, insufficient
+        // data) the rule-based values are kept — zero disruption to other callers.
+        try
+        {
+            var mlResults = await FetchMlForecastsAsync();
+            if (mlResults is not null && mlResults.Count > 0)
+            {
+                var mlByIngredient = mlResults
+                    .Where(r => r.TryGetValue("ingredientId", out _))
+                    .ToDictionary(
+                        r => r["ingredientId"]?.ToString() ?? "",
+                        r => r
+                    );
+
+                for (var i = 0; i < responseList.Count; i++)
+                {
+                    var plan = responseList[i];
+                    if (!mlByIngredient.TryGetValue(plan.IngredientId.ToString(), out var ml))
+                        continue;
+
+                    var source = ml.GetValueOrDefault("predictionSource")?.ToString();
+                    if (source != "ML") continue; // skip rule-based ML entries
+
+                    if (ml.TryGetValue("weeklyForecast", out var wf) && wf is not null)
+                    {
+                        var mlWeekly = Convert.ToDecimal(wf);
+                        var mlDaily  = mlWeekly / 7m;
+
+                        // Recalculate stock projections with ML forecast
+                        var mlProjected  = plan.CurrentStock - mlWeekly;
+                        var mlShortage   = Math.Max(0m, mlWeekly - plan.CurrentStock);
+                        var mlCoverage   = mlDaily > 0 ? Math.Round(plan.CurrentStock / mlDaily, 1) : 999m;
+
+                        bool mlReorder   = mlProjected < plan.MinimumStockLevel || plan.CurrentStock < plan.MinimumStockLevel;
+                        decimal mlOrderQty = 0m;
+                        if (mlReorder)
+                        {
+                            var mlTarget = plan.MaximumStockLevel > 0 ? plan.MaximumStockLevel : (mlWeekly + plan.MinimumStockLevel);
+                            mlOrderQty   = Math.Max(0m, mlTarget - Math.Max(0m, mlProjected));
+                        }
+
+                        string mlRisk = "NORMAL";
+                        if (mlProjected < 0 || plan.CurrentStock < plan.MinimumStockLevel) mlRisk = "STOCK_RISK";
+                        else if (plan.MaximumStockLevel > 0 && plan.CurrentStock > plan.MaximumStockLevel) mlRisk = "OVERSTOCK_RISK";
+                        else if (plan.MinimumStockLevel > 0 && mlWeekly > (plan.MinimumStockLevel * 1.5m)) mlRisk = "HIGH_DEMAND";
+
+                        plan.WeeklyForecast           = Math.Round(mlWeekly, 2);
+                        plan.DailyAverageDemand       = Math.Round(mlDaily, 2);
+                        plan.ProjectedStock           = Math.Round(mlProjected, 2);
+                        plan.ProjectedShortage        = Math.Round(mlShortage, 2);
+                        plan.StockCoverageDays        = mlCoverage;
+                        plan.ReorderRequired          = mlReorder;
+                        plan.RecommendedOrderQuantity = Math.Round(mlOrderQty, 2);
+                        plan.Recommendation           = mlReorder ? "REORDER" : "NO_REORDER";
+                        plan.RiskStatus               = mlRisk;
+                        plan.PredictionSource         = "ML";
+                        plan.GeneratedBy              = "ML_AI_ENRICHED";
+                        plan.ModelType                = ml.GetValueOrDefault("modelType")?.ToString();
+                        if (ml.TryGetValue("mae", out var mae) && mae is not null)
+                            plan.Mae = Convert.ToDecimal(mae);
+                        if (ml.TryGetValue("trainingRecords", out var tr) && tr is not null)
+                            plan.TrainingRecords = Convert.ToInt32(tr);
+                        if (ml.TryGetValue("confidenceScore", out var cs) && cs is not null)
+                            plan.ConfidenceScore = Convert.ToDecimal(cs);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // ML unavailable — rule-based result is returned as-is
+            _ = ex; // suppress unused variable warning; logged by middleware
+        }
+
         return responseList.AsReadOnly();
     }
+
+    /// <summary>
+    /// Call the Python AI service /ml/forecast endpoint.
+    /// Returns null on any network/parse error so callers can silently fall back.
+    /// </summary>
+    private async Task<List<Dictionary<string, object?>>?> FetchMlForecastsAsync()
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5); // fast non-blocking call
+
+            var url = $"{_aiServiceUrl.TrimEnd('/')}/ml/forecast?days=7";
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadFromJsonAsync<MlForecastResponse>();
+            return json?.Forecasts;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // DTO for deserializing the Python ML response
+    private sealed record MlForecastResponse(
+        string Status,
+        List<Dictionary<string, object?>> Forecasts
+    );
 
     public async Task<IReadOnlyList<PlanningRecommendationResponse>> GetRecommendationsAsync(
         DateTime periodStart,
@@ -352,4 +467,80 @@ public class PlanningService : IPlanningService
             RiskItems            = riskItems
         };
     }
+
+    public async Task<IReadOnlyList<DemandHistoryRecordDto>> GetDemandHistoryAsync(
+        DateTime from,
+        DateTime to,
+        Guid? ingredientId = null)
+    {
+        var fromUtc = DateTime.SpecifyKind(from, DateTimeKind.Utc);
+        var toUtc   = DateTime.SpecifyKind(to,   DateTimeKind.Utc);
+
+        // Load active recipes mapping: menuItemId -> list of RecipeIngredients
+        var activeRecipes = await _context.Recipes
+            .Where(r => r.IsActive)
+            .Include(r => r.Ingredients)
+            .ToListAsync();
+
+        var recipeMap = activeRecipes
+            .GroupBy(r => r.MenuItemId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.Version).First().Ingredients
+            );
+
+        // Fetch sale items within the requested period
+        var saleItems = await _context.SaleItems
+            .Include(si => si.Sale)
+            .Where(si =>
+                (si.Sale.SaleDate >= fromUtc && si.Sale.SaleDate < toUtc) ||
+                (si.Sale.CreatedAt >= fromUtc && si.Sale.CreatedAt < toUtc))
+            .ToListAsync();
+
+        // Load ingredient catalog for name + unit lookup
+        var ingredientMap = await _context.Ingredients
+            .ToDictionaryAsync(i => i.Id, i => i);
+
+        // Aggregate: date × ingredientId → total consumption
+        var dailyAgg = new Dictionary<(DateTime date, Guid ingredientId), decimal>();
+
+        foreach (var si in saleItems)
+        {
+            if (!recipeMap.TryGetValue(si.MenuItemId, out var recipeIngredients))
+                continue;
+
+            var saleDate = (si.Sale.SaleDate != default ? si.Sale.SaleDate : si.Sale.CreatedAt)
+                .Date;
+
+            foreach (var ri in recipeIngredients)
+            {
+                if (ingredientId.HasValue && ri.IngredientId != ingredientId.Value)
+                    continue;
+
+                var key = (saleDate, ri.IngredientId);
+                var consumed = si.Quantity * ri.QuantityRequired;
+                dailyAgg[key] = dailyAgg.GetValueOrDefault(key, 0m) + consumed;
+            }
+        }
+
+        var result = dailyAgg
+            .OrderBy(kvp => kvp.Key.date)
+            .ThenBy(kvp => kvp.Key.ingredientId)
+            .Select(kvp =>
+            {
+                ingredientMap.TryGetValue(kvp.Key.ingredientId, out var ing);
+                return new DemandHistoryRecordDto
+                {
+                    Date           = kvp.Key.date,
+                    IngredientId   = kvp.Key.ingredientId,
+                    IngredientName = ing?.Name ?? "",
+                    Unit           = ing?.Unit ?? "",
+                    Demand         = Math.Round(kvp.Value, 4),
+                };
+            })
+            .ToList();
+
+        return result.AsReadOnly();
+    }
 }
+

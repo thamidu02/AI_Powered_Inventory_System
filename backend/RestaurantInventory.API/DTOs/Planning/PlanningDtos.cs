@@ -23,9 +23,23 @@ public class DemandPlanResponse
     public string RiskStatus { get; set; } = "NORMAL";
     public decimal? ConfidenceScore { get; set; }
     public string GeneratedBy { get; set; } = "RULE_BASED";
+    public string PredictionSource { get; set; } = "RULE_BASED";
+    public string? ModelType { get; set; }
+    public int? TrainingRecords { get; set; }
+    public decimal? Mae { get; set; }
+    public List<decimal>? DailyPredictions { get; set; }
     public string Reason { get; set; } = string.Empty;
     public decimal WeatherMultiplier { get; set; } = 1.0m;
     public string? WeatherImpact { get; set; }
+}
+
+public class DemandHistoryRecordDto
+{
+    public DateTime Date { get; set; }
+    public Guid IngredientId { get; set; }
+    public string IngredientName { get; set; } = string.Empty;
+    public string Unit { get; set; } = string.Empty;
+    public decimal Demand { get; set; }
 }
 
 public class PlanningRecommendationResponse

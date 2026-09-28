@@ -96,4 +96,27 @@ public class PlanningController : ControllerBase
 
         return Ok(risks);
     }
+
+    /// <summary>
+    /// Get daily historical ingredient demand records built from sales × recipe consumption.
+    /// Used by the ML demand forecasting pipeline in the AI service.
+    /// </summary>
+    [HttpGet("demand-history")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    public async Task<IActionResult> GetDemandHistory(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] Guid? ingredientId = null)
+    {
+        var historyFrom = from.HasValue
+            ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow.AddDays(-60);
+        var historyTo = to.HasValue
+            ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
+        var records = await _planningService.GetDemandHistoryAsync(historyFrom, historyTo, ingredientId);
+        return Ok(records);
+    }
 }
+
