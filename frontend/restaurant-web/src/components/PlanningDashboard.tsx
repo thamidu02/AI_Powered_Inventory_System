@@ -234,7 +234,15 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div
+            className="flex flex-wrap items-center gap-3"
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '1.25rem',
+            }}
+          >
             {/* ML Status pill */}
             {mlStatus && (
               <div
@@ -307,7 +315,8 @@ export const PlanningDashboard: React.FC<PlanningDashboardProps> = ({ onSuccess 
                 if (onSuccess) onSuccess('Refreshed demand forecast & risk calculations.');
               }}
               disabled={loading}
-              className="btn-action btn-action-primary flex items-center gap-2"
+              className="btn-primary"
+              style={{ minHeight: '40px', padding: '0.55rem 1rem' }}
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               <span>Recalculate</span>
