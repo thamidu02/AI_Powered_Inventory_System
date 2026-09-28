@@ -86,6 +86,11 @@ class TrainRequest(BaseModel):
     lookback_days: int = 60
     force: bool = False
 
+class ForecastRequest(BaseModel):
+    days: int = 7
+    ingredient_id: str | None = None
+    weather: dict[str, Any] | None = None
+
 # ─── /chat endpoint ───────────────────────────────────────────────────────────
 
 @app.post("/chat")
@@ -125,13 +130,51 @@ async def get_forecast(
     ingredient_id: str | None = Query(None, description="Optional ingredient UUID"),
 ):
     """
-    Generate 7-day ML forward demand predictions based on real database records.
+    Generate ML forward demand predictions based on database records.
     """
     try:
-        results = await forecast_pipeline.generate_forecast(_get, days=days, ingredient_id=ingredient_id)
+        # Check if backend weather service can provide current/forecast weather
+        weather_ctx = None
+        try:
+            w_resp = await _get("/api/weather/forecast")
+            if isinstance(w_resp, dict) and "current" in w_resp:
+                weather_ctx = w_resp
+        except Exception:
+            pass
+
+        results = await forecast_pipeline.generate_forecast(
+            _get,
+            days=days,
+            ingredient_id=ingredient_id,
+            weather_context=weather_ctx,
+        )
         return {
             "status": "SUCCESS",
             "forecast_days": days,
+            "forecasts": results,
+            "metadata": forecast_pipeline.metadata,
+        }
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "ERROR", "message": str(exc), "forecasts": []},
+        )
+
+@app.post("/ml/forecast")
+async def post_forecast(req: ForecastRequest = ForecastRequest()):
+    """
+    Generate ML forward demand predictions with structured weather payload.
+    """
+    try:
+        results = await forecast_pipeline.generate_forecast(
+            _get,
+            days=req.days,
+            ingredient_id=req.ingredient_id,
+            weather_context=req.weather,
+        )
+        return {
+            "status": "SUCCESS",
+            "forecast_days": req.days,
             "forecasts": results,
             "metadata": forecast_pipeline.metadata,
         }
