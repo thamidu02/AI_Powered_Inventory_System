@@ -15,8 +15,7 @@ from typing import AsyncIterator, Any
 
 import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
-from tools import TOOL_DEFINITIONS, call_tool
-from tools.sales import COMPONENT3_READ_ONLY_TOOLS
+from tools import TOOL_DEFINITIONS, call_tool, COMPONENT3_READ_ONLY_TOOLS
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
