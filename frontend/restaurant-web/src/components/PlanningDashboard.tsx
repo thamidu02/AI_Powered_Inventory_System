@@ -16,8 +16,6 @@ import {
   CloudRain,
   Sun,
   Cloud,
-  Thermometer,
-  Wind,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { MlForecastItem, MlStatusResponse } from '../services/api';
