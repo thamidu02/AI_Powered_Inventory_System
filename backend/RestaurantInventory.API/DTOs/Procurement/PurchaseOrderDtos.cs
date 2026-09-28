@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RestaurantInventory.API.DTOs.Procurement;
 
-// -----------------------------------------------------------------------------
 // Order Items
-// -----------------------------------------------------------------------------
 
 public class CreatePurchaseOrderItemRequest
 {
@@ -34,9 +32,7 @@ public class UpdatePurchaseOrderItemRequest
     public decimal UnitPrice { get; set; }
 }
 
-// -----------------------------------------------------------------------------
 // Purchase Order
-// -----------------------------------------------------------------------------
 
 public class CreatePurchaseOrderRequest
 {
@@ -81,9 +77,7 @@ public class PurchaseOrderSummaryResponse
     public DateTime CreatedAt { get; set; }
 }
 
-// -----------------------------------------------------------------------------
 // Response
-// -----------------------------------------------------------------------------
 
 public class PurchaseOrderItemResponse
 {

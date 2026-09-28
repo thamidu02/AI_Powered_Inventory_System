@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RestaurantInventory.API.DTOs.Procurement;
 
-// ─── Request Items ───────────────────────────────────────────────────────────
+// Request Items 
 
 public class CreatePurchaseRequestItemRequest
 {
@@ -34,7 +34,7 @@ public class UpdatePurchaseRequestItemRequest
     public string? Notes { get; set; }
 }
 
-// ─── Purchase Request ─────────────────────────────────────────────────────────
+// Purchase Request 
 
 public class CreatePurchaseRequestRequest
 {
@@ -62,7 +62,7 @@ public class RejectPurchaseRequestRequest
     public string? Reason { get; set; }
 }
 
-// ─── Response ─────────────────────────────────────────────────────────────────
+//  Response 
 
 public class PurchaseRequestItemResponse
 {

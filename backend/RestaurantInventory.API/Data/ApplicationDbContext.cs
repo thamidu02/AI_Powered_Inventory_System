@@ -16,17 +16,13 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-    // =========================
     // Identity
-    // =========================
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
 
 
-    // =========================
     // Inventory
-    // =========================
 
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
     public DbSet<IngredientCategory> IngredientCategories => Set<IngredientCategory>();
@@ -36,9 +32,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
 
 
-    // =========================
     // Procurement
-    // =========================
 
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierIngredient> SupplierIngredients => Set<SupplierIngredient>();
@@ -50,9 +44,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<GoodsReceiptItem> GoodsReceiptItems => Set<GoodsReceiptItem>();
 
 
-    // =========================
     // Sales & Waste
-    // =========================
 
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
@@ -62,17 +54,13 @@ public class ApplicationDbContext : DbContext
     public DbSet<WasteRecord> WasteRecords => Set<WasteRecord>();
 
 
-    // =========================
     // Planning
-    // =========================
 
     public DbSet<ReorderRule> ReorderRules => Set<ReorderRule>();
     public DbSet<DemandPlan> DemandPlans => Set<DemandPlan>();
 
 
-    // =========================
     // Agentic AI
-    // =========================
 
     public DbSet<AIWorkflow> AIWorkflows => Set<AIWorkflow>();
     public DbSet<AIWorkflowStep> AIWorkflowSteps => Set<AIWorkflowStep>();
@@ -84,9 +72,7 @@ public class ApplicationDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
 
-        // ============================================================
         // IDENTITY
-        // ============================================================
 
         modelBuilder.Entity<Role>()
             .HasIndex(r => r.Name)
@@ -310,9 +296,7 @@ public class ApplicationDbContext : DbContext
             .HasPrecision(18, 2);
 
 
-        // ============================================================
         // DATABASE CHECK CONSTRAINTS
-        // ============================================================
 
         // Ingredient constraints
 

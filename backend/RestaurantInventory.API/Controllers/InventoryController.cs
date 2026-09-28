@@ -18,9 +18,7 @@ public class InventoryController : ControllerBase
         _inventoryService = inventoryService;
     }
 
-    // ============================================================
     // GET ALL INVENTORY
-    // ============================================================
 
     [HttpGet]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
@@ -32,9 +30,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // GET INVENTORY BY INGREDIENT
-    // ============================================================
 
     [HttpGet("{ingredientId:guid}")]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
@@ -55,9 +51,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // LOW STOCK
-    // ============================================================
 
     [HttpGet("low-stock")]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER")]
@@ -69,9 +63,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // EXPIRING STOCK
-    // ============================================================
 
     [HttpGet("expiring")]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
@@ -93,9 +85,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // RECEIVE STOCK
-    // ============================================================
 
     [HttpPost("receive")]
     [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
@@ -115,9 +105,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // CONSUME STOCK
-    // ============================================================
 
     [HttpPost("consume")]
     [Authorize(Roles = "INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
@@ -137,9 +125,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // RECORD WASTE
-    // ============================================================
 
     [HttpPost("waste")]
     [Authorize(Roles = "INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
@@ -159,9 +145,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // ADJUST STOCK
-    // ============================================================
 
     [HttpPost("adjust")]
     [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
@@ -182,9 +166,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // GET ADJUSTMENTS
-    // ============================================================
 
     [HttpGet("adjustments")]
     [Authorize(Roles = "RESTAURANT_MANAGER,INVENTORY_MANAGER")]
@@ -197,9 +179,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // APPROVE ADJUSTMENT
-    // ============================================================
 
     [HttpPost("adjustments/{adjustmentId:guid}/approve")]
     [Authorize(Roles = "RESTAURANT_MANAGER")]
@@ -219,9 +199,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // REJECT ADJUSTMENT
-    // ============================================================
 
     [HttpPost("adjustments/{adjustmentId:guid}/reject")]
     [Authorize(Roles = "RESTAURANT_MANAGER")]
@@ -241,9 +219,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // TRANSFER STOCK
-    // ============================================================
 
     [HttpPost("transfer")]
     [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
@@ -263,9 +239,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // STOCK MOVEMENTS & CONSUME HISTORY
-    // ============================================================
 
     [HttpGet("movements")]
     [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
@@ -313,9 +287,7 @@ public class InventoryController : ControllerBase
     }
 
 
-    // ============================================================
     // CURRENT USER
-    // ============================================================
 
     private Guid GetCurrentUserId()
     {

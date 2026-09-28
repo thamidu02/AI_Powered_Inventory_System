@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RestaurantInventory.API.DTOs.Procurement;
 
-// -----------------------------------------------------------------------------
 // Goods Receipt Items
-// -----------------------------------------------------------------------------
 
 public class CreateGoodsReceiptItemRequest
 {
@@ -27,9 +25,7 @@ public class CreateGoodsReceiptItemRequest
     public DateTime? ExpiryDate { get; set; }
 }
 
-// -----------------------------------------------------------------------------
 // Goods Receipt
-// -----------------------------------------------------------------------------
 
 public class CreateGoodsReceiptRequest
 {
@@ -44,9 +40,7 @@ public class CreateGoodsReceiptRequest
     public List<CreateGoodsReceiptItemRequest> Items { get; set; } = new();
 }
 
-// -----------------------------------------------------------------------------
 // Response Models
-// -----------------------------------------------------------------------------
 
 public class GoodsReceiptItemResponse
 {

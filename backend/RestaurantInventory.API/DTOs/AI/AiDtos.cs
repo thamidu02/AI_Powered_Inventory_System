@@ -1,6 +1,6 @@
 namespace RestaurantInventory.API.DTOs.AI;
 
-// ─── Chat ────────────────────────────────────────────────────────────────────
+// Chat
 
 public class AiChatRequest
 {
@@ -10,7 +10,7 @@ public class AiChatRequest
     public string? WorkflowId { get; set; }
 }
 
-// ─── Workflow list ────────────────────────────────────────────────────────────
+// Workflow list 
 
 public class AiWorkflowSummary
 {
@@ -24,7 +24,7 @@ public class AiWorkflowSummary
     public int StepCount      { get; set; }
 }
 
-// ─── Approval ────────────────────────────────────────────────────────────────
+// Approval 
 
 public class AiApprovalRequest
 {

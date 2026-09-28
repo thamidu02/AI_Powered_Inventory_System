@@ -19,9 +19,7 @@ public class AiController : ControllerBase
         _ai = ai;
     }
 
-    // ============================================================
     // CHAT — SSE stream
-    // ============================================================
 
     [HttpPost("chat")]
     public async Task Chat(
@@ -74,9 +72,7 @@ public class AiController : ControllerBase
         }
     }
 
-    // ============================================================
     // LIST WORKFLOWS
-    // ============================================================
 
     [HttpGet("workflows")]
     public async Task<IActionResult> GetWorkflows()
@@ -86,9 +82,7 @@ public class AiController : ControllerBase
         return Ok(result);
     }
 
-    // ============================================================
     // APPROVE / REJECT WORKFLOW
-    // ============================================================
 
     [HttpPost("workflows/{workflowId}/approve")]
     public async Task<IActionResult> ApproveWorkflow(
@@ -106,9 +100,7 @@ public class AiController : ControllerBase
         return Ok(result);
     }
 
-    // ============================================================
     // CURRENT USER HELPER
-    // ============================================================
 
     private string GetCurrentUserId()
     {
