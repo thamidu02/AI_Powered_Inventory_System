@@ -98,7 +98,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("receive")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> ReceiveStock(
         [FromBody] ReceiveStockRequest request)
     {
@@ -120,7 +120,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("consume")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
     public async Task<IActionResult> ConsumeStock(
         [FromBody] ConsumeStockRequest request)
     {
@@ -142,7 +142,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("waste")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,SALES_KITCHEN_STAFF,RESTAURANT_MANAGER")]
     public async Task<IActionResult> RecordWaste(
         [FromBody] RecordWasteRequest request)
     {
@@ -164,7 +164,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("adjust")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> AdjustStock(
         [FromBody] AdjustStockRequest request)
     {
@@ -187,7 +187,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet("adjustments")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,INVENTORY_MANAGER")]
     public async Task<IActionResult> GetAdjustments(
         [FromQuery] string? status = null)
     {
@@ -202,7 +202,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("adjustments/{adjustmentId:guid}/approve")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER")]
     public async Task<IActionResult> ApproveAdjustment(
         Guid adjustmentId)
     {
@@ -224,7 +224,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("adjustments/{adjustmentId:guid}/reject")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "RESTAURANT_MANAGER")]
     public async Task<IActionResult> RejectAdjustment(
         Guid adjustmentId)
     {
@@ -246,7 +246,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpPost("transfer")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER,RESTAURANT_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> TransferStock(
         [FromBody] TransferStockRequest request)
     {

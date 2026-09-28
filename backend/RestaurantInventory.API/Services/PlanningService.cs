@@ -1,7 +1,9 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RestaurantInventory.API.Data;
 using RestaurantInventory.API.DTOs.Planning;
+using RestaurantInventory.API.DTOs.Weather;
 using RestaurantInventory.API.Models.Planning;
 using RestaurantInventory.API.Services.Interfaces;
 
@@ -17,17 +19,20 @@ public class PlanningService : IPlanningService
     private readonly ApplicationDbContext _context;
     private readonly IWeatherService _weatherService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<PlanningService> _logger;
     private readonly string _aiServiceUrl;
 
     public PlanningService(
         ApplicationDbContext context,
         IWeatherService weatherService,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<PlanningService> logger)
     {
         _context = context;
         _weatherService = weatherService;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
         _aiServiceUrl = configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
     }
 
@@ -101,6 +106,15 @@ public class PlanningService : IPlanningService
 
         var today = DateTime.UtcNow.Date;
         var weatherImpact = await _weatherService.GetDemandImpactAsync();
+        WeatherForecastSummaryResponse? weatherForecast = null;
+        try
+        {
+            weatherForecast = await _weatherService.GetWeatherForecastAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve weather forecast summary; proceeding with baseline.");
+        }
 
         var ingredients = await _context.Ingredients
             .Include(i => i.Category)
@@ -313,7 +327,7 @@ public class PlanningService : IPlanningService
         // data) the rule-based values are kept — zero disruption to other callers.
         try
         {
-            var mlResults = await FetchMlForecastsAsync();
+            var mlResults = await FetchMlForecastsAsync(weatherForecast);
             if (mlResults is not null && mlResults.Count > 0)
             {
                 var mlByIngredient = mlResults
@@ -373,6 +387,25 @@ public class PlanningService : IPlanningService
                             plan.TrainingRecords = Convert.ToInt32(tr);
                         if (ml.TryGetValue("confidenceScore", out var cs) && cs is not null)
                             plan.ConfidenceScore = Convert.ToDecimal(cs);
+
+                        // Weather Influence
+                        if (ml.TryGetValue("weatherInfluence", out var wiObj) && wiObj != null)
+                        {
+                            try
+                            {
+                                var wiJson = JsonSerializer.Serialize(wiObj);
+                                var wiDto = JsonSerializer.Deserialize<WeatherInfluenceDto>(wiJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                if (wiDto != null)
+                                {
+                                    plan.WeatherInfluence = wiDto;
+                                    plan.WeatherAvailable = true;
+                                }
+                            }
+                            catch
+                            {
+                                // Safe fallback if influence deserialization fails
+                            }
+                        }
                     }
                 }
             }
@@ -387,21 +420,63 @@ public class PlanningService : IPlanningService
     }
 
     /// <summary>
-    /// Call the Python AI service /ml/forecast endpoint.
+    /// Call the Python AI service /ml/forecast endpoint with optional weather context.
     /// Returns null on any network/parse error so callers can silently fall back.
     /// </summary>
-    private async Task<List<Dictionary<string, object?>>?> FetchMlForecastsAsync()
+    private async Task<List<Dictionary<string, object?>>?> FetchMlForecastsAsync(WeatherForecastSummaryResponse? weather = null)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(5); // fast non-blocking call
 
-            var url = $"{_aiServiceUrl.TrimEnd('/')}/ml/forecast?days=7";
-            var response = await client.GetAsync(url);
-            if (!response.IsSuccessStatusCode) return null;
+            var url = $"{_aiServiceUrl.TrimEnd('/')}/ml/forecast";
 
-            var json = await response.Content.ReadFromJsonAsync<MlForecastResponse>();
+            // If weather summary is available, POST full payload; otherwise GET with query param
+            if (weather != null)
+            {
+                var payload = new
+                {
+                    days = 7,
+                    weather = new
+                    {
+                        city = weather.City,
+                        isSimulated = weather.IsSimulated,
+                        current = new
+                        {
+                            temperature = weather.Current.Temperature,
+                            humidity = weather.Current.Humidity,
+                            condition = weather.Current.Condition,
+                            description = weather.Current.Description,
+                            rainProbability = weather.Current.RainProbability,
+                            windSpeed = weather.Current.WindSpeed,
+                        },
+                        forecast = weather.Forecast?.Select(f => new
+                        {
+                            date = f.Date.ToString("yyyy-MM-dd"),
+                            dayOfWeek = f.DayOfWeek,
+                            tempMin = f.TempMin,
+                            tempMax = f.TempMax,
+                            condition = f.Condition,
+                            description = f.Description,
+                            rainProbability = f.RainProbability,
+                        }).ToList()
+                    }
+                };
+
+                var postResponse = await client.PostAsJsonAsync(url, payload);
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var postJson = await postResponse.Content.ReadFromJsonAsync<MlForecastResponse>();
+                    return postJson?.Forecasts;
+                }
+            }
+
+            // Fallback GET
+            var getResponse = await client.GetAsync($"{url}?days=7");
+            if (!getResponse.IsSuccessStatusCode) return null;
+
+            var json = await getResponse.Content.ReadFromJsonAsync<MlForecastResponse>();
             return json?.Forecasts;
         }
         catch
@@ -440,7 +515,9 @@ public class PlanningService : IPlanningService
                 Recommendation           = p.Recommendation,
                 Reason                   = p.Reason,
                 WeatherMultiplier        = p.WeatherMultiplier,
-                WeatherImpact            = p.WeatherImpact
+                WeatherImpact            = p.WeatherImpact,
+                WeatherAvailable         = p.WeatherAvailable,
+                WeatherInfluence         = p.WeatherInfluence
             })
             .ToList();
 

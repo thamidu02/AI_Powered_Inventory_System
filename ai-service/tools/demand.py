@@ -896,12 +896,26 @@ async def get_demand_forecast(
     days: int = 7,
 ) -> dict:
     """
-    Get 7-day ML-driven ingredient demand forecast based on actual database sales & recipes.
+    Get 7-day ML-driven ingredient demand forecast based on actual database sales & recipes and forecasted weather.
     Falls back safely to rule-based baseline if data is insufficient (< 7 daily records).
     """
     days = max(1, min(int(days), 30))
     try:
-        forecasts = await forecast_pipeline.generate_forecast(_get, days=days, ingredient_id=ingredient_id)
+        # Check backend weather context
+        weather_ctx = None
+        try:
+            w_resp = await _get("/api/weather/forecast")
+            if isinstance(w_resp, dict) and "current" in w_resp:
+                weather_ctx = w_resp
+        except Exception:
+            pass
+
+        forecasts = await forecast_pipeline.generate_forecast(
+            _get,
+            days=days,
+            ingredient_id=ingredient_id,
+            weather_context=weather_ctx,
+        )
         if forecasts:
             if ingredient_id:
                 target = next((f for f in forecasts if f["ingredientId"] == ingredient_id), None)
@@ -914,6 +928,7 @@ async def get_demand_forecast(
                 "model_status": forecast_pipeline.metadata.get("status", "AVAILABLE"),
                 "model_type": forecast_pipeline.metadata.get("model_type", "RandomForestRegressor"),
                 "mae": forecast_pipeline.metadata.get("mae"),
+                "weather_aware": weather_ctx is not None,
             }
     except Exception as exc:
         logger.error("ML Demand forecast execution error: %s", exc)

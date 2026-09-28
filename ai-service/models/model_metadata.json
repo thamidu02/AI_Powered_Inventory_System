@@ -1,15 +1,15 @@
 {
   "status": "TRAINED",
   "model_type": "RandomForestRegressor",
-  "trained_at": "2026-09-28T03:49:01.074263+00:00",
+  "trained_at": "2026-09-28T09:33:53.664474+00:00",
   "data_from": "2026-07-30",
   "data_to": "2026-09-28",
   "unique_days_analyzed": 61,
   "training_records": 196,
   "validation_records": 48,
-  "mae": 1.0481,
-  "rmse": 1.3958,
-  "baseline_mae": 0.2155,
+  "mae": 0.9279,
+  "rmse": 1.2283,
+  "baseline_mae": 0.244,
   "ml_outperformed_baseline": false,
   "ingredient_model_count": 4,
   "features": [
@@ -22,6 +22,9 @@
     "lag_7",
     "rolling_mean_3",
     "rolling_mean_7",
-    "rolling_mean_14"
+    "rolling_mean_14",
+    "temperature",
+    "rain_probability",
+    "is_rainy"
   ]
 }

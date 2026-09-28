@@ -227,10 +227,11 @@ class DemandForecastPipeline:
         get_fn: Any,
         days: int = 7,
         ingredient_id: str | None = None,
+        weather_context: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Generate multi-day forward demand predictions for catalog ingredients.
-        Returns a list of structured prediction dictionaries.
+        Generate multi-day forward demand predictions for catalog ingredients with weather context.
+        Returns a list of structured prediction dictionaries with explainable weather influence.
         """
         # Ensure model is trained or fresh
         await self.train_and_evaluate(get_fn, lookback_days=60, force=False)
@@ -239,9 +240,26 @@ class DemandForecastPipeline:
         if df_daily.empty:
             return []
 
-        # Get unique ingredients from dataset
         forecasts: list[dict[str, Any]] = []
-        today = datetime.now(timezone.utc).floor("D") if hasattr(datetime.now(timezone.utc), "floor") else datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Build date -> weather map from weather_context
+        weather_by_date: dict[str, dict[str, Any]] = {}
+        daily_forecast_list: list[dict[str, Any]] = []
+        if weather_context:
+            forecast_items = weather_context.get("forecast") or []
+            if isinstance(forecast_items, list):
+                daily_forecast_list = forecast_items
+                for item in forecast_items:
+                    d_str = item.get("date")
+                    if d_str:
+                        clean_d = d_str.split("T")[0]
+                        weather_by_date[clean_d] = item
+
+            # If current weather is present and no forecast list, use current as fallback
+            current_w = weather_context.get("current")
+            if current_w and not daily_forecast_list:
+                daily_forecast_list = [current_w]
 
         for ing_id, group in df_daily.groupby("ingredient_id"):
             ing_id_str = str(ing_id)
@@ -259,16 +277,38 @@ class DemandForecastPipeline:
             use_ml = (model is not None) and (hist_count >= MIN_RECORDS_FOR_ML)
 
             daily_predictions: list[float] = []
+            baseline_daily_preds: list[float] = []
             simulated_history = list(hist_demands)
+            simulated_baseline_history = list(hist_demands)
+
+            sampled_weather: list[dict[str, Any]] = []
 
             for step in range(1, days + 1):
                 target_dt = pd.to_datetime(today + timedelta(days=step))
-                feat_dict = build_future_feature_row(target_dt, simulated_history)
+                target_d_str = target_dt.strftime("%Y-%m-%d")
+
+                # Find weather info for this day
+                w_info = weather_by_date.get(target_d_str)
+                if not w_info and daily_forecast_list:
+                    w_idx = min(step - 1, len(daily_forecast_list) - 1)
+                    w_info = daily_forecast_list[w_idx]
+
+                if w_info:
+                    sampled_weather.append(w_info)
+
+                # Weather-aware feature row
+                feat_dict = build_future_feature_row(target_dt, simulated_history, weather_info=w_info)
+                # Neutral baseline feature row (no weather effect)
+                baseline_feat_dict = build_future_feature_row(target_dt, simulated_baseline_history, weather_info=None)
 
                 if use_ml and model is not None:
                     feat_row = pd.DataFrame([feat_dict])[FEATURE_COLUMNS]
                     pred_val = float(model.predict(feat_row)[0])
                     pred_val = max(0.0, round(pred_val, 3))
+
+                    base_row = pd.DataFrame([baseline_feat_dict])[FEATURE_COLUMNS]
+                    base_val = float(model.predict(base_row)[0])
+                    base_val = max(0.0, round(base_val, 3))
                 else:
                     # Rule-based day prediction
                     is_we = feat_dict["is_weekend"] == 1
@@ -277,12 +317,57 @@ class DemandForecastPipeline:
                     avg_wd = sum(weekday_vals) / max(1, len(weekday_vals)) if weekday_vals else 0.0
                     avg_we = sum(weekend_vals) / max(1, len(weekend_vals)) if weekend_vals else avg_wd
                     pred_val = max(0.0, round(avg_we if is_we else avg_wd, 3))
+                    base_val = pred_val
 
                 daily_predictions.append(pred_val)
+                baseline_daily_preds.append(base_val)
                 simulated_history.append(pred_val)
+                simulated_baseline_history.append(base_val)
 
             weekly_forecast = round(float(sum(daily_predictions)), 2)
+            baseline_weekly = round(float(sum(baseline_daily_preds)), 2)
             daily_avg = round(weekly_forecast / days, 2) if days > 0 else 0.0
+
+            # Compute weather influence explanation
+            weather_influence_dict = None
+            if sampled_weather or weather_context:
+                avg_temp = (
+                    sum(
+                        float((w.get("tempMax", 20.0) + w.get("tempMin", 20.0)) / 2.0 if "tempMax" in w else w.get("temperature", 20.0))
+                        for w in sampled_weather
+                    ) / max(1, len(sampled_weather))
+                    if sampled_weather
+                    else 20.0
+                )
+                avg_rain_prob = (
+                    sum(float(w.get("rainProbability", 0.0)) for w in sampled_weather) / max(1, len(sampled_weather))
+                    if sampled_weather
+                    else 0.0
+                )
+                primary_cond = sampled_weather[0].get("condition", "Clear") if sampled_weather else "Clear"
+
+                diff = weekly_forecast - baseline_weekly
+                pct_change = (diff / baseline_weekly * 100) if baseline_weekly > 0 else 0.0
+
+                if abs(diff) < 0.2 or abs(pct_change) < 2.0:
+                    impact = "NEUTRAL"
+                    explanation = f"Forecasted weather ({primary_cond}, {round(avg_temp, 1)}°C) shows minimal historical impact on {name}."
+                elif diff > 0:
+                    impact = "INCREASED"
+                    explanation = f"Forecasted weather conditions ({primary_cond}, rain prob {round(avg_rain_prob*100)}%) correlate with a +{round(pct_change, 1)}% uptick in predicted {name} demand."
+                else:
+                    impact = "DECREASED"
+                    explanation = f"Forecasted conditions ({primary_cond}, {round(avg_temp, 1)}°C) correlate with a {round(pct_change, 1)}% decrease in predicted {name} demand."
+
+                weather_influence_dict = {
+                    "condition": primary_cond,
+                    "temperature": round(avg_temp, 1),
+                    "rainProbability": round(avg_rain_prob, 2),
+                    "impact": impact,
+                    "explanation": explanation,
+                    "baselineDemand": baseline_weekly,
+                    "weatherAdjustedDemand": weekly_forecast,
+                }
 
             forecasts.append({
                 "ingredientId": ing_id_str,
@@ -297,6 +382,7 @@ class DemandForecastPipeline:
                 "trainingRecords": hist_count,
                 "mae": self.metadata.get("mae", 0.0) if use_ml else self.metadata.get("baseline_mae", 0.0),
                 "confidenceScore": 0.88 if use_ml else (0.65 if hist_count > 0 else 0.10),
+                "weatherInfluence": weather_influence_dict,
             })
 
         return forecasts

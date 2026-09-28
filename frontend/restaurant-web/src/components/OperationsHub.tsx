@@ -24,9 +24,9 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
   const [pendingAdjustments, setPendingAdjustments] = useState<StockAdjustmentResponse[]>([]);
   const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
-  const isManager = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'SYSTEM_ADMIN';
-  const canReceive = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
-  const canConsume = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
+  const isManager = user?.role === 'RESTAURANT_MANAGER';
+  const canReceive = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
+  const canConsume = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
 
   const loadPendingAdjustments = async () => {
     if (!isManager) return;
@@ -88,7 +88,7 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
               Open Receive Form
             </button>
             {!canReceive && (
-              <span className="text-xs text-rose mt-1 block">Requires Manager or Admin role</span>
+              <span className="text-xs text-rose mt-1 block">Requires Restaurant Manager or Inventory Manager role</span>
             )}
           </div>
         </div>

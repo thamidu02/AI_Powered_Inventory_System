@@ -31,6 +31,20 @@ public class DemandPlanResponse
     public string Reason { get; set; } = string.Empty;
     public decimal WeatherMultiplier { get; set; } = 1.0m;
     public string? WeatherImpact { get; set; }
+    public bool WeatherAvailable { get; set; } = false;
+    public WeatherInfluenceDto? WeatherInfluence { get; set; }
+}
+
+public class WeatherInfluenceDto
+{
+    public string Condition { get; set; } = string.Empty;
+    public decimal Temperature { get; set; }
+    public decimal RainProbability { get; set; }
+    public decimal? Rainfall { get; set; }
+    public string Impact { get; set; } = "NEUTRAL";
+    public string Explanation { get; set; } = string.Empty;
+    public decimal? BaselineDemand { get; set; }
+    public decimal? WeatherAdjustedDemand { get; set; }
 }
 
 public class DemandHistoryRecordDto
@@ -59,6 +73,8 @@ public class PlanningRecommendationResponse
     public string Reason { get; set; } = string.Empty;
     public decimal WeatherMultiplier { get; set; } = 1.0m;
     public string? WeatherImpact { get; set; }
+    public bool WeatherAvailable { get; set; } = false;
+    public WeatherInfluenceDto? WeatherInfluence { get; set; }
 }
 
 public class PlanningRiskSummaryResponse

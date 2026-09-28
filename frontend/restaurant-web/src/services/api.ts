@@ -441,6 +441,33 @@ export const api = {
     request<PlanningRiskSummaryResponse>(
       `/api/Planning/risks?periodStart=${encodeURIComponent(periodStart)}&periodEnd=${encodeURIComponent(periodEnd)}`
     ),
+  // Weather Forecast API
+  getWeatherForecast: (city?: string) =>
+    request<{
+      city: string;
+      current: {
+        temperature: number;
+        humidity: number;
+        condition: string;
+        description: string;
+        windSpeed: number;
+        rainProbability: number;
+        isSimulated: boolean;
+      };
+      forecast: Array<{
+        date: string;
+        dayOfWeek: string;
+        tempMin: number;
+        tempMax: number;
+        condition: string;
+        description: string;
+        rainProbability: number;
+        recommendation?: string;
+      }>;
+      overallRecommendation?: string;
+      isSimulated?: boolean;
+    }>(city ? `/api/weather/forecast?city=${encodeURIComponent(city)}` : '/api/weather/forecast'),
+
   // Direct ML service endpoints (Python AI service at port 8000)
   getMlForecast: (days = 7): Promise<MlForecastApiResponse> =>
     fetch(`http://localhost:8000/ml/forecast?days=${days}`).then(r => r.json()),
@@ -468,6 +495,16 @@ export interface MlForecastItem {
   trainingRecords: number;
   mae: number;
   confidenceScore: number;
+  weatherInfluence?: {
+    condition: string;
+    temperature: number;
+    rainProbability: number;
+    rainfall?: number;
+    impact: string;
+    explanation: string;
+    baselineDemand?: number;
+    weatherAdjustedDemand?: number;
+  };
 }
 
 export interface MlForecastApiResponse {
