@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/useAuth';
 import { StockHistoryModal } from './StockHistoryModal';
 import type {
   ActiveModal,
@@ -34,6 +35,8 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
   const [inventoryList, setInventoryList] = useState<InventoryResponse[]>([]);
   const [locations, setLocations] = useState<StorageLocationResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const { user } = useAuth();
+  const isSystemAdmin = user?.role === 'SYSTEM_ADMIN';
   const [error, setError] = useState<string | null>(null);
 
   // Lazy initial state based on active modal
@@ -157,6 +160,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
   // Handlers
   const handleReceiveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to receive stock.');
+      return;
+    }
     if (!receiveIngredientId || !receiveLocationId) {
       setError('Please select an ingredient and storage location.');
       return;
@@ -183,6 +190,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleConsumeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to consume stock.');
+      return;
+    }
     if (!targetIngredientId) {
       setError('Please select an ingredient to consume.');
       return;
@@ -207,6 +218,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleWasteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to record waste.');
+      return;
+    }
     if (modal.type !== 'waste' || !modal.batch) return;
     setLoading(true);
     setError(null);
@@ -227,6 +242,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to adjust stock.');
+      return;
+    }
     if (modal.type !== 'adjust' || !modal.batch) return;
     const qtyChange = parseFloat(adjustQuantityChange);
     if (qtyChange === 0) {
@@ -257,6 +276,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to transfer stock.');
+      return;
+    }
     if (modal.type !== 'transfer' || !modal.batch || !transferDestinationId) {
       setError('Please select a destination storage location.');
       return;
@@ -280,6 +303,10 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
 
   const handleApproveAdjustment = async (approve: boolean) => {
     if (!approvalAdjustmentId) return;
+    if (isSystemAdmin) {
+      setError('System Administrators do not have permission to review adjustments.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -317,6 +344,13 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
         <button type="button" className="modal-close" onClick={onClose}>
           <X size={20} />
         </button>
+
+        {isSystemAdmin && (
+          <div className="alert-error mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertTriangle size={18} />
+            <span>System Administrators do not have permission to execute warehouse stock operations.</span>
+          </div>
+        )}
 
         {/* RECEIVE MODAL */}
         {modal.type === 'receive' && (
@@ -427,7 +461,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   type="submit"
                   data-guide-id="receive-submit-button"
                   className="btn-primary"
-                  disabled={loading}
+                  disabled={loading || isSystemAdmin}
                 >
                   {loading ? 'Processing...' : 'Receive Stock'}
                 </button>
@@ -619,7 +653,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                   type="submit"
                   data-guide-id="consume-submit-button"
                   className="btn-primary"
-                  disabled={loading}
+                  disabled={loading || isSystemAdmin}
                 >
                   {loading ? 'Deducting via FEFO...' : 'Confirm Consumption'}
                 </button>
@@ -687,7 +721,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <button type="button" className="btn-secondary" onClick={onClose}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-danger" disabled={loading}>
+                <button type="submit" className="btn-danger" disabled={loading || isSystemAdmin}>
                   {loading ? 'Recording Waste...' : 'Confirm Waste Entry'}
                 </button>
               </div>
@@ -784,7 +818,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <button type="button" className="btn-secondary" onClick={onClose}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button type="submit" className="btn-primary" disabled={loading || isSystemAdmin}>
                   {loading ? 'Submitting...' : 'Submit Adjustment'}
                 </button>
               </div>
@@ -860,7 +894,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
                 <button type="button" className="btn-secondary" onClick={onClose}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button type="submit" className="btn-primary" disabled={loading || isSystemAdmin}>
                   {loading ? 'Moving Stock...' : 'Confirm Transfer'}
                 </button>
               </div>
@@ -939,7 +973,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
               <button
                 type="button"
                 className="btn-danger"
-                disabled={loading || !approvalAdjustmentId}
+                disabled={loading || !approvalAdjustmentId || isSystemAdmin}
                 onClick={() => handleApproveAdjustment(false)}
               >
                 Reject Adjustment
@@ -947,7 +981,7 @@ export const OperationsModals: React.FC<OperationsModalsProps> = ({
               <button
                 type="button"
                 className="btn-primary"
-                disabled={loading || !approvalAdjustmentId}
+                disabled={loading || !approvalAdjustmentId || isSystemAdmin}
                 onClick={() => handleApproveAdjustment(true)}
               >
                 Approve & Apply Stock

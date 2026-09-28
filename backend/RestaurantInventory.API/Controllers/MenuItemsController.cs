@@ -18,7 +18,7 @@ public class MenuItemsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "RESTAURANT_MANAGER")]
     public async Task<IActionResult> Create(
         [FromBody] CreateMenuItemRequest request)
     {
@@ -56,7 +56,7 @@ public class MenuItemsController : ControllerBase
     }
 
     [HttpPut("{menuItemId:guid}")]
-    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "RESTAURANT_MANAGER")]
     public async Task<IActionResult> Update(
         Guid menuItemId,
         [FromBody] UpdateMenuItemRequest request)
@@ -65,7 +65,7 @@ public class MenuItemsController : ControllerBase
     }
 
     [HttpDelete("{menuItemId:guid}")]
-    [Authorize(Roles = "RESTAURANT_MANAGER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "RESTAURANT_MANAGER")]
     public async Task<IActionResult> Delete(Guid menuItemId)
     {
         return await DeleteInternal(menuItemId);

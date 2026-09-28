@@ -87,7 +87,7 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({ onSuccess, onOpe
   const [editLocTemp, setEditLocTemp] = useState('REFRIGERATED');
   const [editLocIsActive, setEditLocIsActive] = useState<boolean>(true);
 
-  const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'INVENTORY_MANAGER';
+  const canEdit = user?.role === 'INVENTORY_MANAGER' || user?.role === 'RESTAURANT_MANAGER';
 
   const getBatchesInLocation = (locationId: string) => {
     const batches: { batch: StockBatchResponse; ingredientName: string; unit: string; sku: string }[] = [];

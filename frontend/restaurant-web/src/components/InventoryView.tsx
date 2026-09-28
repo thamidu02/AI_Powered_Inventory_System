@@ -60,9 +60,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [editLoading, setEditLoading] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const canReceive = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
-  const canConsume = user?.role === 'SYSTEM_ADMIN' || user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
-  const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'INVENTORY_MANAGER';
+  const canReceive = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER';
+  const canConsume = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'INVENTORY_MANAGER' || user?.role === 'SALES_KITCHEN_STAFF';
+  const canEdit = user?.role === 'INVENTORY_MANAGER' || user?.role === 'RESTAURANT_MANAGER';
+  const canOperateStock = user?.role !== 'SYSTEM_ADMIN';
 
   const fetchData = async () => {
     setLoading(true);
@@ -546,7 +547,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                         <td className="text-right">
                                           <div className="batch-action-buttons">
                                             {/* Waste button */}
-                                            {batch.quantity > 0 && (
+                                            {canOperateStock && batch.quantity > 0 && (
                                               <button
                                                 type="button"
                                                 className="btn-batch-action btn-batch-waste"
@@ -565,6 +566,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                             )}
 
                                             {/* Adjust button */}
+                                            {canOperateStock && (
                                             <button
                                               type="button"
                                               className="btn-batch-action btn-batch-adjust"
@@ -580,9 +582,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                               <Sliders size={12} />
                                               <span>Adjust</span>
                                             </button>
+                                            )}
 
                                             {/* Transfer button */}
-                                            {batch.quantity > 0 && (
+                                            {canOperateStock && batch.quantity > 0 && (
                                               <button
                                                 type="button"
                                                 className="btn-batch-action btn-batch-transfer"

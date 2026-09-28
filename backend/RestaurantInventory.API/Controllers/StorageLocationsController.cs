@@ -45,7 +45,7 @@ public class StorageLocationsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Create(
         CreateStorageLocationRequest request)
     {
@@ -71,7 +71,7 @@ public class StorageLocationsController : ControllerBase
     [HttpPost("{id:guid}")]
     [HttpPost("{id:guid}/edit")]
     [HttpPost("{id:guid}/update")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateStorageLocationRequest request)
@@ -100,7 +100,7 @@ public class StorageLocationsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

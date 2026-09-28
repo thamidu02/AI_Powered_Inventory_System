@@ -44,7 +44,7 @@ public class IngredientsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Create(
         CreateIngredientRequest request)
     {
@@ -70,7 +70,7 @@ public class IngredientsController : ControllerBase
     [HttpPost("{id:guid}")]
     [HttpPost("{id:guid}/edit")]
     [HttpPost("{id:guid}/update")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Update(
         Guid id,
         UpdateIngredientRequest request)
@@ -100,7 +100,7 @@ public class IngredientsController : ControllerBase
 
     [HttpPost("edit")]
     [HttpPost("update")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> UpdateViaPost(
         [FromQuery] Guid? id,
         [FromBody] UpdateIngredientRequest request)
@@ -118,7 +118,7 @@ public class IngredientsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,INVENTORY_MANAGER")]
+    [Authorize(Roles = "INVENTORY_MANAGER,RESTAURANT_MANAGER")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var deleted = await _service.DeleteAsync(id);
