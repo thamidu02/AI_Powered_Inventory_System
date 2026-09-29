@@ -31,8 +31,7 @@ public class AiProxyService : IAiProxyService
         _aiServiceUrl = cfg["AiService:BaseUrl"] ?? "http://localhost:8000";
     }
 
-    // ─── Stream chat ─────────────────────────────────────────────────────────
-
+    // Stream chat 
     public async IAsyncEnumerable<string> StreamChatAsync(
         string message,
         string userId,

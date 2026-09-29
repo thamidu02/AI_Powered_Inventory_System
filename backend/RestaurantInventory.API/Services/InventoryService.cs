@@ -19,9 +19,7 @@ public class InventoryService : IInventoryService
         _configuration = configuration;
     }
 
-    // ============================================================
     // GET INVENTORY
-    // ============================================================
 
     public async Task<List<InventoryResponse>> GetInventoryAsync()
     {
@@ -36,9 +34,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // GET INVENTORY BY INGREDIENT
-    // ============================================================
 
     public async Task<InventoryResponse?> GetInventoryByIngredientAsync(
         Guid ingredientId)
@@ -55,9 +51,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // LOW STOCK
-    // ============================================================
 
     public async Task<List<InventoryResponse>> GetLowStockAsync()
     {
@@ -69,9 +63,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // EXPIRING STOCK
-    // ============================================================
 
     public async Task<List<StockBatchResponse>> GetExpiringStockAsync(
         int days)
@@ -112,9 +104,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // RECEIVE STOCK
-    // ============================================================
 
     public async Task ReceiveStockAsync(
         ReceiveStockRequest request,
@@ -138,7 +128,7 @@ public class InventoryService : IInventoryService
             throw new InvalidOperationException(
                 $"Storage location '{location.Name}' is deactivated. No stock can be received or added into a deactivated storage location.");
 
-        // ── MAX STOCK LEVEL CHECK ──────────────────────────────────────
+        //  MAX STOCK LEVEL CHECK 
         // Load the ingredient with its current batches to compute total stock.
         var currentStock = await _context.StockBatches
             .Where(b =>
@@ -231,9 +221,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // CONSUME STOCK - FEFO
-    // ============================================================
 
     public async Task ConsumeStockAsync(
         ConsumeStockRequest request,
@@ -338,9 +326,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // RECORD WASTE
-    // ============================================================
 
     public async Task RecordWasteAsync(
         RecordWasteRequest request,
@@ -430,9 +416,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // ADJUST STOCK
-    // ============================================================
 
     public async Task<Guid> AdjustStockAsync(
         AdjustStockRequest request,
@@ -530,9 +514,7 @@ public class InventoryService : IInventoryService
     }
 
 
-    // ============================================================
     // GET ADJUSTMENTS
-    // ============================================================
 
     public async Task<List<StockAdjustmentResponse>> GetAdjustmentsAsync(
         string? status = null)
