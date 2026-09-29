@@ -18,14 +18,14 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetAll()
     {
         return Ok(await _service.GetAllAsync());
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
@@ -42,7 +42,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Create([FromBody] CreateSupplierRequest request)
     {
         try
@@ -64,7 +64,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateSupplierRequest request)
@@ -93,7 +93,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

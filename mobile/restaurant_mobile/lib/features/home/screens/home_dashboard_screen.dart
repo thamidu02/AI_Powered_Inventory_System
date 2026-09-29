@@ -5,7 +5,9 @@ import '../../../core/constants/api_constants.dart';
 import '../../inventory/screens/inventory_list_screen.dart';
 import '../../receiving/screens/receiving_list_screen.dart';
 import '../../kitchen/screens/kitchen_hub_screen.dart';
+import '../../ai/screens/ai_chat_screen.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/acumatica_brand.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -44,9 +46,9 @@ class HomeDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.restaurant, size: 22),
-            SizedBox(width: 8),
-            Text('KitchenOps Mobile'),
+            AcumaticaLogoSphere(size: 26, ringSize: 13),
+            SizedBox(width: 10),
+            Text('SavoryInventory'),
           ],
         ),
         actions: [
@@ -66,7 +68,7 @@ class HomeDashboardScreen extends StatelessWidget {
               elevation: 0,
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(8),
                 side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
               ),
               child: Padding(
@@ -194,12 +196,11 @@ class HomeDashboardScreen extends StatelessWidget {
               iconColor: AppColors.purple,
               title: 'AI Assistant',
               subtitle: 'Ask inventory queries, audit orders, and manage proposals',
-              badgeText: 'Next Step',
+              badgeText: 'Live AI',
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('AI Assistant is the next step to connect to the backend agent!'),
-                    duration: Duration(seconds: 3),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AiChatScreen(),
                   ),
                 );
               },
@@ -252,7 +253,7 @@ class HomeDashboardScreen extends StatelessWidget {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: ListTile(
@@ -261,7 +262,7 @@ class HomeDashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: iconColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Icon(icon, color: iconColor),
         ),
