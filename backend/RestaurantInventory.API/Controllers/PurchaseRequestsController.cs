@@ -19,7 +19,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetAll([FromQuery] string? status = null)
     {
         var result = await _service.GetAllAsync(status);
@@ -27,7 +27,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
@@ -40,7 +40,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseRequestRequest request)
     {
         try
@@ -60,7 +60,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePurchaseRequestRequest request)
     {
         try
@@ -81,7 +81,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/submit")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Submit(Guid id)
     {
         try
@@ -142,7 +142,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Cancel(Guid id)
     {
         try
@@ -162,7 +162,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

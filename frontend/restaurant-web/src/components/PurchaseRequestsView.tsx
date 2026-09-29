@@ -65,7 +65,9 @@ export const PurchaseRequestsView: React.FC<PurchaseRequestsViewProps> = ({
   // Permissions
   const isManager = user?.role === 'RESTAURANT_MANAGER' || user?.role === 'SYSTEM_ADMIN';
   const canManageProcurement =
-    user?.role === 'SYSTEM_ADMIN' || user?.role === 'PROCUREMENT_OFFICER';
+    user?.role === 'SYSTEM_ADMIN' ||
+    user?.role === 'PROCUREMENT_OFFICER' ||
+    user?.role === 'RESTAURANT_MANAGER';
 
   // Data states
   const [requests, setRequests] = useState<PurchaseRequestResponse[]>([]);

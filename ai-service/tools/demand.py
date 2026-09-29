@@ -488,33 +488,32 @@ async def get_expiring_batches(days_ahead: int = 7) -> dict:
     return {"expiring_batches": result, "count": len(result), "days_ahead": days_ahead}
 
 
+_suppliers_cache: dict[str, Any] = {"data": None, "fetched_at": 0.0}
+
+async def _fetch_all_suppliers() -> list[dict]:
+    import time
+    now = time.time()
+    if _suppliers_cache["data"] is not None and (now - _suppliers_cache["fetched_at"]) < 60.0:
+        return _suppliers_cache["data"]
+    try:
+        raw = await _get("/api/suppliers")
+        suppliers = raw if isinstance(raw, list) else []
+        _suppliers_cache["data"] = suppliers
+        _suppliers_cache["fetched_at"] = now
+        return suppliers
+    except Exception:
+        return _suppliers_cache["data"] or []
+
+
 async def get_supplier_options(ingredient_id: str, required_quantity: float) -> dict:
     """Get ranked supplier options for an ingredient based on price and lead time."""
-    try:
-        data = await _get("/api/suppliers/options", {
-            "ingredientId": ingredient_id,
-            "quantity": required_quantity,
-        })
-    except Exception:
-        try:
-            all_suppliers = await _get("/api/suppliers")
-            data = [
-                {
-                    "supplierId": s["id"],
-                    "supplierName": s["name"],
-                    "unitPrice": 0,
-                    "leadTimeDays": s.get("leadTimeDays", 3),
-                    "minimumOrderQuantity": s.get("minimumOrderQuantity", 0),
-                    "isPreferred": s.get("isPreferred", False),
-                }
-                for s in all_suppliers
-            ]
-        except Exception:
-            return {"suppliers": [], "count": 0, "required_quantity": required_quantity,
-                    "note": "Supplier options endpoint unavailable."}
+    all_suppliers = await _fetch_all_suppliers()
+    if not all_suppliers:
+        return {"suppliers": [], "count": 0, "required_quantity": required_quantity,
+                "note": "Supplier options endpoint unavailable."}
 
     suppliers = []
-    for s in data:
+    for s in all_suppliers:
         can_fulfill = s.get("minimumOrderQuantity", 0) <= required_quantity
         score = 0.0
         if s.get("isPreferred"):
@@ -524,8 +523,8 @@ async def get_supplier_options(ingredient_id: str, required_quantity: float) -> 
         if can_fulfill:
             score += 0.25
         suppliers.append({
-            "supplier_id": s["supplierId"],
-            "supplier_name": s["supplierName"],
+            "supplier_id": s.get("id") or s.get("supplierId"),
+            "supplier_name": s.get("name") or s.get("supplierName") or "Unknown Supplier",
             "unit_price": s.get("unitPrice", 0),
             "lead_time_days": s.get("leadTimeDays", 3),
             "minimum_order_qty": s.get("minimumOrderQuantity", 0),
@@ -667,8 +666,9 @@ async def analyze_consumption_patterns(ingredient_id: str) -> dict:
     }
 
 
-async def build_po_proposal(items: list[dict], workflow_id: str, reasoning: str) -> dict:
-    """Build a purchase order proposal."""
+async def build_pr_proposal(items: list[dict], workflow_id: str, reasoning: str) -> dict:
+    """Build a purchase request proposal for manager approval. This creates a
+    PENDING_APPROVAL Purchase Request in the system when approved."""
     total_cost = sum(i.get("quantity", 0) * i.get("unit_price", 0) for i in items)
     return {
         "workflow_id": workflow_id,
@@ -682,9 +682,9 @@ async def build_po_proposal(items: list[dict], workflow_id: str, reasoning: str)
             "items": [
                 {
                     "ingredient_id": i["ingredient_id"],
-                    "supplier_id": i["supplier_id"],
+                    "supplier_id": i.get("supplier_id", ""),
                     "quantity": i["quantity"],
-                    "unit_price": i["unit_price"],
+                    "unit_price": i.get("unit_price", 0),
                     "reasoning": i.get("reasoning", ""),
                 }
                 for i in items
@@ -1185,8 +1185,8 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         },
     ),
     FunctionDeclaration(
-        name="build_po_proposal",
-        description="Build a purchase order proposal for manager approval.",
+        name="build_pr_proposal",
+        description="Build a Purchase Request proposal for manager approval. Call this when replenishment items and supplier details are ready. The approved proposal will create a PENDING_APPROVAL Purchase Request in the system.",
         parameters={
             "type": "object",
             "properties": {
@@ -1374,7 +1374,7 @@ TOOL_DISPATCH: dict[str, Any] = {
     "get_stock_adjustments": get_stock_adjustments,
     "calculate_expected_consumption": calculate_expected_consumption,
     "analyze_consumption_patterns": analyze_consumption_patterns,
-    "build_po_proposal": build_po_proposal,
+    "build_pr_proposal": build_pr_proposal,
     "propose_reorder_level_change": propose_reorder_level_change,
     "rank_emergency_options": rank_emergency_options,
     "generate_anomaly_report": generate_anomaly_report,

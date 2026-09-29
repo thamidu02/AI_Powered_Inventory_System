@@ -3,7 +3,6 @@ import {
   PackageCheck,
   PackageMinus,
   ShieldAlert,
-  Sparkles,
   Trash2,
   CheckCircle2,
   RefreshCw,
@@ -47,21 +46,6 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
 
   return (
     <div className="view-container">
-      {/* Overview Banner */}
-      <div className="hub-hero">
-        <div className="hub-hero-text">
-          <h2>Inventory Operations & Business Logic Hub</h2>
-          <p>
-            Execute real-time warehouse transactions. All actions are governed by strict backend rules
-            including First-Expired First-Out (FEFO) depletion and managerial threshold gates.
-          </p>
-        </div>
-        <div className="hub-role-status">
-          <span className="text-muted text-xs">LOGGED IN AS</span>
-          <strong>{user?.fullName}</strong>
-          <span className="role-pill-accent">{user?.role}</span>
-        </div>
-      </div>
 
       {/* Operations Grid */}
       <div className="ops-grid">
@@ -285,54 +269,7 @@ export const OperationsHub: React.FC<OperationsHubProps> = ({ onOpenModal, refre
         </div>
       )}
 
-      {/* Business Logic Deep-Dive Explainer Card */}
-      <div className="logic-explainer-card mt-6">
-        <div className="explainer-header">
-          <Sparkles size={20} className="text-accent" />
-          <h3>How the Backend Implements Core Logic</h3>
-        </div>
-        <div className="explainer-columns">
-          <div className="explainer-col">
-            <h4>1. FEFO Automated Depletion</h4>
-            <p className="text-sm text-muted">
-              When consumption is submitted, the API queries unexpired batches ordered by:
-            </p>
-            <ol className="text-xs text-muted explainer-list">
-              <li>Batches with explicit ExpiryDate ascending (earliest first)</li>
-              <li>Batches with null ExpiryDate sorted by ReceivedDate</li>
-              <li>Iteratively deducts until remaining request = 0</li>
-              <li>Updates batch status: DEPLETED if quantity is 0</li>
-            </ol>
-          </div>
 
-          <div className="explainer-col">
-            <h4>2. Stock Adjustment Threshold</h4>
-            <p className="text-sm text-muted">
-              Stock adjustments protect against discrepancies:
-            </p>
-            <ul className="text-xs text-muted explainer-list">
-              <li>
-                <strong>&lt; 10 units:</strong> Applied instantly to batch quantity + written to audit ledger.
-              </li>
-              <li>
-                <strong>&ge; 10 units:</strong> Marked <code>PENDING_APPROVAL</code>. Batch quantity is unchanged until a Manager reviews.
-              </li>
-            </ul>
-          </div>
-
-          <div className="explainer-col">
-            <h4>3. Dual-Movement Transfers</h4>
-            <p className="text-sm text-muted">
-              Transferring stock creates:
-            </p>
-            <ul className="text-xs text-muted explainer-list">
-              <li><code>TRANSFER_OUT</code> movement referencing original batch</li>
-              <li>New batch created at destination location with same cost & expiry</li>
-              <li><code>TRANSFER_IN</code> movement referencing new batch</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

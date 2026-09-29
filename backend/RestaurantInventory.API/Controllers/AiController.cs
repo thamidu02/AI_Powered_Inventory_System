@@ -9,7 +9,7 @@ namespace RestaurantInventory.API.Controllers;
 
 [ApiController]
 [Route("api/ai")]
-[Authorize(Roles = "INVENTORY_MANAGER")]
+[Authorize]  // Any authenticated user can access the AI service
 public class AiController : ControllerBase
 {
     private readonly IAiProxyService _ai;
@@ -85,6 +85,7 @@ public class AiController : ControllerBase
     // APPROVE / REJECT WORKFLOW
 
     [HttpPost("workflows/{workflowId}/approve")]
+    [Authorize(Roles = "RESTAURANT_MANAGER,INVENTORY_MANAGER,SYSTEM_ADMIN")]
     public async Task<IActionResult> ApproveWorkflow(
         string workflowId,
         [FromBody] AiApprovalRequest req)

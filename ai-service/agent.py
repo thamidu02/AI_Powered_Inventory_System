@@ -116,15 +116,18 @@ IMPORTANT OUTPUT RULES:
 
 17. The AI must never claim that a purchase, stock adjustment, or other high-impact action has been completed unless the corresponding backend operation actually succeeded.
 
-18. Distinguish human approval and ordering roles clearly:
-    - Purchase Requests (PR): Require Restaurant Manager approval.
-    - Purchase Orders (PO): Do NOT require Manager approval; the Procurement Officer directly reviews and explicitly orders the PO with the vendor.
-    - Stock Adjustments / Optimization Proposals: Require Restaurant Manager approval.
-    - AI Investigations / Audits / Reports: Strictly read-only analysis; no approval required to run or view the audit.
+18. When an action requires human approval, clearly state:
+    "Manager approval required."
+    Role Governance Rules:
+    - Purchase Requests (PR): Require Restaurant Manager approval. Explicitly say: "Manager approval required."
+    - Purchase Orders (PO): No manager approval required; Procurement Officer orders directly.
+    - Stock Adjustments / Optimization Proposals: Require Restaurant Manager approval. Explicitly say: "Manager approval required."
+    - AI Investigations / Audits / Reports / Informational Queries: Strictly read-only; state: "No approval required."
 
 19. Keep the tone professional and suitable for restaurant management software.
 
-REQUIRED RESPONSE FORMAT:
+MANDATORY RESPONSE FORMAT:
+Every final response must contain these EXACT 7 sections in order. Do not omit or rename any section:
 
 Summary:
 • Brief description of the situation.
@@ -150,35 +153,92 @@ Reason:
 
 Required Action:
 • State what the user should do next.
+• Use numbered lists when explaining a sequence of actions.
 
 Approval:
-• State the approval requirement according to the workflow type:
-  - For PR creation/submission: "Manager approval required for Purchase Request."
-  - For PO actions: "No manager approval required for Purchase Order. Procurement Officer orders directly."
-  - For read-only investigations/audits/queries: "No approval required. Investigation and audit reports are strictly read-only."
+• State whether manager approval is required.
+• If approval is required, explicitly say:
+  "Manager approval required."
+• If strictly informational or read-only, explicitly say:
+  "No approval required."
+
+Example:
+
+Summary:
+Chicken Breast requires replenishment based on current inventory and expected demand.
+
+Current Situation:
+• Current stock: 15 kg
+• Minimum stock level: 20 kg
+• Expected demand: 50 kg
+• Supplier lead time: 2 days
+
+Analysis:
+• Current stock is below the configured minimum level.
+• Expected demand is higher than the available stock.
+• Replenishment is required to reduce the risk of a stock-out.
+
+Recommendation:
+• Prepare a purchase request for the required quantity.
+• Compare available suppliers before creating the purchase order.
+
+Reason:
+• Current inventory is insufficient to cover the expected demand.
+
+Required Action:
+1. Review the recommendation and proceed to supplier comparison.
+2. Submit the purchase request for approval.
+
+Approval:
+• Manager approval required before the purchase order is finalized.
 """
 
 WORKFLOW_SYSTEMS = {
-    "SALES_CONSUMPTION_WASTE": """
-You are the Component 3 Sales, Consumption and Waste Agent.
+    "SALES_CONSUMPTION_WASTE": f"""
+You are the Component 3 Sales, Consumption and Waste Agent for a restaurant inventory and procurement management system.
 
 This workflow is strictly read-only. Never call a write endpoint, invent revenue,
 or recommend that a sale, consumption, waste record, or stock adjustment be
 created. Backend-calculated sales totals are authoritative.
 
+Your job:
 1. Call get_sales_summary for the requested period (default 30 days).
 2. Call get_consumption_movements for the same period.
 3. Call get_component3_waste_summary for the same period.
 4. Call get_recipes to explain recipe-derived ingredient consumption.
 5. Call get_all_stock_levels when the user asks about stock impact.
 6. Call build_component3_report with the exact tool results.
-Do not finish until all four roles have produced one stage output: SalesAgent,
-ConsumptionAgent, WasteAgent, and RecommendationAgent.
 
-Return a concise, structured summary with sales revenue, consumption,
-waste by reason, affected ingredients, and traceability to recipes/movements.
-Clearly label unavailable data and never substitute estimates for recorded
-revenue. This report requires no approval because it has no side effects.
+After executing the tools, summarize your final response strictly following the 7 required sections below:
+
+Summary:
+• Concise overview of sales, consumption, and waste records for the period.
+
+Current Situation:
+• Recorded revenue, sales orders, and total items sold.
+• Relevant consumption movements and highest consumed ingredients.
+• Recorded waste records and total waste quantity.
+
+Analysis:
+• Key sales trends, consumption velocity, and primary waste drivers.
+• Comparison between recipe-derived requirements and recorded stock movements.
+• Mention data gaps or uncertainties if any data is unavailable.
+
+Recommendation:
+• Evidence-based recommendations for menu planning, portioning, or handling.
+
+Reason:
+• Explain why the recommendations are supported by the recorded data.
+
+Required Action:
+• Clear next steps for the kitchen, procurement, or management team:
+  1. Review recorded consumption and waste patterns with staff.
+  2. Implement recommended portioning or storage guidelines.
+
+Approval:
+• State: "No approval required." (This report is strictly read-only analysis).
+
+{OUTPUT_RULES_AND_FORMAT}
 """,
     "GUIDED_WORKFLOW": f"""
 You are an Agentic AI Interactive UI Navigation and Workflow Guidance Agent for a restaurant inventory and procurement management system.
@@ -186,9 +246,31 @@ You are an Agentic AI Interactive UI Navigation and Workflow Guidance Agent for 
 Your job:
 1. Analyze the user's request and identify what operational task they want guidance on (e.g. RECEIVE_STOCK, CONSUME_STOCK, VIEW_LOW_STOCK).
 2. Call plan_guided_workflow with the task description and inferred workflow type.
-3. Review the returned plan and summarize the step-by-step guidance clearly for the user adhering strictly to the output rules and required format below.
-4. In the Summary and Required Action, mention that the user can click 'Start Guided Workflow' to begin the interactive step-by-step UI guide with highlighted targets and animated cursor.
-5. Under Approval, state: "No approval required to start interactive guidance. Manager approval required for final high-impact submissions."
+3. Review the returned plan and summarize the step-by-step guidance clearly adhering strictly to the 7 required sections below:
+
+Summary:
+• Brief description of the requested guided workflow.
+
+Current Situation:
+• Target workflow identified (e.g. Receive Stock, Record Waste, Reorder Stock).
+• Current system state or relevant items if mentioned.
+
+Analysis:
+• Explanation of the operational steps involved and prerequisites.
+
+Recommendation:
+• Recommend proceeding with the interactive guided walkthrough.
+
+Reason:
+• Explain how interactive step-by-step guidance prevents errors and ensures compliance.
+
+Required Action:
+• Use a numbered list for next steps:
+  1. Click 'Start Guided Workflow' below to begin the interactive walkthrough.
+  2. Follow the on-screen spotlight highlights and guided directions.
+
+Approval:
+• State: "No approval required to start interactive guidance. Manager approval required for final high-impact submissions."
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -199,8 +281,33 @@ Your job:
 1. If the user asks to check stock levels, see all stocks, view inventory values, or check stock balances, call list_all_stocks (optionally passing low_stock_only, out_of_stock_only, storage_location, or search).
 2. If the user asks about the stock of a specific ingredient, call get_stock_details with the ingredient name or ID.
 3. If they ask about expiring stock batches, call get_expiring_batches.
-4. Summarize your findings strictly following the output rules and required format below.
-This is an information inquiry — state "No approval required." under Approval.
+4. Summarize your findings strictly following the 7 required sections below:
+
+Summary:
+• Brief description of stock inquiry findings.
+
+Current Situation:
+• Ingredient: (or list of queried ingredients)
+• Current stock:
+• Minimum stock level:
+• Expected demand: (or "Not evaluated in this inquiry")
+• Relevant expiry information: (from expiring batches if applicable)
+
+Analysis:
+• Current stock levels vs minimum thresholds.
+• Identify any items at risk of stock-out or excess holding.
+
+Recommendation:
+• State replenishment or stock reallocation recommendations if supported by data.
+
+Reason:
+• Explain the inventory status justifying the recommendation.
+
+Required Action:
+• State what the user should do next (e.g., monitor stock, proceed to replenishment).
+
+Approval:
+• State: "No approval required." (This is an informational stock inquiry).
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -211,8 +318,33 @@ Your job:
 1. If the user asks to list all ingredients or check inventory items, call list_all_ingredients (optionally pass category, search, or low_stock_only filter) or list_all_stocks.
 2. If the user asks about a specific ingredient, call get_ingredient_details or get_stock_details.
 3. If they ask about expiring stock, call get_expiring_batches.
-4. Summarize your findings strictly following the output rules and required format below.
-This is a read-only inquiry — state "No approval required." under Approval.
+4. Summarize your findings strictly following the 7 required sections below:
+
+Summary:
+• Brief description of the ingredient information found.
+
+Current Situation:
+• Ingredient: (name, category, unit, cost)
+• Current stock: (if retrieved)
+• Minimum stock level: (if configured)
+• Expected demand: (or "Not evaluated in this inquiry")
+• Relevant expiry information: (if expiring batches exist)
+
+Analysis:
+• Stock status, supplier details, or category groupings observed.
+• Any shortage, expiration, or storage concerns.
+
+Recommendation:
+• Recommended action for managing this ingredient.
+
+Reason:
+• Basis for the recommendation from the observed ingredient data.
+
+Required Action:
+• Next action for the user (e.g., update thresholds, place order, review batch).
+
+Approval:
+• State: "No approval required." (This is a read-only inquiry).
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -225,10 +357,38 @@ Your job:
 3. Calculate required_order = predicted_demand + safety_stock(5% of max) - current_stock.
 4. Call get_supplier_options for each item needing replenishment.
 5. Call get_expiring_batches to factor in soon-to-expire stock.
-6. Call build_po_proposal with all items and your full reasoning.
+6. Call build_pr_proposal with all items and your full reasoning.
 
-After executing the tools, summarize your final response strictly following the output rules and required format below.
-Manager approval required for the Purchase Request before the Procurement Officer issues and orders the Purchase Order.
+After executing the tools, you MUST summarize your final response strictly into the 7 required sections:
+
+Summary:
+• Brief description of low-stock situation and replenishment requirement.
+
+Current Situation:
+• Ingredient: (for each item needing replenishment)
+• Current stock:
+• Minimum stock level:
+• Expected demand: (14-day projection)
+• Relevant expiry information: (or "No immediate batch expiry")
+
+Analysis:
+• Explain how current stock compares to minimum level and projected demand.
+• State replenishment urgency and risk of stock-out.
+
+Recommendation:
+• State recommended purchase quantity and preferred supplier option.
+
+Reason:
+• Explain why the quantity was chosen based on predicted demand and safety stock.
+
+Required Action:
+• Use a numbered list for next steps:
+  1. Review the generated Purchase Request proposal.
+  2. Submit the Purchase Request for Restaurant Manager approval.
+
+Approval:
+• State explicitly: "Manager approval required."
+  (Manager approval required before the purchase request can be approved and converted to a purchase order).
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -245,8 +405,33 @@ Your job:
 3. Cross-reference: actual = expected + waste + adjustments + unexplained.
 4. Call generate_anomaly_report with your findings.
 
-After executing the tools, summarize your final response strictly following the output rules and required format below.
-This is a read-only investigation — state "No approval required." under Approval.
+After executing the tools, summarize your final response strictly following the 7 required sections below:
+
+Summary:
+• Brief overview of the anomaly investigation findings.
+
+Current Situation:
+• Ingredient:
+• Current stock:
+• Expected consumption vs actual consumption:
+• Recorded waste and adjustments:
+• Unexplained discrepancy:
+
+Analysis:
+• Explain discrepancy root causes (theft, unrecorded waste, recipe over-portioning, or recording delay).
+• Distinguish between explained and unexplained variances.
+
+Recommendation:
+• Recommended corrective action (e.g., physical stock count, staff training, recipe recalibration).
+
+Reason:
+• Evidence and arithmetic explaining why the discrepancy was flagged.
+
+Required Action:
+• Specify the next operational step (e.g., perform physical count, verify kitchen logs).
+
+Approval:
+• State: "No approval required for investigation report. Manager approval required if stock adjustment is submitted."
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -262,8 +447,35 @@ Your job:
 4. Only recommend changes where new_minimum differs from current by > 10%.
 5. Call propose_reorder_level_change with your full list and reasoning.
 
-After executing the tools, summarize your final response strictly following the output rules and required format below.
-Manager approval required before any changes are applied.
+After executing the tools, summarize your final response strictly following the 7 required sections below:
+
+Summary:
+• Brief overview of reorder level optimization analysis.
+
+Current Situation:
+• Ingredient:
+• Current stock:
+• Current minimum and maximum levels:
+• Daily average consumption and lead time:
+
+Analysis:
+• Comparison between current thresholds and actual historical consumption velocity.
+• Risk of overstocking or stock-out under current settings.
+
+Recommendation:
+• Proposed new minimum and maximum stock levels for affected ingredients.
+
+Reason:
+• Data-driven calculation based on 90-day consumption patterns and lead times.
+
+Required Action:
+• Use a numbered list:
+  1. Review proposed min/max reorder level adjustments.
+  2. Submit proposed changes for Restaurant Manager review and approval.
+
+Approval:
+• State explicitly: "Manager approval required."
+  (Manager approval required before reorder levels are updated in the system).
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -275,10 +487,38 @@ Your job:
 2. Call get_demand_forecast with days=1 (next 24 hours).
 3. Call rank_emergency_options to find the fastest supplier.
 4. Call get_expiring_batches — can any other stock substitute?
-5. Call build_po_proposal with URGENCY flag and the fastest supplier.
+5. Call build_pr_proposal with URGENCY flag and the fastest supplier.
 
-After executing the tools, summarize your final response strictly following the output rules and required format below.
-Manager approval required to place the emergency order.
+After executing the tools, summarize your final response strictly following the 7 required sections below:
+
+Summary:
+• Urgent alert regarding critical stock shortage.
+
+Current Situation:
+• Ingredient:
+• Current stock: (critical/zero)
+• Minimum stock level:
+• Expected demand: (next 24 hours)
+• Fastest available supplier lead time:
+
+Analysis:
+• Immediate stock-out risk and service impact on restaurant operations.
+• Evaluation of emergency supplier availability and delivery lead times.
+
+Recommendation:
+• Immediate emergency purchase order or transfer request with exact quantity.
+
+Reason:
+• Current inventory cannot cover immediate service demand.
+
+Required Action:
+• Use a numbered list:
+  1. Expedite review of the emergency purchase request.
+  2. Contact the supplier immediately upon manager approval.
+
+Approval:
+• State explicitly: "Manager approval required."
+  (Manager approval required before the emergency purchase order is finalized).
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -306,13 +546,35 @@ Compliance & Workflow Governance Rules to enforce:
 - PO quantities exceeding PR quantities or extra unrequested items are Compliance Inconsistencies.
 - Goods received exceeding PO ordered quantities or missing items are Receiving Discrepancies.
 
-After executing the tools, summarize your findings clearly adhering strictly to the output rules and required format below:
-- Structure with Summary, Current Situation, Analysis, Recommendation, Reason, Required Action, Approval.
-- Present Risk Level (LOW, MEDIUM, HIGH).
-- Present Findings & Discrepancies clearly.
-- Explain Root Causes based on tool data.
-- Under Required Action: If a DRAFT PO is ready, state that the Procurement Officer should review and click 'Order PO'. If an unapproved PR exists, state that the Restaurant Manager must review the PR.
-- Under Approval, state: "No approval required for this investigation report (strictly read-only analysis). Note: Purchase Requests require Restaurant Manager approval; Purchase Orders do NOT require Manager approval as the Procurement Officer orders directly."
+After executing the tools, summarize your findings strictly adhering to the 7 required sections below:
+
+Summary:
+• Overview of the transaction, PR, or PO audit.
+
+Current Situation:
+• Transaction / Document ID:
+• Current status and risk level: (LOW, MEDIUM, HIGH)
+• Ordered items and quantities:
+• Received items and quantities: (if applicable)
+
+Analysis:
+• Detail any discrepancies, workflow violations, or duplicate flags found.
+• Root cause explanation based on database records.
+
+Recommendation:
+• Recommended corrective or preventive action.
+
+Reason:
+• Factual basis from procurement records and governance rules.
+
+Required Action:
+• State what the user or procurement officer should do next:
+  - If a DRAFT PO is ready: Procurement Officer should review and click 'Order PO'.
+  - If an unapproved PR exists: Restaurant Manager must review and approve the PR.
+  - If receiving discrepancies exist: Perform physical count or contact supplier.
+
+Approval:
+• State: "No approval required for this investigation report (strictly read-only analysis). Note: Purchase Requests require Restaurant Manager approval; Purchase Orders do NOT require Manager approval as the Procurement Officer orders directly."
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
@@ -605,19 +867,136 @@ def _component3_validate_waste_records(summary: Any, records: Any) -> Any:
 
 
 def _component3_intent_from_request(message: str) -> str | None:
+    """
+    Only match messages that are *specifically* about Component 3 analytics:
+    recorded sales, consumption/stock movements, waste, or recipe analysis.
+    Deliberately excludes broad terms that also appear in other intents
+    (e.g. 'ingredient' appears in low-stock queries; 'consumption' appears in
+    optimization requests; 'recommendation' / 'approval' are too generic).
+    """
     request = message.lower()
+    # High-confidence Component 3 signals — specific to sales/waste/consumption analysis
     component3_terms = (
-        "waste", "consumption", "consumed", "stock movement", "sales",
-        "revenue", "menu item", "top-selling", "top selling", "recipe",
-        "ingredient", "compare sales", "sales pattern", "promote", "average order",
-        "unusual sales", "sold the most", "sold the least",
-        "sell", "sold", "selling",
-        "recommendation", "high impact", "approval", "operational problem",
+        "waste",
+        "stock movement",
+        "sales",
+        "revenue",
+        "menu item",
+        "top-selling",
+        "top selling",
+        "best-selling",
+        "best selling",
+        "recipe",
+        "compare sales",
+        "sales pattern",
+        "sales trend",
+        "promote",
+        "average order",
+        "unusual sales",
+        "sold the most",
+        "sold the least",
+        "zero sales",
+        "no sales",
+        "sell",
+        "sold",
+        "selling",
+        "operational problem",
+        "consumption movement",
+        "stock consumption",
+        "recorded consumption",
     )
     if any(term in request for term in component3_terms) or (
         "compare" in request and ("days" in request or "week" in request)
     ):
         return "SALES_CONSUMPTION_WASTE"
+    # Also match 'consumption' or 'consumed' only when paired with specific C3 context
+    if ("consumption" in request or "consumed" in request) and any(
+        ctx in request for ctx in ("waste", "sales", "recipe", "movement", "last", "past", "days")
+    ):
+        return "SALES_CONSUMPTION_WASTE"
+    return None
+
+
+def _low_stock_intent_from_request(message: str) -> str | None:
+    """Detect low-stock inquiries (STOCK_QUERY) vs actual replenishment requests (LOW_STOCK_REPLENISHMENT)."""
+    request = message.lower()
+
+    # Don't hijack if it's clearly an anomaly/investigation query
+    if any(excl in request for excl in ("discrepanc", "anomaly", "missing", "investigate")):
+        return None
+
+    # Explicit replenishment / reorder keywords mean LOW_STOCK_REPLENISHMENT
+    reorder_signals = [
+        "reorder", "replenish", "replenishment", "restock",
+        "need to order", "needs ordering", "order more", "buy more",
+        "order low stock", "reorder low stock", "purchase low stock",
+        "create purchase request", "create pr", "replenish low stock",
+    ]
+    if any(kw in request for kw in reorder_signals):
+        return "LOW_STOCK_REPLENISHMENT"
+
+    # Read-only inquiries about low stock -> STOCK_QUERY (quick inventory listing, no supplier proposals)
+    read_only_indicators = (
+        "check", "show", "view", "list", "what", "which", "are any", "status", "levels", "display", "tell me", "how many",
+    )
+    is_inquiry = any(q in request for q in read_only_indicators)
+    stock_terms = (
+        "low stock", "low-stock", "stock level", "below minimum", "below threshold",
+        "out of stock", "running out", "stock alert",
+    )
+    if is_inquiry and any(kw in request for kw in stock_terms):
+        return "STOCK_QUERY"
+
+    # If general "low stock" without reorder keywords and without explicit inquiry:
+    if any(kw in request for kw in ("reorder", "replenish", "restock")):
+        return "LOW_STOCK_REPLENISHMENT"
+
+    if any(kw in request for kw in ("low stock", "low-stock", "below minimum", "below threshold")):
+        return "STOCK_QUERY"
+
+    return None
+
+
+def _anomaly_intent_from_request(message: str) -> str | None:
+    """Detect anomaly / discrepancy investigation requests."""
+    request = message.lower()
+    signals = [
+        "anomaly", "anomalies", "discrepancy", "discrepancies",
+        "missing stock", "stock missing", "investigate stock", "investigate inventory",
+        "unexplained", "shrinkage", "stock loss", "suspicious",
+        "mismatch", "unaccounted", "stock discrepancy",
+    ]
+    if any(kw in request for kw in signals):
+        return "ANOMALY_INVESTIGATION"
+    return None
+
+
+def _optimization_intent_from_request(message: str) -> str | None:
+    """Detect inventory optimization / reorder-level tuning requests."""
+    request = message.lower()
+    signals = [
+        "optimize", "optimise", "optimization", "optimisation",
+        "reorder level", "reorder levels", "reorder threshold",
+        "minimum level", "maximum level", "min level", "max level",
+        "improve reorder", "adjust threshold", "improve inventory levels",
+        "reorder point",
+    ]
+    if any(kw in request for kw in signals):
+        return "INVENTORY_OPTIMIZATION"
+    return None
+
+
+def _emergency_intent_from_request(message: str) -> str | None:
+    """Detect urgent / emergency shortage requests."""
+    request = message.lower()
+    signals = [
+        "emergency", "urgent", "critical shortage", "crisis",
+        "immediately", "right now", "right away",
+        "no stock left", "completely out", "zero stock",
+        "ran out", "run out", "critically low",
+    ]
+    if any(kw in request for kw in signals):
+        return "EMERGENCY_SHORTAGE"
     return None
 
 
@@ -642,7 +1021,81 @@ def _component3_days(message: str) -> int:
     return 30
 
 
+def _format_into_seven_sections(
+    raw_text: str,
+    default_summary: str = "Component 3 analysis based on live backend data.",
+    requires_approval: bool = False,
+) -> str:
+    # If the text already cleanly defines the 7 sections, return sanitized
+    if all(sec in raw_text for sec in ("Summary:", "Current Situation:", "Analysis:", "Recommendation:", "Reason:", "Required Action:", "Approval:")):
+        return sanitize_output(raw_text)
+
+    # Convert arbitrary lines into the 7 sections
+    raw_lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+    if not raw_lines:
+        return (
+            "Summary:\n• " + default_summary + "\n\n"
+            "Current Situation:\n• Insufficient data to make a reliable recommendation.\n\n"
+            "Analysis:\n• No recorded transaction data was found for this period.\n\n"
+            "Recommendation:\n• Review date ranges and ensure operational records are logged.\n\n"
+            "Reason:\n• Report is based on available database records.\n\n"
+            "Required Action:\n1. Verify data entry in the system.\n\n"
+            "Approval:\n• No approval required."
+        )
+
+    title = raw_lines[0]
+    bullets = raw_lines[1:] if len(raw_lines) > 1 else raw_lines
+
+    situation_lines = []
+    analysis_lines = []
+    recommendation_lines = []
+
+    for b in bullets:
+        clean_b = b.lstrip("•-* ").strip()
+        lower_b = clean_b.lower()
+        if any(term in lower_b for term in ("recommend", "consider", "suggest", "review replenishment", "prioritize")):
+            recommendation_lines.append(f"• {clean_b}")
+        elif any(term in lower_b for term in ("exceed", "below", "pattern", "trend", "risk", "discrepan", "higher", "lower", "unusual", "variance", "association", "indicator")):
+            analysis_lines.append(f"• {clean_b}")
+        else:
+            situation_lines.append(f"• {clean_b}")
+
+    if not situation_lines:
+        situation_lines.append("• Recorded transactions processed for the selected period.")
+    if not analysis_lines:
+        analysis_lines.append("• Observed values reflect confirmed backend activity.")
+    if not recommendation_lines:
+        recommendation_lines.append("• Maintain standard inventory monitoring and portion control.")
+
+    approval_text = "Manager approval required." if requires_approval else "No approval required."
+
+    return (
+        f"Summary:\n• {title}\n\n"
+        "Current Situation:\n" + "\n".join(situation_lines) + "\n\n"
+        "Analysis:\n" + "\n".join(analysis_lines) + "\n\n"
+        "Recommendation:\n" + "\n".join(recommendation_lines) + "\n\n"
+        "Reason:\n• Recommendation derived from recorded sales, consumption, and waste records.\n\n"
+        "Required Action:\n1. Review the operational findings with kitchen and management teams.\n\n"
+        f"Approval:\n• {approval_text}"
+    )
+
+
 def _format_component3_response(
+    message: str,
+    outputs: dict[str, dict[str, Any]],
+    report: dict[str, Any],
+    days: int,
+) -> str:
+    raw = _raw_format_component3_response(message, outputs, report, days)
+    requires_approval = report.get("requires_approval", False) if isinstance(report, dict) else False
+    return _format_into_seven_sections(
+        raw,
+        default_summary=f"Component 3 analysis for the last {days} days.",
+        requires_approval=requires_approval,
+    )
+
+
+def _raw_format_component3_response(
     message: str,
     outputs: dict[str, dict[str, Any]],
     report: dict[str, Any],
@@ -800,11 +1253,14 @@ def _format_component3_response(
         if isinstance(waste_records_result, dict)
         else []
     )
-    inventory_rows = _component3_inventory_items(consumption.get("inventory", {}))
+    inventory_rows = _component3_inventory_items(
+        consumption.get("inventory", {}) if isinstance(consumption, dict) else {}
+    )
 
     def consumption_totals() -> dict[tuple[str, str], float]:
         totals: dict[tuple[str, str], float] = {}
-        for movement in consumption.get("movements", []):
+        movements = consumption.get("movements", []) if isinstance(consumption, dict) else []
+        for movement in (movements if isinstance(movements, list) else []):
             if not isinstance(movement, dict):
                 continue
             name = movement.get("ingredientName") or movement.get("ingredientId") or "Unknown ingredient"
@@ -1509,9 +1965,12 @@ def _format_component3_response(
                 key = (name, unit)
                 by_ingredient[key] = by_ingredient.get(key, 0) + quantity
         lines = [f"Ingredient Consumption — Last {days} Days", ""]
+        recorded_count = consumption.get("count") if isinstance(consumption, dict) else None
+        if recorded_count is None:
+            recorded_count = len(movements) if isinstance(movements, list) else 0
         lines.append(
             f"• Recorded consumption movements: "
-            f"{_component3_number(consumption.get('count', len(movements)))}"
+            f"{_component3_number(recorded_count)}"
         )
         if by_ingredient:
             lines.extend(
@@ -1531,7 +1990,7 @@ def _format_component3_response(
     if query_type == "consumption_highest":
         if isinstance(consumption, dict) and "error" in consumption:
             return f"Highest Ingredient Consumption\n\n• Recorded consumption data is unavailable: {consumption['error']}"
-        totals: dict[tuple[str, str], float] = {}
+        highest_totals: dict[tuple[str, str], float] = {}
         movements = consumption.get("movements", []) if isinstance(consumption, dict) else []
         for movement in movements if isinstance(movements, list) else []:
             name = movement.get("ingredientName") or movement.get("ingredientId") or "Unknown ingredient"
@@ -1539,13 +1998,13 @@ def _format_component3_response(
             quantity = movement.get("quantity")
             if isinstance(quantity, (int, float)):
                 key = (name, unit)
-                totals[key] = totals.get(key, 0) + quantity
+                highest_totals[key] = highest_totals.get(key, 0) + quantity
         lines = [f"Highest Recorded Ingredient Consumption — Last {days} Days", ""]
-        if totals:
+        if highest_totals:
             lines.extend(
                 f"• {name}: {_component3_number(quantity)}"
                 + (f" {unit}" if unit else "")
-                for (name, unit), quantity in sorted(totals.items(), key=lambda item: -item[1])[:5]
+                for (name, unit), quantity in sorted(highest_totals.items(), key=lambda item: -item[1])[:5]
             )
         else:
             lines.append("• No recorded consumption movements were found for this period.")
@@ -1553,7 +2012,7 @@ def _format_component3_response(
 
     if query_type == "consumption_patterns":
         movements = consumption.get("movements", []) if isinstance(consumption, dict) else []
-        totals: dict[tuple[str, str], float] = {}
+        pattern_totals: dict[tuple[str, str], float] = {}
         for movement in movements if isinstance(movements, list) else []:
             key = (
                 movement.get("ingredientName") or movement.get("ingredientId") or "Unknown ingredient",
@@ -1561,14 +2020,14 @@ def _format_component3_response(
             )
             quantity = movement.get("quantity")
             if isinstance(quantity, (int, float)):
-                totals[key] = totals.get(key, 0) + quantity
+                pattern_totals[key] = pattern_totals.get(key, 0) + quantity
         lines = [f"Recorded Consumption Pattern — Last {days} Days", ""]
-        if len(movements) < 3:
+        if not isinstance(movements, list) or len(movements) < 3:
             lines.append("• Fewer than three movements are available; unusual consumption cannot be assessed reliably.")
-        elif totals:
-            name, unit = max(totals, key=totals.get)
+        elif pattern_totals:
+            name, unit = max(pattern_totals, key=lambda k: pattern_totals[k])
             lines.append("• The available data has no comparable historical baseline or expected-consumption rate, so it cannot establish whether a pattern is unusual.")
-            lines.append(f"• Largest observed aggregate: {name}, {_component3_number(totals[(name, unit)])} {unit}.")
+            lines.append(f"• Largest observed aggregate: {name}, {_component3_number(pattern_totals[(name, unit)])} {unit}.")
             lines.append("• This is a ranking of recorded quantities, not evidence of an anomaly.")
         else:
             lines.append("• The API returned movements without usable quantity data.")
@@ -1579,7 +2038,7 @@ def _format_component3_response(
             return f"Consumption Stock Movements — Last {days} Days\n\n• Data unavailable: {consumption['error']}"
         movements = consumption.get("movements", []) if isinstance(consumption, dict) else []
         lines = [f"Consumption Stock Movements — Last {days} Days", ""]
-        if movements:
+        if isinstance(movements, list) and movements:
             for movement in movements[:50]:
                 lines.append(
                     f"• {movement.get('createdAt', 'Date unavailable')} — "
@@ -1763,27 +2222,27 @@ def _format_component3_response(
                 lines.append(
                     f"• Ingredient/reason breakdown unavailable: {waste_records['error']}"
                 )
-            by_ingredient: dict[str, float] = {}
-            by_reason: dict[str, float] = {}
+            waste_by_ingredient: dict[str, float] = {}
+            waste_by_reason: dict[str, float] = {}
             if not (isinstance(waste_records, dict) and "error" in waste_records):
                 for record in records if isinstance(records, list) else []:
                     ingredient = record.get("ingredientName") or "Not recorded"
                     reason = record.get("reason") or "Not recorded"
                     quantity = record.get("quantity", 0)
                     if isinstance(quantity, (int, float)):
-                        by_ingredient[ingredient] = by_ingredient.get(ingredient, 0) + quantity
-                        by_reason[reason] = by_reason.get(reason, 0) + quantity
-            if by_ingredient:
+                        waste_by_ingredient[ingredient] = waste_by_ingredient.get(ingredient, 0) + quantity
+                        waste_by_reason[reason] = waste_by_reason.get(reason, 0) + quantity
+            if waste_by_ingredient:
                 lines.append("By ingredient")
                 lines.extend(
                     f"• {name}: {_component3_number(quantity)}"
-                    for name, quantity in sorted(by_ingredient.items(), key=lambda item: -item[1])
+                    for name, quantity in sorted(waste_by_ingredient.items(), key=lambda item: -item[1])
                 )
-            if by_reason:
+            if waste_by_reason:
                 lines.append("By reason")
                 lines.extend(
                     f"• {reason}: {_component3_number(quantity)}"
-                    for reason, quantity in sorted(by_reason.items(), key=lambda item: -item[1])
+                    for reason, quantity in sorted(waste_by_reason.items(), key=lambda item: -item[1])
                 )
         else:
             error = waste.get("error") if isinstance(waste, dict) else None
@@ -1817,7 +2276,6 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         "date_to": date_to_text,
     }
     outputs = {}
-    gemini_failure: str | None = None
     for stage, role, tool_name, instruction in COMPONENT3_STAGES:
         if stage == "sales":
             data = {
@@ -1886,36 +2344,10 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         else:
             data = await call_tool(tool_name, {"days": days},
                 allowed_tools=COMPONENT3_READ_ONLY_TOOLS)
-        summary_source = "gemini"
-        if gemini_failure is None:
-            try:
-                response = genai.GenerativeModel(
-                    model_name=GEMINI_MODEL,
-                    system_instruction=f"You are the distinct {role}. Stay within your role."
-                ).generate_content(
-                    f"{instruction} Do not invent values. Explain these facts concisely: "
-                    f"{json.dumps(data, default=str)}. User request: {message}",
-                    request_options={"timeout": 45},
-                )
-                summary = response.text
-            except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, RetryError) as exc:
-                gemini_failure = type(exc).__name__
-                logger.warning(
-                    "Gemini unavailable for Component 3 %s stage; continuing with live structured data: %s",
-                    role,
-                    exc,
-                )
-                summary_source = "structured_fallback"
-                summary = (
-                    f"{role} Gemini narrative unavailable ({gemini_failure}); "
-                    "the final analysis will use the live structured backend data."
-                )
-        else:
-            summary_source = "structured_fallback"
-            summary = (
-                f"{role} Gemini narrative unavailable ({gemini_failure}); "
-                "the final analysis will use the live structured backend data."
-            )
+        # Intermediate specialist stages don't call Gemini — the final
+        # RecommendationAgent call is the only user-visible Gemini narrative.
+        summary = f"{role}: data collected from {tool_name}."
+        summary_source = "structured_data"
         outputs[stage] = {"tool": tool_name, "data": data,
                           "read_only": True, "summary": summary,
                           "summary_source": summary_source}
@@ -1936,33 +2368,51 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         "waste_records": outputs["waste"]["data"].get("records", {}),
         "focus": _component3_focus(message),
     }, allowed_tools=COMPONENT3_READ_ONLY_TOOLS)
-    if gemini_failure is None:
-        try:
-            response = genai.GenerativeModel(
-                model_name=GEMINI_MODEL,
-                system_instruction="You are the distinct RecommendationAgent; facts are authoritative."
-            ).generate_content("Summarize this deterministic report without adding figures: "
-                               + json.dumps(report, default=str),
-                               request_options={"timeout": 45})
-            recommendation_summary = response.text
-            recommendation_summary_source = "gemini"
-        except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, RetryError) as exc:
-            gemini_failure = type(exc).__name__
-            logger.warning(
-                "Gemini unavailable for Component 3 RecommendationAgent; preserving structured report: %s",
-                exc,
-            )
-            recommendation_summary = (
-                f"RecommendationAgent Gemini narrative unavailable ({gemini_failure}); "
-                "the read-only structured report remains authoritative."
-            )
-            recommendation_summary_source = "structured_fallback"
-    else:
-        recommendation_summary = (
-            f"RecommendationAgent Gemini narrative unavailable ({gemini_failure}); "
-            "the read-only structured report remains authoritative."
+
+    gemini_narrative: str | None = None
+    gemini_narrative_failure: str | None = None
+    try:
+        # Build a concise data digest to keep the prompt short and fast
+        sales_data = outputs["sales"]["data"]
+        waste_data = outputs["waste"]["data"]
+        consumption_data_digest = {
+            "movement_count": consumption_data.get("count") if isinstance(consumption_data, dict) else None,
+            "recipe_count": (consumption_data.get("recipes", {}) or {}).get("count") if isinstance(consumption_data, dict) else None,
+        }
+        digest = {
+            "sales_summary": sales_data.get("summary", {}) if isinstance(sales_data, dict) else {},
+            "waste_summary": waste_data.get("summary", {}) if isinstance(waste_data, dict) else {},
+            "consumption": consumption_data_digest,
+            "report_recommendations": report.get("recommendations", []),
+            "report_impact_level": report.get("impact_level", "LOW"),
+            "report_requires_approval": report.get("requires_approval", False),
+            "days": days,
+        }
+        response = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=(
+                "You are the Component 3 Reporting Agent for a restaurant inventory management system.\n"
+                + OUTPUT_RULES_AND_FORMAT
+            ),
+        ).generate_content(
+            f"The user asked: \"{message}\"\n\n"
+            f"Analyse and narrate the following Component 3 data digest for the last {days} days. "
+            f"Structure your response strictly into the 7 required sections: Summary:, Current Situation:, Analysis:, Recommendation:, Reason:, Required Action:, Approval:. "
+            f"Follow all output rules exactly. Do not invent any numbers.\n\n"
+            f"{json.dumps(digest, default=str)}",
+            request_options={"timeout": 120},
         )
-        recommendation_summary_source = "structured_fallback"
+        gemini_narrative = sanitize_output(response.text)
+        logger.info("Component 3 RecommendationAgent narrative generated successfully.")
+    except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, RetryError) as exc:
+        gemini_narrative_failure = type(exc).__name__
+        logger.warning(
+            "Gemini unavailable for Component 3 RecommendationAgent; using structured fallback: %s",
+            exc,
+        )
+
+    recommendation_summary = gemini_narrative or "RecommendationAgent: structured report calculated from live data."
+    recommendation_summary_source = "gemini" if gemini_narrative else "structured_fallback"
     outputs["recommendation"] = {"tool": "build_component3_report", "data": report,
         "read_only": True, "summary": recommendation_summary,
         "summary_source": recommendation_summary_source,
@@ -1984,12 +2434,17 @@ async def run_component3_workflow(message: str, wf_id: str, days: int):
         yield _sse("workflow_error", {"workflow_id": wf_id,
             "text": "Component 3 workflow incomplete."})
         return
-    final_text = _format_component3_response(message, outputs, report, days)
-    if gemini_failure:
-        final_text += (
-            f"\n\nNote: Gemini specialist summaries were unavailable ({gemini_failure}); "
-            "the report above was calculated from live structured backend data."
-        )
+
+    # Use Gemini narrative when available; fall back to deterministic formatter
+    if gemini_narrative:
+        final_text = gemini_narrative
+    else:
+        final_text = _format_component3_response(message, outputs, report, days)
+        if gemini_narrative_failure:
+            final_text += (
+                f"\n\nNote: AI narrative was temporarily unavailable ({gemini_narrative_failure}). "
+                "The data above was calculated directly from live backend records."
+            )
     yield _sse("message", {
         "workflow_id": wf_id,
         "text": final_text,
@@ -2002,6 +2457,8 @@ def sanitize_output(text: str) -> str:
     # Strip markdown bold syntax
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"__(.*?)__", r"\1", text)
+    # Strip any stray leftover ** or __
+    text = text.replace("**", "").replace("__", "")
     # Strip markdown headings (# Header -> Header)
     text = re.sub(r"^#{1,6}\s*(.+)$", r"\1", text, flags=re.MULTILINE)
     # Replace standard dash/asterisk bullets with •
@@ -2050,10 +2507,24 @@ async def run_agent(
         yield _sse("done", {"workflow_id": wf_id})
         return
 
-    request_intent = _component3_intent_from_request(message)
-    if request_intent:
-        intent = request_intent
-    else:
+    # ── Priority intent detection (deterministic, before Gemini call) ─────────
+    # Order matters: more-specific detectors run first to prevent broad
+    # Component 3 terms from hijacking other intents.
+    _priority_detectors = [
+        _procurement_intent_from_request,   # PO/PR compliance
+        _emergency_intent_from_request,     # emergency shortage
+        _anomaly_intent_from_request,       # stock discrepancy
+        _low_stock_intent_from_request,     # low stock / replenishment
+        _optimization_intent_from_request,  # reorder level optimization
+        _component3_intent_from_request,    # sales / consumption / waste
+    ]
+    intent: str | None = None
+    for _detect in _priority_detectors:
+        intent = _detect(message)
+        if intent:
+            break
+
+    if not intent:
         intent_model = genai.GenerativeModel(
             model_name=GEMINI_MODEL,
             system_instruction=INTENT_SYSTEM,
@@ -2085,11 +2556,11 @@ async def run_agent(
     if intent == "GENERAL_QUERY":
         yield _sse("thinking", {"text": "Answering your query…"})
         general_model = genai.GenerativeModel(
-            model_name="gemini-3.5-flash-lite",
+            model_name=GEMINI_MODEL,
             system_instruction=OUTPUT_RULES_AND_FORMAT,
         )
         resp = general_model.generate_content(
-            f"Answer the following query adhering strictly to the output format and rules:\n\n{message}"
+            f"Answer the following query adhering strictly to the 7-section output format and rules (Summary, Current Situation, Analysis, Recommendation, Reason, Required Action, Approval):\n\n{message}"
         )
         yield _sse("message", {"text": sanitize_output(resp.text), "workflow_id": wf_id})
         yield _sse("done", {"workflow_id": wf_id})
@@ -2105,18 +2576,23 @@ async def run_agent(
 
     yield _sse("thinking", {"text": f"Starting {intent.replace('_', ' ').title()} workflow…"})
 
-    # Seed the conversation with the user's original message + workflow context
-    history = [
-        {"role": "user", "parts": [
-            f"{message}\n\n[workflow_id={wf_id}]"
-        ]}
-    ]
     chat = model.start_chat(history=[])
 
     final_text: str = ""
     proposal: dict | None = None
     guided_workflow: dict | None = None
     step_number = 0
+
+    def _proto_to_plain(val):
+        """Recursively convert protobuf composite types to plain dicts/lists."""
+        if isinstance(val, dict):
+            return {k: _proto_to_plain(v) for k, v in val.items()}
+        if hasattr(val, '__iter__') and not isinstance(val, str):
+            try:
+                return [_proto_to_plain(i) for i in val]
+            except Exception:
+                pass
+        return val
 
     # Agentic loop: keep going until no more function calls
     current_message = f"{message}\n\n[workflow_id={wf_id}]"
@@ -2142,36 +2618,29 @@ async def run_agent(
                 delay *= 2
         step_number += 1
 
+        if response is None:
+            yield _sse("message", {
+                "text": "⚠️ No response received from AI model. Please try again.",
+                "workflow_id": wf_id,
+            })
+            yield _sse("done", {"workflow_id": wf_id})
+            return
+
         # Collect all parts
         has_function_call = False
 
-        for part in response.parts:
+        try:
+            parts = response.parts if hasattr(response, "parts") and response.parts else []
+        except (AttributeError, ValueError):
+            parts = []
+
+        for part in parts:
             # ── Function call from Gemini ────────────────────────────────────
             if hasattr(part, "function_call") and part.function_call:
                 fn  = part.function_call
                 has_function_call = True
                 tool_name = fn.name
 
-                # Deep-convert protobuf args → plain JSON-serializable Python dict.
-                # fn.args is a MapComposite; nested lists are RepeatedComposite.
-                # Safest approach: serialise via the proto library then parse back.
-                def _proto_to_plain(val):
-                    """Recursively convert protobuf composite types to plain dicts/lists."""
-                    if isinstance(val, dict):
-                        return {k: _proto_to_plain(v) for k, v in val.items()}
-                    if hasattr(val, '__iter__') and not isinstance(val, str):
-                        try:
-                            return [_proto_to_plain(i) for i in val]
-                        except Exception:
-                            pass
-                    # Scalar protobuf struct values → Python native
-                    for attr in ('string_value', 'number_value', 'bool_value', 'null_value'):
-                        if hasattr(val, attr):
-                            try:
-                                return getattr(val, attr)
-                            except Exception:
-                                pass
-                    return val
 
                 try:
                     # Try the cleanest path: use the SDK's built-in to_json
@@ -2228,7 +2697,7 @@ async def run_agent(
                     })
 
                 # Capture proposal for approval gate
-                if tool_name in ("build_po_proposal", "propose_reorder_level_change"):
+                if tool_name in ("build_pr_proposal", "build_po_proposal", "propose_reorder_level_change"):
                     proposal = tool_result
 
                 # Capture guided workflow plan

@@ -180,6 +180,19 @@ async def list_all_ingredients(
             }
         return {"error": f"Failed to fetch ingredients: {str(ing_data)}"}
 
+    # If the backend returned a dict instead of a list (e.g. paginated or wrapped response),
+    # try to unwrap the inner list from common envelope keys before iterating.
+    if isinstance(ing_data, dict):
+        ing_data = (
+            ing_data.get("items")
+            or ing_data.get("data")
+            or ing_data.get("ingredients")
+            or []
+        )
+
+    if not isinstance(ing_data, list):
+        return {"error": f"Unexpected ingredients response type: {type(ing_data).__name__}"}
+
     inv_map = {}
     if isinstance(inv_data, list):
         inv_map = {item.get("ingredientId"): item for item in inv_data}
@@ -557,42 +570,40 @@ async def get_demand_forecast(ingredient_id: str, days: int = 14) -> dict:
     }
 
 
+_suppliers_cache: dict[str, Any] = {"data": None, "fetched_at": 0.0}
+
+async def _fetch_all_suppliers() -> list[dict]:
+    import time
+    now = time.time()
+    if _suppliers_cache["data"] is not None and (now - _suppliers_cache["fetched_at"]) < 60.0:
+        return _suppliers_cache["data"]
+    try:
+        raw = await _get("/api/suppliers")
+        suppliers = raw if isinstance(raw, list) else []
+        _suppliers_cache["data"] = suppliers
+        _suppliers_cache["fetched_at"] = now
+        return suppliers
+    except Exception:
+        return _suppliers_cache["data"] or []
+
+
 async def get_supplier_options(ingredient_id: str, required_quantity: float) -> dict:
     """Get ranked supplier options for an ingredient based on price, lead time, and reliability."""
-    try:
-        data = await _get("/api/suppliers/options", {
-            "ingredientId": ingredient_id,
-            "quantity": required_quantity,
-        })
-    except Exception:
-        # Endpoint not yet implemented — fall back to fetching all suppliers
-        try:
-            all_suppliers = await _get("/api/suppliers")
-            data = [
-                {
-                    "supplierId":           s["id"],
-                    "supplierName":         s["name"],
-                    "unitPrice":            0,
-                    "leadTimeDays":         s.get("leadTimeDays", 3),
-                    "minimumOrderQuantity": s.get("minimumOrderQuantity", 0),
-                    "isPreferred":          s.get("isPreferred", False),
-                }
-                for s in all_suppliers
-            ]
-        except Exception:
-            return {"suppliers": [], "count": 0, "required_quantity": required_quantity,
-                    "note": "Supplier options endpoint unavailable."}
+    all_suppliers = await _fetch_all_suppliers()
+    if not all_suppliers:
+        return {"suppliers": [], "count": 0, "required_quantity": required_quantity,
+                "note": "Supplier options endpoint unavailable."}
 
     suppliers = []
-    for s in data:
+    for s in all_suppliers:
         can_fulfill = s.get("minimumOrderQuantity", 0) <= required_quantity
         score = 0.0
         if s.get("isPreferred"):          score += 0.4
         if s.get("leadTimeDays", 99) <= 2: score += 0.35
         if can_fulfill:                    score += 0.25
         suppliers.append({
-            "supplier_id":       s["supplierId"],
-            "supplier_name":     s["supplierName"],
+            "supplier_id":       s.get("id") or s.get("supplierId"),
+            "supplier_name":     s.get("name") or s.get("supplierName") or "Unknown Supplier",
             "unit_price":        s.get("unitPrice", 0),
             "lead_time_days":    s.get("leadTimeDays", 3),
             "minimum_order_qty": s.get("minimumOrderQuantity", 0),
@@ -773,6 +784,9 @@ async def build_po_proposal(
             ]
         },
     }
+
+
+build_pr_proposal = build_po_proposal
 
 
 async def propose_reorder_level_change(
@@ -1089,6 +1103,38 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         },
     ),
     FunctionDeclaration(
+        name="build_pr_proposal",
+        description="Build a Purchase Request proposal for manager approval. Call this when replenishment items and supplier details are ready. The approved proposal will create a PENDING_APPROVAL Purchase Request in the system.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "List of order line items",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ingredient_id":   {"type": "string"},
+                            "ingredient_name": {"type": "string"},
+                            "supplier_id":     {"type": "string"},
+                            "supplier_name":   {"type": "string"},
+                            "quantity":        {"type": "number"},
+                            "unit":            {"type": "string"},
+                            "unit_price":      {"type": "number"},
+                            "total_price":     {"type": "number"},
+                            "estimated_days":  {"type": "integer"},
+                            "reasoning":       {"type": "string"},
+                        },
+                        "required": ["ingredient_id", "supplier_id", "quantity", "unit_price"],
+                    },
+                },
+                "workflow_id": {"type": "string"},
+                "reasoning":   {"type": "string"},
+            },
+            "required": ["items", "workflow_id", "reasoning"],
+        },
+    ),
+    FunctionDeclaration(
         name="propose_reorder_level_change",
         description="Propose new min/max stock levels for one or more ingredients.",
         parameters={
@@ -1174,6 +1220,7 @@ TOOL_DISPATCH: dict[str, Any] = {
     "calculate_expected_consumption": calculate_expected_consumption,
     "analyze_consumption_patterns":  analyze_consumption_patterns,
     "build_po_proposal":             build_po_proposal,
+    "build_pr_proposal":             build_pr_proposal,
     "propose_reorder_level_change":  propose_reorder_level_change,
     "rank_emergency_options":        rank_emergency_options,
     "generate_anomaly_report":       generate_anomaly_report,

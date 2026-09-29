@@ -92,8 +92,9 @@ const ProposalCard: React.FC<{
   onApprove: (workflowId: string) => void;
   onReject:  (workflowId: string) => void;
   busy: boolean;
-}> = ({ proposal, onApprove, onReject, busy }) => {
-  const isPO   = proposal.proposal_type === 'PURCHASE_REQUEST';
+  isActed?: 'APPROVED' | 'REJECTED';
+}> = ({ proposal, onApprove, onReject, busy, isActed }) => {
+  const isPR   = proposal.proposal_type === 'PURCHASE_REQUEST';
   const isOpt  = proposal.proposal_type === 'OPTIMIZATION';
 
   return (
@@ -101,18 +102,18 @@ const ProposalCard: React.FC<{
       <div className="ai-proposal-header">
         <Sparkles size={16} />
         <span>
-          {isPO  ? '🛒 Purchase Order Proposal'  : ''}
+          {isPR  ? '🛒 Purchase Request Proposal'  : ''}
           {isOpt ? '⚙️ Optimization Proposal'   : ''}
         </span>
-        {isPO && proposal.total_cost !== undefined && (
+        {isPR && proposal.total_cost !== undefined && (
           <span className="ai-proposal-total">
             Total: ${proposal.total_cost.toFixed(2)}
           </span>
         )}
       </div>
 
-      {/* PO items */}
-      {isPO && proposal.items && proposal.items.length > 0 && (
+      {/* PR items */}
+      {isPR && proposal.items && proposal.items.length > 0 && (
         <div className="ai-proposal-table">
           <div className="ai-proposal-thead">
             <span>Ingredient</span><span>Qty</span><span>Supplier</span><span>Unit Price</span><span>Subtotal</span>
@@ -150,22 +151,34 @@ const ProposalCard: React.FC<{
       <p className="ai-proposal-reasoning">{proposal.reasoning}</p>
 
       <div className="ai-proposal-actions">
-        <button
-          type="button"
-          className="btn-primary ai-approve-btn"
-          disabled={busy}
-          onClick={() => onApprove(proposal.workflow_id)}
-        >
-          <CheckCircle2 size={15} /> Approve & Execute
-        </button>
-        <button
-          type="button"
-          className="btn-secondary ai-reject-btn"
-          disabled={busy}
-          onClick={() => onReject(proposal.workflow_id)}
-        >
-          <XCircle size={15} /> Reject
-        </button>
+        {isActed === 'APPROVED' ? (
+          <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.9rem' }}>
+            ✅ Approved & Created
+          </span>
+        ) : isActed === 'REJECTED' ? (
+          <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.9rem' }}>
+            🚫 Rejected
+          </span>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="btn-primary ai-approve-btn"
+              disabled={busy}
+              onClick={() => onApprove(proposal.workflow_id)}
+            >
+              <CheckCircle2 size={15} /> Approve — Create PR
+            </button>
+            <button
+              type="button"
+              className="btn-secondary ai-reject-btn"
+              disabled={busy}
+              onClick={() => onReject(proposal.workflow_id)}
+            >
+              <XCircle size={15} /> Reject
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -179,7 +192,8 @@ const ChatBubble: React.FC<{
   onReject:  (wfId: string) => void;
   onStartGuidedWorkflow: (gw: AiGuidedWorkflowPayload) => void;
   approvalBusy: boolean;
-}> = ({ msg, onApprove, onReject, onStartGuidedWorkflow, approvalBusy }) => {
+  isActed?: 'APPROVED' | 'REJECTED';
+}> = ({ msg, onApprove, onReject, onStartGuidedWorkflow, approvalBusy, isActed }) => {
   const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
 
   const toggleTool = (idx: number) => {
@@ -282,14 +296,54 @@ const ChatBubble: React.FC<{
           </div>
         )}
 
-        {/* Approval proposal */}
+        {/* Approval proposal (Shape A — standard) */}
         {msg.proposal && (
           <ProposalCard
             proposal={msg.proposal}
             onApprove={onApprove}
             onReject={onReject}
             busy={approvalBusy}
+            isActed={isActed}
           />
+        )}
+
+        {/* Component 3 Recommendations (Shape B — no proposal field) */}
+        {msg.c3Approval && (
+          <div className="ai-bubble ai-bubble--ai" style={{ marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>📊 Analysis Recommendations</span>
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background:
+                    msg.c3Approval.impact_level === 'HIGH'
+                      ? 'rgba(239,68,68,0.15)'
+                      : msg.c3Approval.impact_level === 'MEDIUM'
+                      ? 'rgba(245,158,11,0.15)'
+                      : 'rgba(16,185,129,0.15)',
+                  color:
+                    msg.c3Approval.impact_level === 'HIGH'
+                      ? '#ef4444'
+                      : msg.c3Approval.impact_level === 'MEDIUM'
+                      ? '#f59e0b'
+                      : '#10b981',
+                  fontWeight: 600,
+                }}
+              >
+                {msg.c3Approval.impact_level} impact
+              </span>
+            </div>
+            {msg.c3Approval.recommendations.map((rec, i) => (
+              <p key={i} style={{ margin: '0.2rem 0', fontSize: '0.82rem', whiteSpace: 'pre-wrap' }}>• {rec}</p>
+            ))}
+            {msg.c3Approval.confidence > 0 && (
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.73rem', opacity: 0.55 }}>
+                Confidence: {Math.round(msg.c3Approval.confidence * 100)}% · Read-only analysis, no approval required.
+              </p>
+            )}
+          </div>
         )}
 
         <span className="ai-ts">
@@ -331,6 +385,7 @@ export const AiAssistantChat: React.FC = () => {
   const [streaming,     setStreaming]    = useState(false);
   const [approvalBusy,  setApprovalBusy] = useState(false);
   const [workflows,     setWorkflows]    = useState<AiWorkflowSummary[]>([]);
+  const [actedWorkflows, setActedWorkflows] = useState<Record<string, 'APPROVED' | 'REJECTED'>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -395,6 +450,10 @@ export const AiAssistantChat: React.FC = () => {
       });
 
       if (!resp.ok || !resp.body) {
+        if (resp.status === 401) {
+          window.dispatchEvent(new Event('auth:unauthorized'));
+          throw new Error('Your session has expired. Please log in again.');
+        }
         throw new Error(`HTTP ${resp.status}`);
       }
 
@@ -406,6 +465,7 @@ export const AiAssistantChat: React.FC = () => {
       let   guidedWorkflow: AiGuidedWorkflowPayload | undefined;
       let   workflowId: string | undefined;
       const collectedEvents: AiEvent[] = [];
+      let   c3Approval: AiChatMessage['c3Approval'] | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -425,8 +485,20 @@ export const AiAssistantChat: React.FC = () => {
               finalText += ev.text;
               workflowId = ev.workflow_id;
             }
+            // Shape A — standard proposal (low-stock, optimization, emergency)
             if (ev.type === 'approval_required' && ev.proposal) {
               proposal   = ev.proposal;
+              workflowId = ev.workflow_id;
+            }
+            // Shape B — Component 3 recommendations (no proposal field)
+            if (ev.type === 'approval_required' && !ev.proposal && ev.recommendations) {
+              c3Approval = {
+                workflow_id:     ev.workflow_id ?? '',
+                workflow_type:   ev.workflow_type ?? 'SALES_CONSUMPTION_WASTE',
+                impact_level:    ev.impact_level ?? 'LOW',
+                confidence:      ev.confidence ?? 0,
+                recommendations: ev.recommendations,
+              };
               workflowId = ev.workflow_id;
             }
             if (ev.type === 'guided_workflow') {
@@ -445,6 +517,7 @@ export const AiAssistantChat: React.FC = () => {
                 content:        finalText,
                 events:         [...collectedEvents],
                 proposal,
+                c3Approval,
                 guidedWorkflow,
                 workflowId,
                 isStreaming:    ev.type !== 'done',
@@ -472,6 +545,7 @@ export const AiAssistantChat: React.FC = () => {
 
   // ── Approve workflow ───────────────────────────────────────────────────────
   const handleApprove = async (workflowId: string) => {
+    if (actedWorkflows[workflowId] || approvalBusy) return;
     setApprovalBusy(true);
     try {
       const token = getStoredToken();
@@ -483,20 +557,49 @@ export const AiAssistantChat: React.FC = () => {
         },
         body: JSON.stringify({ decision: 'APPROVED', comment: 'Approved via AI Assistant' }),
       });
-      const data = await r.json() as { message?: string };
+      const data = (await r.json().catch(() => ({}))) as {
+        message?: string;
+        purchaseRequestId?: string;
+        itemCount?: number;
+        status?: string;
+      };
+
+      if (!r.ok) {
+        if (data.message?.includes('COMPLETED') || data.message?.includes('not awaiting approval')) {
+          setActedWorkflows(prev => ({ ...prev, [workflowId]: 'APPROVED' }));
+          setMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: 'ℹ️ This proposal has already been approved and executed.',
+            timestamp: new Date(),
+          }]);
+          void loadHistory();
+          return;
+        }
+        if (r.status === 401) {
+          window.dispatchEvent(new Event('auth:unauthorized'));
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        throw new Error(data.message || `HTTP ${r.status}`);
+      }
+
+      setActedWorkflows(prev => ({ ...prev, [workflowId]: 'APPROVED' }));
+      const prInfo = data.purchaseRequestId
+        ? ` Purchase Request created (${data.itemCount ?? 0} item${(data.itemCount ?? 0) !== 1 ? 's' : ''}) — status: ${data.status ?? 'PENDING_APPROVAL'}.`
+        : ` ${data.message ?? ''}`;
       const confirmMsg: AiChatMessage = {
         id:        crypto.randomUUID(),
         role:      'assistant',
-        content:   `✅ Approved! ${data.message ?? ''}`,
+        content:   `✅ Approved!${prInfo} The manager can now review and action the PR in the Purchase Requests section.`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, confirmMsg]);
       void loadHistory();
-    } catch {
+    } catch (err) {
       const errMsg: AiChatMessage = {
         id:        crypto.randomUUID(),
         role:      'assistant',
-        content:   '❌ Approval failed. Please try again.',
+        content:   `❌ Approval failed: ${err instanceof Error ? err.message : 'Please try again.'}`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errMsg]);
@@ -628,6 +731,7 @@ export const AiAssistantChat: React.FC = () => {
                 onReject={(id)  => void handleReject(id)}
                 onStartGuidedWorkflow={handleStartGuided}
                 approvalBusy={approvalBusy}
+                isActed={msg.proposal ? actedWorkflows[msg.proposal.workflow_id] : undefined}
               />
             ))}
 

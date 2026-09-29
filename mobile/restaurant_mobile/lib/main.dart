@@ -12,6 +12,10 @@ import 'features/receiving/providers/receiving_provider.dart';
 import 'features/receiving/services/receiving_service.dart';
 import 'features/kitchen/providers/kitchen_provider.dart';
 import 'features/kitchen/services/kitchen_service.dart';
+import 'features/ai/providers/ai_provider.dart';
+import 'features/ai/services/ai_service.dart';
+
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +25,7 @@ void main() async {
   final inventoryService = InventoryService(api: apiService);
   final receivingService = ReceivingService(api: apiService);
   final kitchenService = KitchenService(api: apiService);
+  final aiService = AiService(api: apiService);
 
   runApp(
     MultiProvider(
@@ -31,6 +36,7 @@ void main() async {
         Provider<InventoryService>.value(value: inventoryService),
         Provider<ReceivingService>.value(value: receivingService),
         Provider<KitchenService>.value(value: kitchenService),
+        Provider<AiService>.value(value: aiService),
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(authService: authService),
         ),
@@ -42,6 +48,9 @@ void main() async {
         ),
         ChangeNotifierProvider<KitchenProvider>(
           create: (_) => KitchenProvider(kitchenService: kitchenService),
+        ),
+        ChangeNotifierProvider<AiProvider>(
+          create: (_) => AiProvider(aiService: aiService),
         ),
       ],
       child: const RestaurantInventoryApp(),
@@ -57,20 +66,8 @@ class RestaurantInventoryApp extends StatelessWidget {
     return MaterialApp(
       title: 'SavoryInventory Mobile',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD97706),
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD97706),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       home: const AuthGateScreen(),
     );
   }
