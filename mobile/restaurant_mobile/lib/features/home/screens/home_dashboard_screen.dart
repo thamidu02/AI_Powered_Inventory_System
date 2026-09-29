@@ -5,6 +5,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../inventory/screens/inventory_list_screen.dart';
 import '../../receiving/screens/receiving_list_screen.dart';
 import '../../kitchen/screens/kitchen_hub_screen.dart';
+import '../../../core/theme/app_colors.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -139,7 +140,7 @@ class HomeDashboardScreen extends StatelessWidget {
             _buildActionCard(
               context,
               icon: Icons.inventory_2_outlined,
-              iconColor: Colors.blue,
+              iconColor: AppColors.primary,
               title: 'Stock & Inventory',
               subtitle: 'Check ingredient levels, batches, and low stock warnings',
               badgeText: 'Live',
@@ -156,7 +157,7 @@ class HomeDashboardScreen extends StatelessWidget {
             _buildActionCard(
               context,
               icon: Icons.move_to_inbox_outlined,
-              iconColor: Colors.green,
+              iconColor: AppColors.emerald,
               title: 'Goods Receiving',
               subtitle: 'Record supplier delivery batches and intake goods',
               badgeText: 'Live',
@@ -173,7 +174,7 @@ class HomeDashboardScreen extends StatelessWidget {
             _buildActionCard(
               context,
               icon: Icons.restaurant_menu_outlined,
-              iconColor: Colors.deepOrange,
+              iconColor: AppColors.amber,
               title: 'Kitchen Prep & Waste',
               subtitle: 'Log dish preparation, recipe consumption, and food waste',
               badgeText: 'Live',
@@ -190,15 +191,15 @@ class HomeDashboardScreen extends StatelessWidget {
             _buildActionCard(
               context,
               icon: Icons.psychology_outlined,
-              iconColor: Colors.purple,
+              iconColor: AppColors.purple,
               title: 'AI Assistant',
-              subtitle: 'Ask inventory queries and review emergency proposals',
-              badgeText: 'Step 6',
+              subtitle: 'Ask inventory queries, audit orders, and manage proposals',
+              badgeText: 'Next Step',
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('AI Assistant will be integrated in Step 6!'),
-                    duration: Duration(seconds: 2),
+                    content: Text('AI Assistant is the next step to connect to the backend agent!'),
+                    duration: Duration(seconds: 3),
                   ),
                 );
               },

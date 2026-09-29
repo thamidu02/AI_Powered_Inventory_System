@@ -13,6 +13,8 @@ import 'features/receiving/services/receiving_service.dart';
 import 'features/kitchen/providers/kitchen_provider.dart';
 import 'features/kitchen/services/kitchen_service.dart';
 
+import 'core/theme/app_theme.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final storageService = await StorageService.initialize();
@@ -57,20 +59,8 @@ class RestaurantInventoryApp extends StatelessWidget {
     return MaterialApp(
       title: 'SavoryInventory Mobile',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD97706),
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD97706),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       home: const AuthGateScreen(),
     );
   }
