@@ -221,14 +221,17 @@ public class AiProxyService : IAiProxyService
             else if (type == "approval_required")
             {
                 workflow.Status = "AWAITING_APPROVAL";
+                // Store the full proposal payload so the approval handler
+                // can create the Purchase Request without relying on step names.
+                workflow.ProposalJson = root.GetRawText();
                 if (!workflow.Approvals.Any(a => a.Status == "PENDING"))
                 {
                     workflow.Approvals.Add(new AIApproval
                     {
-                        WorkflowId = workflowId,
+                        WorkflowId    = workflowId,
                         RequestedById = startedById,
-                        Status = "PENDING",
-                        RequestedAt = DateTime.UtcNow
+                        Status        = "PENDING",
+                        RequestedAt   = DateTime.UtcNow
                     });
                 }
             }
@@ -442,7 +445,26 @@ public class AiProxyService : IAiProxyService
 
     private async Task<object?> ExecuteApprovalSideEffectAsync(AIWorkflow workflow)
     {
-        // Find the last procurement step output (proposal JSON)
+        // ── Fast path: use the stored proposal JSON captured at stream time ──
+        if (workflow.ProposalJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(workflow.ProposalJson);
+                var root = doc.RootElement;
+
+                // Purchase Request proposal (LOW_STOCK_REPLENISHMENT / EMERGENCY)
+                if (root.TryGetProperty("purchase_request", out var pr))
+                    return await CreatePurchaseRequestFromProposal(pr, workflow.StartedById);
+
+                // Optimization proposal (INVENTORY_OPTIMIZATION)
+                if (root.TryGetProperty("optimizations", out var opts))
+                    return await ApplyOptimizationsAsync(opts);
+            }
+            catch (JsonException) { /* fall through to step scan */ }
+        }
+
+        // ── Fallback: scan workflow steps for a proposal output ──
         var proposalStep = workflow.Steps
             .Where(s => s.AgentName == "ProcurementAgent" ||
                         s.AgentName == "EmergencyAgent"   ||
@@ -455,17 +477,11 @@ public class AiProxyService : IAiProxyService
 
         var output = JsonSerializer.Deserialize<JsonElement>(proposalStep.OutputJson);
 
-        // LOW_STOCK_REPLENISHMENT or EMERGENCY — create PurchaseRequest
-        if (output.TryGetProperty("purchase_request", out var pr))
-        {
-            return await CreatePurchaseRequestFromProposal(pr, workflow.StartedById);
-        }
+        if (output.TryGetProperty("purchase_request", out var prFallback))
+            return await CreatePurchaseRequestFromProposal(prFallback, workflow.StartedById);
 
-        // INVENTORY_OPTIMIZATION — update ingredient min/max levels
-        if (output.TryGetProperty("optimizations", out var opts))
-        {
-            return await ApplyOptimizationsAsync(opts);
-        }
+        if (output.TryGetProperty("optimizations", out var optsFallback))
+            return await ApplyOptimizationsAsync(optsFallback);
 
         return new { message = "Executed." };
     }
@@ -476,8 +492,8 @@ public class AiProxyService : IAiProxyService
         var purchaseRequest = new PurchaseRequest
         {
             RequestedById = requestedById,
-            Status        = "APPROVED",
-            Reason        = "Created by AI Replenishment Agent",
+            Status        = "PENDING_APPROVAL",   // enters the normal manager approval flow
+            Reason        = "AI Replenishment Agent — awaiting manager approval",
             RequestedAt   = DateTime.UtcNow,
         };
 
@@ -486,19 +502,25 @@ public class AiProxyService : IAiProxyService
             foreach (var item in items.EnumerateArray())
             {
                 if (!Guid.TryParse(
-                    item.GetProperty("ingredient_id").GetString(), out var ingId))
+                    item.TryGetProperty("ingredient_id", out var ingEl)
+                        ? ingEl.GetString() : null, out var ingId))
                     continue;
-                if (!Guid.TryParse(
-                    item.GetProperty("supplier_id").GetString(), out var supId))
-                    continue;
+
+                // supplier_id is optional — the manager/procurement officer
+                // can assign it during formal approval in the PR management UI.
+                Guid? supId = null;
+                if (item.TryGetProperty("supplier_id", out var supEl) &&
+                    Guid.TryParse(supEl.GetString(), out var parsedSupId))
+                    supId = parsedSupId;
 
                 purchaseRequest.Items.Add(new PurchaseRequestItem
                 {
-                    IngredientId         = ingId,
-                    SuggestedSupplierId  = supId,
-                    RequestedQuantity    = item.GetProperty("quantity").GetDecimal(),
-                    Notes                = item.TryGetProperty("reasoning", out var r)
-                                              ? r.GetString() : null
+                    IngredientId        = ingId,
+                    SuggestedSupplierId = supId,
+                    RequestedQuantity   = item.TryGetProperty("quantity", out var qty)
+                                             ? qty.GetDecimal() : 0,
+                    Notes               = item.TryGetProperty("reasoning", out var r)
+                                             ? r.GetString() : null
                 });
             }
         }
@@ -506,7 +528,13 @@ public class AiProxyService : IAiProxyService
         _db.PurchaseRequests.Add(purchaseRequest);
         await _db.SaveChangesAsync();
 
-        return new { purchaseRequestId = purchaseRequest.Id, message = "Purchase Request created." };
+        return new
+        {
+            purchaseRequestId = purchaseRequest.Id,
+            status            = purchaseRequest.Status,
+            itemCount         = purchaseRequest.Items.Count,
+            message           = "Purchase Request created successfully. It is now PENDING_APPROVAL and awaiting manager review."
+        };
     }
 
     private async Task<object> ApplyOptimizationsAsync(JsonElement opts)

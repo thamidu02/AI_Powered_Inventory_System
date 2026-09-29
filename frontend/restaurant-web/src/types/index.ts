@@ -567,9 +567,11 @@ export type AiEventType =
   | 'intent'
   | 'tool_call'
   | 'tool_result'
+  | 'stage_output'
   | 'message'
   | 'approval_required'
   | 'guided_workflow'
+  | 'workflow_error'
   | 'done'
   | 'error';
 
@@ -588,6 +590,13 @@ export interface AiEvent {
   output?: unknown;
   proposal?: AiProposal;
   data?: unknown;
+  // Component 3 approval_required (Shape B — no proposal field)
+  impact_level?: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidence?: number;
+  recommendations?: string[];
+  // stage_output
+  stage?: string;
+  role?: string;
 }
 
 export interface AiProposal {
@@ -636,6 +645,14 @@ export interface AiChatMessage {
   timestamp:   Date;
   events?:     AiEvent[];
   proposal?:   AiProposal;
+  // Component 3 approval — Shape B (no proposal, has recommendations list)
+  c3Approval?: {
+    workflow_id:    string;
+    workflow_type:  string;
+    impact_level:   string;
+    confidence:     number;
+    recommendations: string[];
+  };
   guidedWorkflow?: AiGuidedWorkflowPayload;
   workflowId?: string;
   isStreaming? : boolean;

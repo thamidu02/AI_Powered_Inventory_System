@@ -13,6 +13,7 @@ import { ProcurementDashboard } from './components/ProcurementDashboard';
 import { KitchenOrderPanel } from './components/KitchenOrderPanel';
 import { AiAssistantChat } from './components/AiAssistantChat';
 import { PlanningDashboard } from './components/PlanningDashboard';
+import { FloatingAiChatWidget } from './components/FloatingAiChatWidget';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { GuidedWorkflowProvider, AIGuide } from './guided-workflow';
@@ -109,6 +110,9 @@ const MainAppContent: React.FC = () => {
 
         {/* Interactive Guided Workflow Engine Overlay & Cursor */}
         <AIGuide />
+
+        {/* Global Floating AI Copilot Widget */}
+        <FloatingAiChatWidget />
 
         {/* Toasts Container */}
         <div className="toast-container">

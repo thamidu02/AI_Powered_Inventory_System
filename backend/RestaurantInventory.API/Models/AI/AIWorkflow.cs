@@ -17,6 +17,12 @@ public class AIWorkflow : BaseEntity
 
     public string? ErrorMessage { get; set; }
 
+    /// <summary>
+    /// Raw JSON of the approval_required SSE payload (purchase_request or optimizations).
+    /// Stored when the stream is intercepted so the approval handler can create the PR.
+    /// </summary>
+    public string? ProposalJson { get; set; }
+
     public User StartedBy { get; set; } = null!;
 
     public ICollection<AIWorkflowStep> Steps { get; set; }
