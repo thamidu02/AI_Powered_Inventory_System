@@ -462,11 +462,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           <div className="batch-accordion-content">
                             <div className="batch-header">
                               <h4>
-                                Active Batches for {item.ingredientName} ({item.unit})
+                                <Boxes size={16} className="text-accent" />
+                                <span>Active Batches for {item.ingredientName}</span>
+                                <span className="batch-count-tag">
+                                  {item.batches?.length || 0} {item.batches?.length === 1 ? 'Batch' : 'Batches'}
+                                </span>
                               </h4>
-                              <span className="text-muted text-sm">
-                                Batches are depleted automatically via FEFO (Earliest Expiry First)
-                              </span>
+                              <div className="batch-header-fefo-badge">
+                                <Clock size={13} />
+                                <span>Batches are depleted automatically via FEFO (Earliest Expiry First)</span>
+                              </div>
                             </div>
 
                             {item.batches && item.batches.length > 0 ? (
@@ -496,39 +501,44 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                                     return (
                                       <tr key={batch.id}>
-                                        <td className="font-mono text-accent">
-                                          {batch.batchNumber}
+                                        <td>
+                                          <span className="batch-number-badge">
+                                            {batch.batchNumber}
+                                          </span>
                                         </td>
                                         <td>
                                           <span className="location-pill">
                                             <MapPin size={12} className="inline-icon" />
-                                            {batch.storageLocationName}
+                                            <span>{batch.storageLocationName}</span>
                                           </span>
                                         </td>
                                         <td>
-                                          <strong>{batch.quantity}</strong> {item.unit}
+                                          <span className="batch-quantity-val">{batch.quantity}</span>{' '}
+                                          <span className="text-muted text-xs">{item.unit}</span>
                                         </td>
-                                        <td>${batch.unitCost.toFixed(2)}</td>
-                                        <td className="text-muted">
+                                        <td className="batch-cost-val">${batch.unitCost.toFixed(2)}</td>
+                                        <td className="batch-date-cell">
                                           {new Date(batch.receivedDate).toLocaleDateString()}
                                         </td>
                                         <td>
                                           {batch.expiryDate ? (
                                             <span
-                                              className={
+                                              className={`batch-expiry-badge ${
                                                 isExpired
-                                                  ? 'text-rose font-bold'
+                                                  ? 'expired'
                                                   : isSoon
-                                                  ? 'text-amber font-bold'
-                                                  : 'text-muted'
-                                              }
+                                                  ? 'soon'
+                                                  : 'normal'
+                                              }`}
                                             >
-                                              {new Date(batch.expiryDate).toLocaleDateString()}
-                                              {isExpired && ' (EXPIRED)'}
-                                              {isSoon && ' (SOON)'}
+                                              {isExpired && <AlertTriangle size={12} />}
+                                              {isSoon && <Clock size={12} />}
+                                              <span>{new Date(batch.expiryDate).toLocaleDateString()}</span>
+                                              {isExpired && <span className="expiry-tag">EXPIRED</span>}
+                                              {isSoon && <span className="expiry-tag">SOON</span>}
                                             </span>
                                           ) : (
-                                            <span className="text-muted">No Expiry</span>
+                                            <span className="batch-date-cell">No Expiry</span>
                                           )}
                                         </td>
                                         <td>
@@ -541,7 +551,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                                 : 'badge-default'
                                             }`}
                                           >
-                                            {batch.status}
+                                            {batch.status.replace('_', ' ')}
                                           </span>
                                         </td>
                                         <td className="text-right">

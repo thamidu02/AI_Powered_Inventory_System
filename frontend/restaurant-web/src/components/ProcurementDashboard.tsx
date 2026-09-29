@@ -61,7 +61,10 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ onSu
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
 
   // RBAC permissions
-  const canManage = user?.role === 'SYSTEM_ADMIN' || user?.role === 'PROCUREMENT_OFFICER';
+  const canManage =
+    user?.role === 'SYSTEM_ADMIN' ||
+    user?.role === 'PROCUREMENT_OFFICER' ||
+    user?.role === 'RESTAURANT_MANAGER';
 
   const notify = (msg: string) => {
     setNotice(msg);

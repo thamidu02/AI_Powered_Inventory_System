@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { Navbar } from './components/Navbar';
@@ -13,6 +13,7 @@ import { ProcurementDashboard } from './components/ProcurementDashboard';
 import { KitchenOrderPanel } from './components/KitchenOrderPanel';
 import { AiAssistantChat } from './components/AiAssistantChat';
 import { PlanningDashboard } from './components/PlanningDashboard';
+import { FloatingAiChatWidget } from './components/FloatingAiChatWidget';
 import type { ActiveModal } from './types';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { GuidedWorkflowProvider, AIGuide } from './guided-workflow';
@@ -25,11 +26,21 @@ interface Toast {
 }
 
 const MainAppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [activeTab, setActiveTab] = useState<'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant' | 'planning'>('inventory');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  useEffect(() => {
+    if (
+      activeTab === 'procurement' &&
+      user &&
+      !['RESTAURANT_MANAGER', 'PROCUREMENT_OFFICER', 'SYSTEM_ADMIN'].includes(user.role)
+    ) {
+      setActiveTab('inventory');
+    }
+  }, [activeTab, user]);
 
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -89,7 +100,14 @@ const MainAppContent: React.FC = () => {
           {activeTab === 'aiAssistant' && <AiAssistantChat />}
 
           {activeTab === 'procurement' && (
-            <ProcurementDashboard onSuccess={handleModalSuccess} />
+            ['RESTAURANT_MANAGER', 'PROCUREMENT_OFFICER', 'SYSTEM_ADMIN'].includes(user?.role ?? '') ? (
+              <ProcurementDashboard onSuccess={handleModalSuccess} />
+            ) : (
+              <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <p style={{ color: '#E11D48', fontWeight: 600 }}>Access Restricted</p>
+                <p style={{ color: '#64748B', marginTop: 8 }}>Only Restaurant Managers and Procurement Officers have permission to access Procurement &amp; Suppliers.</p>
+              </div>
+            )
           )}
 
           {activeTab === 'planning' && (
@@ -109,6 +127,9 @@ const MainAppContent: React.FC = () => {
 
         {/* Interactive Guided Workflow Engine Overlay & Cursor */}
         <AIGuide />
+
+        {/* Global Floating AI Copilot Widget */}
+        <FloatingAiChatWidget />
 
         {/* Toasts Container */}
         <div className="toast-container">

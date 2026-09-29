@@ -19,7 +19,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetAll([FromQuery] string? status = null)
     {
         var result = await _service.GetAllAsync(status);
@@ -27,7 +27,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
@@ -40,7 +40,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseOrderRequest request)
     {
         try
@@ -60,7 +60,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePurchaseOrderRequest request)
     {
         try
@@ -81,7 +81,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/submit")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Submit(Guid id)
     {
         try
@@ -142,7 +142,7 @@ public class PurchaseOrdersController : ControllerBase
 
     [HttpPost("{id:guid}/order")]
     [HttpPost("{id:guid}/mark-as-ordered")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> MarkAsOrdered(Guid id)
     {
         try
@@ -182,7 +182,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

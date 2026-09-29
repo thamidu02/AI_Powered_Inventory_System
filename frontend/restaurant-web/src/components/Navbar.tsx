@@ -148,15 +148,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           <span>Sales & Waste</span>
         </button>
 
-        <button
-          type="button"
-          data-guide-id="nav-procurement"
-          className={`nav-tab ${activeTab === 'procurement' ? 'active' : ''}`}
-          onClick={() => setActiveTab('procurement')}
-        >
-          <Truck size={18} />
-          <span>Procurement &amp; Suppliers</span>
-        </button>
+        {(['RESTAURANT_MANAGER', 'PROCUREMENT_OFFICER', 'SYSTEM_ADMIN'].includes(user?.role ?? '')) && (
+          <button
+            type="button"
+            data-guide-id="nav-procurement"
+            className={`nav-tab ${activeTab === 'procurement' ? 'active' : ''}`}
+            onClick={() => setActiveTab('procurement')}
+          >
+            <Truck size={18} />
+            <span>Procurement &amp; Suppliers</span>
+          </button>
+        )}
 
         <button
           type="button"

@@ -25,6 +25,11 @@ import 'package:restaurant_mobile/features/kitchen/models/waste_model.dart';
 import 'package:restaurant_mobile/features/kitchen/providers/kitchen_provider.dart';
 import 'package:restaurant_mobile/features/kitchen/screens/kitchen_hub_screen.dart';
 import 'package:restaurant_mobile/features/kitchen/services/kitchen_service.dart';
+import 'package:restaurant_mobile/features/ai/models/ai_message_model.dart';
+import 'package:restaurant_mobile/features/ai/providers/ai_provider.dart';
+import 'package:restaurant_mobile/features/ai/services/ai_service.dart';
+import 'package:restaurant_mobile/features/ai/screens/ai_chat_screen.dart';
+import 'package:restaurant_mobile/core/widgets/acumatica_brand.dart';
 import 'package:restaurant_mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -168,11 +173,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('SavoryInventory'), findsOneWidget);
-      expect(find.text('Kitchen Operations & Inventory Mobile'), findsOneWidget);
+      expect(find.byType(AcumaticaBrandHeader), findsOneWidget);
+      expect(find.text('Enter credentials'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(2));
       expect(find.text('Sign In'), findsOneWidget);
-      expect(find.text('Manager'), findsOneWidget);
+      expect(find.text('Restaurant Manager'), findsOneWidget);
     });
 
     testWidgets('HomeDashboardScreen renders authenticated user profile and operations cards', (WidgetTester tester) async {
@@ -208,7 +213,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('KitchenOps Mobile'), findsOneWidget);
+      expect(find.text('SavoryInventory'), findsOneWidget);
       expect(find.text('Sam Warehouse'), findsOneWidget);
       expect(find.text('INVENTORY MANAGER'), findsOneWidget);
       expect(find.text('Stock & Inventory'), findsOneWidget);
@@ -543,6 +548,64 @@ void main() {
       expect(find.text('Menu & POS (0)'), findsOneWidget);
       expect(find.text('Sales (0)'), findsOneWidget);
       expect(find.text('Waste (0)'), findsOneWidget);
+    });
+  });
+
+  group('Step 6 AI Assistant Unit Tests', () {
+    test('AiMessage model tracks streaming status and proposal properties correctly', () {
+      final message = AiMessage(
+        id: 'msg-001',
+        text: 'Summary:\n• Low stock detected.',
+        isUser: false,
+        timestamp: DateTime.now(),
+        intent: 'INVENTORY_HEALTH',
+        workflowId: 'wf-12345',
+        proposal: {
+          'proposal_type': 'PURCHASE_REQUEST',
+          'total_cost': 450.00,
+          'item_count': 3,
+        },
+      );
+
+      expect(message.hasProposal, isTrue);
+      expect(message.isApproved, isFalse);
+      expect(message.isApproving, isFalse);
+      expect(message.workflowId, equals('wf-12345'));
+      expect(message.proposal?['total_cost'], equals(450.00));
+    });
+  });
+
+  group('Step 6 AI Assistant Widget Tests', () {
+    testWidgets('AiChatScreen renders app bar, quick prompt chips, empty state copilot, and message input', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = await StorageService.initialize();
+      final api = ApiService(storage: storage);
+      final aiService = AiService(api: api);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<StorageService>.value(value: storage),
+            Provider<ApiService>.value(value: api),
+            Provider<AiService>.value(value: aiService),
+            ChangeNotifierProvider<AiProvider>(
+              create: (_) => AiProvider(aiService: aiService),
+            ),
+          ],
+          child: const MaterialApp(
+            home: AiChatScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('AI Inventory Assistant'), findsOneWidget);
+      expect(find.text('Restaurant AI Copilot'), findsOneWidget);
+      expect(find.text('Check low stock'), findsOneWidget);
+      expect(find.text('Expiring batches'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byIcon(Icons.send), findsOneWidget);
     });
   });
 }

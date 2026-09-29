@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
-  CheckCircle2,
   Lock,
   Mail,
-  Utensils,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { TEST_ACCOUNTS } from '../types';
+import './LoginView.css';
 
 export const LoginView: React.FC = () => {
   const { login, quickLogin, loading, error, clearError } = useAuth();
@@ -25,43 +24,64 @@ export const LoginView: React.FC = () => {
     }
   };
 
-  return (
-    <div className="login-wrapper">
-      <div className="login-container">
-        {/* Brand Header */}
-        <div className="login-brand">
-          <div className="login-icon-box">
-            <Utensils size={36} />
-          </div>
-          <h1>
-            Savory<span>Inventory</span>
-          </h1>
-          <p className="login-subtitle">
-            Enterprise Restaurant Inventory Management with FEFO Depletion & RBAC
-          </p>
-        </div>
+  const handleQuickFill = (testEmail: string) => {
+    setEmail(testEmail);
+    setPassword('Password123!');
+    clearError();
+    quickLogin(testEmail);
+  };
 
-        {/* Login Form Box */}
-        <div className="login-card">
-          <h2 className="login-card-title">Sign In to Dashboard</h2>
-          <p className="login-card-desc">
-            Enter your credentials or choose a pre-configured role below to test.
-          </p>
+  return (
+    <div className="acumatica-login-root">
+      {/* Left Pane - Restaurant Inventory Hero Image */}
+      <div className="acumatica-hero-pane">
+        <img
+          src="/login-hero.jpg"
+          alt="Restaurant Stock Inspection"
+          className="acumatica-hero-img"
+        />
+        <div className="acumatica-hero-overlay" />
+      </div>
+
+      {/* Right Pane - Acumatica-style Enterprise Login Form */}
+      <div className="acumatica-form-pane">
+        <div className="acumatica-form-content">
+          {/* Brand Header */}
+          <div className="acumatica-brand">
+            <div className="acumatica-logo-sphere">
+              <div className="acumatica-logo-inner-ring" />
+            </div>
+            <div className="acumatica-brand-text">
+              <div className="acumatica-brand-title">
+                Savory<span>Inventory</span>
+              </div>
+              <div className="acumatica-brand-tagline">
+                AI-Assisted Operations & FEFO Traceability
+              </div>
+            </div>
+          </div>
+
+          {/* Form Header */}
+          <div className="acumatica-header">
+            <h2>Enter credentials</h2>
+            <p>Sign in to access your inventory and procurement console</p>
+          </div>
 
           {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle size={18} />
+            <div className="acumatica-alert">
+              <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <label htmlFor="email">Email Address</label>
-              <div className="input-with-icon">
-                <Mail size={18} className="input-icon" />
+          {/* Credentials Form */}
+          <form onSubmit={handleSubmit} className="acumatica-form">
+            <div className="acumatica-field">
+              <label htmlFor="acumatica-email">Username / Email</label>
+              <div className="acumatica-input-wrapper">
+                <Mail size={16} className="acumatica-input-icon" />
                 <input
-                  id="email"
+                  id="acumatica-email"
                   type="email"
                   value={email}
                   onChange={(e) => {
@@ -69,17 +89,18 @@ export const LoginView: React.FC = () => {
                     clearError();
                   }}
                   placeholder="name@restaurant.com"
+                  className="acumatica-input"
                   required
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <div className="input-with-icon">
-                <Lock size={18} className="input-icon" />
+            <div className="acumatica-field">
+              <label htmlFor="acumatica-password">Password</label>
+              <div className="acumatica-input-wrapper">
+                <Lock size={16} className="acumatica-input-icon" />
                 <input
-                  id="password"
+                  id="acumatica-password"
                   type="password"
                   value={password}
                   onChange={(e) => {
@@ -87,78 +108,74 @@ export const LoginView: React.FC = () => {
                     clearError();
                   }}
                   placeholder="••••••••••••"
+                  className="acumatica-input"
                   required
                 />
               </div>
             </div>
 
-            <button type="submit" className="btn-primary btn-submit" disabled={loading}>
-              {loading ? (
-                <span className="spinner">Connecting...</span>
-              ) : (
-                <>
-                  <span>Sign In</span>
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
+            <div className="acumatica-actions-row">
+              <button
+                type="submit"
+                className="acumatica-btn-signin"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span>Signing In...</span>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="acumatica-link-forgot"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => handleQuickFill('manager@restaurant.com')}
+              >
+                Forgot your credentials?
+              </button>
+            </div>
           </form>
 
-          {/* 1-Click Role Testing Cards */}
-          <div className="test-roles-section">
-            <div className="divider-text">
-              <span>OR 1-CLICK TEST LOGIN</span>
+          {/* Demo Profiles 1-Click Access */}
+          <div className="acumatica-demo-section">
+            <div className="acumatica-demo-header">
+              <span>Quick Demo Access</span>
+              <span className="acumatica-demo-badge">5 Roles Available</span>
             </div>
 
-            <div className="role-cards-grid">
+            <div className="acumatica-roles-grid">
               {TEST_ACCOUNTS.map((acc) => (
-                <div
+                <button
                   key={acc.role}
-                  className="test-role-card"
-                  onClick={() => quickLogin(acc.email)}
-                  role="button"
-                  tabIndex={0}
+                  type="button"
+                  className="acumatica-role-pill"
+                  disabled={loading}
+                  onClick={() => handleQuickFill(acc.email)}
+                  title={acc.description}
                 >
-                  <div className="role-card-header">
-                    <span className="role-card-name">{acc.name}</span>
-                    <span className="role-badge-small">{acc.role.replace('_', ' ')}</span>
-                  </div>
-                  <p className="role-card-desc">{acc.description}</p>
-                  <button
-                    type="button"
-                    className="btn-quick-login"
-                    disabled={loading}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      quickLogin(acc.email);
-                    }}
-                  >
-                    Login as {acc.name.split(' ')[0]} &rarr;
-                  </button>
-                </div>
+                  <span className="acumatica-role-pill-name">{acc.name}</span>
+                  <span className="acumatica-role-pill-role">
+                    {acc.role.replace('_', ' ')}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Feature Highlights Footer */}
-        <div className="features-ribbon">
-          <div className="feature-pill">
-            <CheckCircle2 size={16} className="text-emerald" />
-            <span>FEFO Batch Depletion</span>
-          </div>
-          <div className="feature-pill">
-            <CheckCircle2 size={16} className="text-emerald" />
-            <span>Threshold-Governed Adjustments</span>
-          </div>
-          <div className="feature-pill">
-            <CheckCircle2 size={16} className="text-emerald" />
-            <span>Multi-Location Tracking</span>
-          </div>
-          <div className="feature-pill">
-            <CheckCircle2 size={16} className="text-emerald" />
-            <span>5 Strict RBAC Roles</span>
-          </div>
+        {/* Footer */}
+        <div className="acumatica-footer">
+          <p className="acumatica-footer-copy">
+            Copyright &copy; 2026 Savory Inventory System. All rights reserved.
+          </p>
+          <p className="acumatica-footer-version">
+            Restaurant Operations &bull; Release 2026.2
+          </p>
         </div>
       </div>
     </div>

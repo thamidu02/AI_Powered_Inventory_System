@@ -183,6 +183,48 @@ class ApiService {
     }
   }
 
+  Stream<String> streamSse(
+    String endpoint, {
+    dynamic body,
+    bool requiresAuth = true,
+  }) async* {
+    try {
+      final uri = _buildUri(endpoint);
+      final request = http.Request('POST', uri);
+      final headers = _buildHeaders(requiresAuth: requiresAuth);
+      headers['Accept'] = 'text/event-stream';
+      headers['Cache-Control'] = 'no-cache';
+      request.headers.addAll(headers);
+      if (body != null) {
+        request.body = jsonEncode(body);
+      }
+
+      final response = await _client.send(request);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        yield* response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+      } else {
+        final errorBody = await response.stream.bytesToString();
+        throw ApiException(
+          message: 'Request failed with status ${response.statusCode}',
+          statusCode: response.statusCode,
+          details: errorBody,
+        );
+      }
+    } on SocketException catch (e) {
+      throw ApiException(
+        message: 'Cannot reach backend server. Check your network or host URL.',
+        details: e.toString(),
+      );
+    } on http.ClientException catch (e) {
+      throw ApiException(
+        message: 'Network client error: ${e.message}',
+        details: e.toString(),
+      );
+    }
+  }
+
   void dispose() {
     _client.close();
   }

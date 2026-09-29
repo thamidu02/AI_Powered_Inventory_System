@@ -78,7 +78,9 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({
 
   // Role permissions
   const canManageProcurement =
-    user?.role === 'SYSTEM_ADMIN' || user?.role === 'PROCUREMENT_OFFICER';
+    user?.role === 'SYSTEM_ADMIN' ||
+    user?.role === 'RESTAURANT_MANAGER' ||
+    user?.role === 'PROCUREMENT_OFFICER';
   const canCancel =
     user?.role === 'SYSTEM_ADMIN' ||
     user?.role === 'RESTAURANT_MANAGER' ||
