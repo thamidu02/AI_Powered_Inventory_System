@@ -523,33 +523,49 @@ Approval:
 {OUTPUT_RULES_AND_FORMAT}
 """,
     "PROCUREMENT_COMPLIANCE_INVESTIGATION": f"""
-You are the AI-Powered Procurement Compliance and Investigation Specialist inside a restaurant inventory and procurement management system.
+You are the Component 2 AI-Powered Procurement Compliance and Investigation Specialist inside a restaurant inventory and procurement management system.
 
-Your job:
-1. When the user asks to investigate or audit a Purchase Order or Purchase Request (e.g. "Investigate PO-102", "Why is PO-105 flagged?", "Audit PR-201", "Investigate transaction PO-1"):
-   - Call investigate_procurement_transaction or analyze_procurement_compliance with the PO/PR ID.
-2. When the user asks about duplicate Purchase Requests (e.g. "Check for duplicate PRs", "Are there duplicate purchase requests?"):
-   - Call check_duplicate_purchase_requests.
-3. When the user asks whether a PO matches its PR or checks item/quantity mismatches (e.g. "Does PO-101 match PR-101?", "Check PR PO consistency"):
-   - Call check_pr_po_consistency with the purchase_order_id or purchase_request_id.
-4. When the user asks about approval workflow violations or governance (e.g. "Was PR approved before PO was created?", "Check workflow compliance"):
-   - Call check_workflow_compliance.
-5. When the user asks about receiving discrepancies or over/under deliveries (e.g. "Check receiving for PO-101", "Are there goods receipt discrepancies?"):
-   - Call check_receiving_discrepancies.
+Strict Read-Only Safety & Governance Boundaries:
+1. WHAT YOU MAY DO:
+   • Inspect, audit, and analyze historical and active procurement records.
+   • Detect duplicate Purchase Requests (PRs) using ingredient, quantity, requester, and temporal signals.
+   • Verify line-item consistency and financial variance between Purchase Requests and Purchase Orders.
+   • Validate procurement workflow compliance against established restaurant governance rules.
+   • Reconcile Goods Receipts against commercial Purchase Orders for quantity discrepancies, damaged goods notes, or overdue orders.
+   • Trace chronological PR → PO → Goods Receipt transaction lifecycles.
+   • Provide explainable risk assessments and recommend human operational reviews.
 
-Compliance & Workflow Governance Rules to enforce:
-- Purchase Requests (PR): Restaurant Manager approval is REQUIRED before procurement can proceed.
-- Purchase Orders (PO): Manager approval is NOT required. The Procurement Officer directly reviews, creates, and explicitly places the order with the supplier.
-- Ordering POs: Ordering is an explicit action performed by the Procurement Officer (not a manager approval step).
-- AI Investigation: Strictly read-only analysis (Detect → Analyze → Explain → Report). The AI must NEVER approve, order, or receive.
-- A PO ordered without an approved PR is a Workflow Violation.
-- PO quantities exceeding PR quantities or extra unrequested items are Compliance Inconsistencies.
-- Goods received exceeding PO ordered quantities or missing items are Receiving Discrepancies.
+2. WHAT YOU MUST NEVER DO (HARD SAFETY BOUNDARIES):
+   • NEVER auto-approve or reject Purchase Requests.
+   • NEVER auto-create, order, or cancel Purchase Orders.
+   • NEVER auto-receive goods or modify inventory quantities directly.
+   • NEVER alter transaction state or modify any database records.
+   • All procurement execution remains strictly human-driven.
+
+3. BOUNDARY DISTINCTION FROM DEMAND PLANNING (COMPONENT 4):
+   • Component 2 owns Procurement Compliance, Audit, and Investigation.
+   • You MUST NOT perform future demand forecasting, consumption trend modeling, or automated replenishment calculations (owned by Component 4 Demand Planning).
+   • Focus exclusively on governance, transaction verification, consistency auditing, and lifecycle traceability.
+
+Procurement Governance Citations to Reference in Findings:
+- [Rule PR-01]: Purchase Requests (PR) require Restaurant Manager approval before procurement authorization.
+- [Rule PO-01]: Purchase Orders (PO) do NOT require Manager approval; the Procurement Officer directly creates and orders the PO.
+- [Rule PO-02]: PO ordering is an explicit manual action by the Procurement Officer (DRAFT -> ORDERED).
+- [Rule WF-01]: Creating a commercial PO against an unapproved or pending PR is an unauthorized workflow breach.
+- [Rule QA-01]: Goods receipt items with damage notes or quantity variances (>0) require dock quarantine and supplier reconciliation.
+
+Explainability & Reasoning Framework:
+In the 'Analysis:' section of your audit findings, you must structure each identified issue using this 5-point explainability chain:
+1. WHAT WAS DETECTED: Specific document IDs, ingredient lines, and variance metrics.
+2. EVIDENCE USED: Concrete numbers from database records (PR quantities, PO quantities, GR quantities, prices).
+3. WHY IT MATTERS: Financial cost impact, excess inventory risk, or unauthorized expenditure.
+4. GOVERNANCE RULE CITED: Explicitly cite the governing rule (e.g. [Rule PR-01], [Rule WF-01], [Rule QA-01]).
+5. RECOMMENDED HUMAN FOLLOW-UP: Explicit next step for the responsible human operational stakeholder.
 
 After executing the tools, summarize your findings strictly adhering to the 7 required sections below:
 
 Summary:
-• Overview of the transaction, PR, or PO audit.
+• Concise overview of the transaction, PR, or PO audit.
 
 Current Situation:
 • Transaction / Document ID:
@@ -558,46 +574,156 @@ Current Situation:
 • Received items and quantities: (if applicable)
 
 Analysis:
-• Detail any discrepancies, workflow violations, or duplicate flags found.
-• Root cause explanation based on database records.
+• Detail each discrepancy or workflow violation following the 5-point explainability chain.
+• Include financial cost variance calculations and cite specific governance rules ([Rule PR-01], [Rule PO-01], [Rule WF-01], [Rule QA-01]).
 
 Recommendation:
-• Recommended corrective or preventive action.
+• Categorized recommendations for Restaurant Manager, Procurement Officer, and Receiving Dock.
 
 Reason:
-• Factual basis from procurement records and governance rules.
+• Factual basis from procurement records and governance policy.
 
 Required Action:
-• State what the user or procurement officer should do next:
+• Clear next steps for the relevant human operational role:
   - If a DRAFT PO is ready: Procurement Officer should review and click 'Order PO'.
   - If an unapproved PR exists: Restaurant Manager must review and approve the PR.
-  - If receiving discrepancies exist: Perform physical count or contact supplier.
+  - If receiving discrepancies exist: Receiving staff/dock must verify physical count or file supplier claim.
 
 Approval:
-• State: "No approval required for this investigation report (strictly read-only analysis). Note: Purchase Requests require Restaurant Manager approval; Purchase Orders do NOT require Manager approval as the Procurement Officer orders directly."
+• State explicitly: "No approval required for this investigation report (strictly read-only analysis). Note: Purchase Requests require Restaurant Manager approval; Purchase Orders do NOT require Manager approval as the Procurement Officer orders directly."
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
 }
 
 def _procurement_intent_from_request(message: str) -> str | None:
-    request = message.lower()
-    procurement_keywords = [
-        "procurement", "compliance", "purchase order", "purchase request",
-        "duplicate pr", "duplicate purchase", "pr-po", "pr to po", "po-", "pr-",
-        "investigate po", "investigate pr", "audit po", "audit pr", "receiving discrepanc",
-        "over-receiv", "under-receiv", "workflow compliance", "procurement audit",
-        "goods receipt discrepanc", "flagged po", "unapproved pr", "audit transaction"
-    ]
-    if any(kw in request for kw in procurement_keywords):
-        compliance_signals = [
-            "compliance", "investigate", "audit", "duplicate", "match", "consistency",
-            "violation", "discrepanc", "flagged", "approved", "receipt", "over-receiv",
-            "under-receiv", "pr", "po", "procurement"
-        ]
-        if any(sig in request for sig in compliance_signals):
-            return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+    request = message.lower().strip()
+
+    # 1. Direct transaction identifier pattern: PR-XXXX, PO-XXXX, GR-XXXX (excluding phrases like 'PR-PO')
+    # e.g., "Investigate PO-EE1E95F7", "Audit PO-102", "What is the status of PR-5A8F853C?", "Show GR-3F2A10B4"
+    if re.search(r"\b(pr|po|gr)-(?!po\b)[a-z0-9]{1,36}\b", request):
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
+    # 2. High-confidence procurement compliance phrases (Quick Actions & direct queries)
+    high_confidence_phrases = (
+        "audit procurement",
+        "procurement compliance",
+        "check duplicate pr",
+        "duplicate pr",
+        "duplicate purchase request",
+        "duplicate purchase requests",
+        "verify pr-po",
+        "verify pr to po",
+        "pr to po consistency",
+        "pr-po consistency",
+        "pr-po match",
+        "pr to po match",
+        "purchase order consistency",
+        "receiving variance",
+        "receiving variances",
+        "receiving discrepanc",
+        "goods receipt discrepanc",
+        "goods receipt variance",
+        "investigate procurement",
+        "investigate transaction",
+        "audit transaction",
+        "procurement audit",
+        "workflow compliance",
+        "unapproved pr",
+        "flagged po",
+        "over-receiv",
+        "under-receiv",
+        "procurement traceability",
+        "trace procurement",
+    )
+    if any(phrase in request for phrase in high_confidence_phrases):
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
+    # 3. Two-factor matching: Procurement context + Compliance/Audit intent
+    procurement_nouns = (
+        "purchase order",
+        "purchase orders",
+        "purchase request",
+        "purchase requests",
+        "goods receipt",
+        "goods receipts",
+        "procurement",
+    )
+    compliance_verbs = (
+        "audit",
+        "compliance",
+        "investigate",
+        "investigation",
+        "duplicate",
+        "consistency",
+        "discrepancy",
+        "discrepancies",
+        "variance",
+        "variances",
+        "mismatch",
+        "mismatches",
+        "violation",
+        "traceability",
+        "over-received",
+        "under-received",
+    )
+
+    has_procurement = any(re.search(r"\b" + re.escape(noun) + r"\b", request) for noun in procurement_nouns)
+    has_compliance = any(re.search(r"\b" + re.escape(verb) + r"\b", request) for verb in compliance_verbs)
+
+    if has_procurement and has_compliance:
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
     return None
+
+
+def _normalize_procurement_query(message: str) -> str:
+    """
+    Pre-format and enrich procurement quick actions and natural language queries
+    to give Gemini explicit, focused execution instructions without unnecessary probing.
+    """
+    msg_lower = message.lower().strip()
+
+    # Extract transaction code if present (PR-XXXX, PO-XXXX, GR-XXXX, excluding 'PR-PO')
+    id_match = re.search(r"\b((?:pr|po|gr)-(?!po\b)[a-z0-9]{1,36})\b", msg_lower, re.IGNORECASE)
+    doc_code = id_match.group(1).upper() if id_match else None
+
+    if doc_code:
+        return (
+            f"Please investigate the specific procurement transaction {doc_code}.\n"
+            f"Call investigate_procurement_transaction(query_or_id='{doc_code}') and trace its complete lifecycle "
+            f"(PR approval status, PO ordering, and Goods Receipts) and report any compliance or quantity variances."
+        )
+
+    if any(k in msg_lower for k in ("duplicate pr", "duplicate purchase request", "check duplicate")):
+        return (
+            "Please audit the system for potential duplicate Purchase Requests.\n"
+            "Call check_duplicate_purchase_requests(window_days=14) to analyze ingredient overlaps, "
+            "temporal proximity, and requester similarities, and provide an explainable summary."
+        )
+
+    if any(k in msg_lower for k in ("verify pr-po", "verify pr to po", "pr to po consistency", "pr-po consistency", "pr-po match", "pr to po match")):
+        return (
+            "Please audit consistency between Purchase Orders and their originating Purchase Requests.\n"
+            "Call check_pr_po_consistency() to verify line-item quantities, unit price differences, "
+            "and unapproved source requests, and summarize any financial cost impacts."
+        )
+
+    if any(k in msg_lower for k in ("receiving variance", "receiving variances", "receiving discrepanc", "goods receipt discrepanc")):
+        return (
+            "Please audit receiving discrepancies between Goods Receipts and commercial Purchase Orders.\n"
+            "Call check_receiving_discrepancies() to identify over-receipts, short receipts, "
+            "damaged goods notes, and overdue open purchase orders."
+        )
+
+    if any(k in msg_lower for k in ("audit procurement", "procurement compliance", "procurement audit", "overall compliance")):
+        return (
+            "Please execute a comprehensive procurement compliance audit across the entire inventory system.\n"
+            "Call analyze_procurement_compliance() to evaluate duplicate PRs, PR/PO consistency, workflow governance, "
+            "and receiving discrepancies, and present the weighted multi-factor risk score."
+        )
+
+    return message
 
 COMPONENT3_STAGES = (
     ("sales", "SalesAgent", "get_sales_summary",
@@ -2595,7 +2721,8 @@ async def run_agent(
         return val
 
     # Agentic loop: keep going until no more function calls
-    current_message = f"{message}\n\n[workflow_id={wf_id}]"
+    effective_message = _normalize_procurement_query(message) if intent == "PROCUREMENT_COMPLIANCE_INVESTIGATION" else message
+    current_message = f"{effective_message}\n\n[workflow_id={wf_id}]"
     while True:
         # Retry with backoff for rate limits / transient errors
         retries, delay = 3, 10

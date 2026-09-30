@@ -27,17 +27,28 @@ from .inventory import _get
 
 
 async def _safe_get(path: str, params: dict[str, Any] | None = None) -> Any:
-    """Safely fetch backend data with structured error handling."""
+    """Safely fetch backend data with structured error handling and graceful degradation."""
     try:
         return await _get(path, params)
     except httpx.HTTPStatusError as exc:
         return {
-            "error": f"Backend returned HTTP {exc.response.status_code}.",
+            "error": f"Backend returned HTTP {exc.response.status_code} for {path}.",
             "status_code": exc.response.status_code,
             "endpoint": path,
+            "is_backend_error": True,
+        }
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.NetworkError) as exc:
+        return {
+            "error": f"Backend service unreachable at {path} ({type(exc).__name__}).",
+            "endpoint": path,
+            "is_backend_error": True,
         }
     except Exception as exc:
-        return {"error": f"Backend data request failed: {exc}", "endpoint": path}
+        return {
+            "error": f"Backend data request to {path} failed: {type(exc).__name__}: {exc}",
+            "endpoint": path,
+            "is_backend_error": True,
+        }
 
 
 def _clean_id(raw_id: str | None) -> str:
@@ -157,14 +168,15 @@ async def check_duplicate_purchase_requests(
                     qty_similarities.append(1.0)
 
             avg_qty_sim = sum(qty_similarities) / len(qty_similarities) if qty_similarities else 0.0
-            overall_score = (item_similarity * 0.6) + (avg_qty_sim * 0.4)
+            base_score = (item_similarity * 0.6) + (avg_qty_sim * 0.4)
 
-            # Requester match bonus
+            # Requester match bonus: if both PRs originate from the same user, increase similarity score
             same_requester = (
                 pr1.get("requestedById") and pr1.get("requestedById") == pr2.get("requestedById")
             ) or (
                 pr1.get("requestedByName") and pr1.get("requestedByName") == pr2.get("requestedByName")
             )
+            overall_score = min(1.0, base_score + (0.10 if same_requester else 0.0))
 
             if overall_score >= similarity_threshold or (item_similarity == 1.0 and avg_qty_sim >= 0.8):
                 # Build item breakdown description
@@ -179,6 +191,13 @@ async def check_duplicate_purchase_requests(
                             "unit": it.get("ingredientUnit") or "units",
                         })
 
+                # Determine if either PR is actively pending approval
+                is_active_risk = (
+                    pr1.get("status") in ("PENDING_APPROVAL", "APPROVED") and
+                    pr2.get("status") in ("PENDING_APPROVAL", "APPROVED")
+                )
+
+                requester_note = " by the same requester" if same_requester else ""
                 duplicate_groups.append({
                     "primary_pr_id": pr1.get("id"),
                     "primary_pr_code": f"PR-{pr1.get('id', '')[:8].upper()}",
@@ -192,26 +211,30 @@ async def check_duplicate_purchase_requests(
                     "similar_date": str(pr2.get("requestedAt"))[:10],
                     "days_apart": round(diff_days, 1),
                     "similarity_score": round(overall_score * 100, 1),
+                    "base_item_score": round(base_score * 100, 1),
                     "same_requester": bool(same_requester),
+                    "active_duplicate_risk": is_active_risk,
                     "matched_items": matched_items,
                     "explanation": (
-                        f"{pr2.get('id', '')[:8].upper()} requested items closely matching "
-                        f"{pr1.get('id', '')[:8].upper()} submitted {round(diff_days, 1)} days apart "
-                        f"with {round(overall_score * 100, 1)}% item & quantity similarity."
+                        f"{pr2.get('id', '')[:8].upper()} ({pr2.get('status')}) requested items matching "
+                        f"{pr1.get('id', '')[:8].upper()} ({pr1.get('status')}){requester_note}, submitted {round(diff_days, 1)} days apart "
+                        f"with {round(overall_score * 100, 1)}% confidence."
                     ),
                 })
 
-    risk_level = "HIGH" if len(duplicate_groups) >= 3 else ("MEDIUM" if len(duplicate_groups) >= 1 else "LOW")
+    active_risks = [g for g in duplicate_groups if g.get("active_duplicate_risk")]
+    risk_level = "HIGH" if len(active_risks) >= 2 else ("MEDIUM" if len(duplicate_groups) >= 1 else "LOW")
 
     return {
         "window_days": window_days,
         "total_requests_analyzed": len(prs),
         "duplicate_count": len(duplicate_groups),
+        "active_risk_count": len(active_risks),
         "duplicate_groups": duplicate_groups,
         "risk_level": risk_level,
         "summary": (
             f"Detected {len(duplicate_groups)} potential duplicate Purchase Request pairs "
-            f"within a {window_days}-day window."
+            f"({len(active_risks)} active) within a {window_days}-day window."
             if duplicate_groups
             else f"No duplicate Purchase Requests detected across {len(prs)} analyzed requisitions."
         ),
@@ -318,6 +341,7 @@ async def check_pr_po_consistency(
 
         issues = []
         item_comparisons = []
+        po_extra_spend = 0.0
 
         # Check if PR was approved
         if pr_status != "APPROVED":
@@ -336,22 +360,29 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": 0.0,
+                    "unit_price": 0.0,
+                    "ordered_value": 0.0,
+                    "financial_variance": 0.0,
                     "variance": -req_qty,
                     "variance_percentage": -100.0,
                     "status": "OMITTED_IN_PO",
                 })
             else:
                 ord_qty = float(po_item.get("orderedQuantity", 0))
+                unit_price = float(po_item.get("unitPrice", 0))
                 variance = ord_qty - req_qty
                 var_pct = round((variance / req_qty) * 100, 1) if req_qty > 0 else 0.0
+                ordered_value = round(ord_qty * unit_price, 2)
+                item_fin_var = round(variance * unit_price, 2)
 
                 comp_status = "MATCH"
                 if abs(variance) > 0.001:
                     if ord_qty > req_qty:
                         comp_status = "PO_QUANTITY_EXCEEDS_PR"
+                        po_extra_spend += max(0.0, item_fin_var)
                         issues.append(
                             f"Quantity mismatch for '{ing_name}': Approved PR requested {req_qty} {pr_item.get('ingredientUnit', '')}, "
-                            f"but PO ordered {ord_qty} (+{var_pct}%)."
+                            f"but PO ordered {ord_qty} (+{var_pct}%, cost impact: +${item_fin_var:,.2f})."
                         )
                     else:
                         comp_status = "PO_QUANTITY_LESS_THAN_PR"
@@ -365,6 +396,9 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
+                    "ordered_value": ordered_value,
+                    "financial_variance": item_fin_var,
                     "variance": round(variance, 2),
                     "variance_percentage": var_pct,
                     "status": comp_status,
@@ -375,12 +409,19 @@ async def check_pr_po_consistency(
             if ing_id not in pr_item_map:
                 ing_name = po_item.get("ingredientName") or "Ingredient"
                 ord_qty = float(po_item.get("orderedQuantity", 0))
-                issues.append(f"Extra item '{ing_name}' ({ord_qty} units) in PO was never requested in approved PR {pr_code}.")
+                unit_price = float(po_item.get("unitPrice", 0))
+                ordered_value = round(ord_qty * unit_price, 2)
+                po_extra_spend += ordered_value
+
+                issues.append(f"Extra item '{ing_name}' ({ord_qty} units @ ${unit_price:,.2f} = ${ordered_value:,.2f}) in PO was never requested in approved PR {pr_code}.")
                 item_comparisons.append({
                     "ingredient_id": ing_id,
                     "ingredient_name": ing_name,
                     "requested_quantity": 0.0,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
+                    "ordered_value": ordered_value,
+                    "financial_variance": ordered_value,
                     "variance": ord_qty,
                     "variance_percentage": 100.0,
                     "status": "EXTRA_ITEM_IN_PO",
@@ -390,7 +431,7 @@ async def check_pr_po_consistency(
         if has_discrepancy:
             total_mismatches += 1
 
-        po_risk = "HIGH" if pr_status != "APPROVED" or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons) else ("MEDIUM" if has_discrepancy else "LOW")
+        po_risk = "HIGH" if pr_status != "APPROVED" or po_extra_spend > 500 or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons) else ("MEDIUM" if has_discrepancy else "LOW")
 
         reports.append({
             "purchase_order_id": po_id,
@@ -403,22 +444,30 @@ async def check_pr_po_consistency(
             "linked_pr_approver": pr.get("approvedByName"),
             "is_linked_to_pr": True,
             "has_discrepancies": has_discrepancy,
+            "unauthorized_spend_variance": round(po_extra_spend, 2),
+            "total_po_amount": float(po.get("totalAmount", 0)),
             "issues": issues,
             "item_comparisons": item_comparisons,
             "risk_level": po_risk,
         })
 
     overall_risk = "HIGH" if any(r["risk_level"] == "HIGH" for r in reports) else ("MEDIUM" if total_mismatches > 0 else "LOW")
+    total_unauthorized_variance = sum(r.get("unauthorized_spend_variance", 0.0) for r in reports)
+    linked_orders_count = sum(1 for r in reports if r.get("is_linked_to_pr"))
+    direct_orders_count = sum(1 for r in reports if not r.get("is_linked_to_pr"))
 
     return {
         "total_orders_analyzed": len(reports),
+        "linked_orders_count": linked_orders_count,
+        "direct_orders_count": direct_orders_count,
         "inconsistent_orders_count": total_mismatches,
+        "total_unauthorized_variance": round(total_unauthorized_variance, 2),
         "consistency_reports": reports,
         "risk_level": overall_risk,
         "summary": (
             f"Identified {total_mismatches} Purchase Order(s) with PR consistency issues or quantity variances."
             if total_mismatches > 0
-            else f"All {len(reports)} analyzed Purchase Orders match their approved Purchase Requests consistently."
+            else f"All {len(reports)} analyzed Purchase Orders ({linked_orders_count} linked to approved PRs, {direct_orders_count} direct) match consistently."
         ),
     }
 
@@ -505,9 +554,17 @@ async def check_workflow_compliance(
             else:
                 po_issues.append(f"{po_code} references nonexistent PR ID {pr_id[:8].upper()}.")
 
+        # Validate direct POs without PR link
+        if not pr_id:
+            # Direct POs are permitted for direct purchasing by Procurement Officer, but noted for governance
+            if po_status == "DRAFT":
+                po_issues.append(f"{po_code} is a Direct PO in DRAFT status without linked PR requisition (Awaiting Procurement Officer order placement).")
+            else:
+                compliant_records.append({"entity_type": "PURCHASE_ORDER", "entity_code": po_code, "note": "Direct PO placed by Procurement Officer."})
+
         # Validate order lifecycle states
         if po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
-            if not po.get("orderDate"):
+            if not po.get("orderDate") and not po.get("createdAt"):
                 po_issues.append(f"{po_code} is in status '{po_status}' but lacks recorded supplier placement orderDate.")
 
         if po_status in ("PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
@@ -523,7 +580,7 @@ async def check_workflow_compliance(
                 "entity_code": po_code,
                 "status": po_status,
                 "violations": po_issues,
-                "severity": "HIGH" if any("Requires APPROVED" in v for v in po_issues) else "MEDIUM",
+                "severity": "HIGH" if any("Requires APPROVED" in v or "nonexistent PR" in v for v in po_issues) else "MEDIUM",
             })
         else:
             compliant_records.append({"entity_type": "PURCHASE_ORDER", "entity_code": po_code})
@@ -534,18 +591,19 @@ async def check_workflow_compliance(
         "workflow_rules_enforced": [
             "Staff creates and submits Purchase Request (PR)",
             "Restaurant Manager reviews and approves Purchase Request (MANDATORY APPROVAL)",
-            "Procurement Officer creates Purchase Order (PO) from approved PR (DRAFT)",
-            "Procurement Officer reviews and orders PO directly with vendor (NO PO Manager Approval)",
-            "Inventory / Warehouse staff receives goods against active ORDERED PO",
+            "Procurement Officer creates PO as DRAFT from approved PR",
+            "Procurement Officer reviews and explicitly places PO (NO Manager approval on PO)",
+            "Receiving Staff records incoming Goods Receipts against PO",
         ],
         "total_entities_checked": len(prs) + len(pos),
-        "violation_count": len(violations),
+        "total_violations": len(violations),
+        "compliant_count": len(compliant_records),
         "violations": violations,
         "risk_level": risk_level,
         "summary": (
-            f"Detected {len(violations)} workflow compliance violation(s) across procurement transactions."
+            f"Detected {len(violations)} procurement workflow governance violation(s) across {len(prs)} PRs and {len(pos)} POs."
             if violations
-            else "All evaluated transactions strictly adhere to the restaurant procurement governance flow."
+            else f"Full workflow compliance verified: All {len(prs)} PRs and {len(pos)} POs adhere strictly to restaurant governance."
         ),
     }
 
@@ -638,27 +696,44 @@ async def check_receiving_discrepancies(
                 "variance_type": status_label,
             })
 
-        # Check receipt items for damaged/rejected quantities
+        # Check for overdue fulfillment on open orders
+        is_overdue = False
+        exp_delivery_raw = po.get("expectedDeliveryDate")
+        if po_status == "ORDERED" and exp_delivery_raw:
+            try:
+                exp_dt = datetime.fromisoformat(str(exp_delivery_raw).replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                now_utc = datetime.now(timezone.utc)
+                if exp_dt.date() < now_utc.date():
+                    days_overdue = (now_utc.date() - exp_dt.date()).days
+                    is_overdue = True
+                    issues.append(
+                        f"Overdue delivery: {po_code} was expected on {str(exp_delivery_raw)[:10]} "
+                        f"({days_overdue} day(s) overdue) with no goods receipts recorded."
+                    )
+            except (ValueError, TypeError):
+                pass
+
+        # Check receipt notes and items for damage/defect mentions
         damaged_items = []
         for rc in po_receipts:
-            for r_it in rc.get("items", []):
-                rej_qty = float(r_it.get("rejectedQuantity", 0))
-                if rej_qty > 0:
-                    damaged_items.append({
-                        "receipt_id": rc.get("id"),
-                        "ingredient_name": r_it.get("ingredientName") or "Ingredient",
-                        "rejected_quantity": rej_qty,
-                        "rejection_reason": r_it.get("rejectionReason") or "Damaged / Substandard",
-                    })
-                    issues.append(
-                        f"Goods receipt reported {rej_qty} units of '{r_it.get('ingredientName')}' rejected: "
-                        f"{r_it.get('rejectionReason') or 'Damaged / Failed QA'}."
-                    )
+            rc_notes = (rc.get("notes") or "").lower()
+            rc_code = f"GR-{rc.get('id', '')[:8].upper()}"
+            if any(kw in rc_notes for kw in ("damag", "broken", "spoil", "leak", "reject", "defect", "poor quality")):
+                issues.append(f"Goods receipt {rc_code} notes contain quality/damage warning: \"{rc.get('notes')}\"")
+                damaged_items.append({
+                    "receipt_id": rc.get("id"),
+                    "receipt_code": rc_code,
+                    "receipt_date": str(rc.get("receiptDate") or rc.get("createdAt"))[:10],
+                    "notes": rc.get("notes"),
+                    "issue_type": "DAMAGE_OR_QUALITY_NOTE",
+                })
 
         if issues:
             total_discrepancies += 1
 
-        po_risk = "HIGH" if any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances) else ("MEDIUM" if issues else "LOW")
+        po_risk = "HIGH" if is_overdue or any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances) else ("MEDIUM" if issues else "LOW")
 
         if issues or po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
             discrepancy_reports.append({
@@ -668,9 +743,11 @@ async def check_receiving_discrepancies(
                 "supplier_name": po.get("supplierName") or "Vendor",
                 "goods_receipt_count": len(po_receipts),
                 "has_discrepancies": len(issues) > 0,
+                "is_overdue": is_overdue,
+                "expected_delivery_date": str(exp_delivery_raw)[:10] if exp_delivery_raw else None,
                 "issues": issues,
                 "item_variances": item_variances,
-                "damaged_or_rejected_items": damaged_items,
+                "damaged_or_quality_notes": damaged_items,
                 "risk_level": po_risk,
             })
 
@@ -713,74 +790,151 @@ async def analyze_procurement_compliance(
     key_findings = []
     high_count = 0
     medium_count = 0
+    system_diagnostics = []
 
-    # Process duplicates
-    if isinstance(duplicates_res, dict) and duplicates_res.get("duplicate_count", 0) > 0:
-        medium_count += duplicates_res["duplicate_count"]
-        for g in duplicates_res.get("duplicate_groups", []):
-            key_findings.append(f"Duplicate PR: {g['primary_pr_code']} is similar to {g['similar_pr_code']} ({g['similarity_score']}% match).")
+    # Check for endpoint or upstream retrieval errors across sub-checks
+    for sub_name, sub_res in [
+        ("Duplicate PR Check", duplicates_res),
+        ("PR-PO Consistency Check", consistency_res),
+        ("Workflow Compliance Check", workflow_res),
+        ("Receiving Discrepancy Check", receiving_res),
+    ]:
+        if isinstance(sub_res, dict) and "error" in sub_res:
+            system_diagnostics.append(f"{sub_name}: {sub_res.get('error')}")
 
-    # Process consistency
+    # Multi-factor score calculations with explicit weights:
+    # 1. Workflow Governance (Weight: 35%)
+    # 2. PR-PO Consistency & Financial (Weight: 25%)
+    # 3. Receiving Reconciliation (Weight: 25%)
+    # 4. Duplicate PR Prevention (Weight: 15%)
+
+    # Factor 1: Duplicate PRs (15%)
+    dup_score = 0.0
+    if isinstance(duplicates_res, dict):
+        dup_cnt = duplicates_res.get("duplicate_count", 0)
+        if dup_cnt > 0:
+            dup_score = min(100.0, dup_cnt * 35.0)
+            for g in duplicates_res.get("duplicate_groups", []):
+                key_findings.append(f"Duplicate PR: {g['primary_pr_code']} is similar to {g['similar_pr_code']} ({g['similarity_score']}% match).")
+
+    # Factor 2: PR/PO Consistency (25%)
+    consistency_score = 0.0
     if isinstance(consistency_res, dict):
         for rep in consistency_res.get("consistency_reports", []):
             if rep.get("has_discrepancies"):
-                if rep.get("risk_level") == "HIGH":
+                rep_risk = rep.get("risk_level", "MEDIUM")
+                if rep_risk == "HIGH":
                     high_count += 1
+                    consistency_score += 40.0
                 else:
                     medium_count += 1
+                    consistency_score += 20.0
                 for issue in rep.get("issues", []):
                     key_findings.append(f"PR/PO Consistency [{rep['purchase_order_code']}]: {issue}")
+    consistency_score = min(100.0, consistency_score)
 
-    # Process workflow
+    # Factor 3: Workflow Compliance (35%)
+    workflow_score = 0.0
     if isinstance(workflow_res, dict):
         for viol in workflow_res.get("violations", []):
-            if viol.get("severity") == "HIGH":
+            sev = viol.get("severity", "MEDIUM")
+            if sev == "HIGH":
                 high_count += 1
+                workflow_score += 45.0
             else:
                 medium_count += 1
+                workflow_score += 20.0
             for v_msg in viol.get("violations", []):
                 key_findings.append(f"Workflow Breach [{viol['entity_code']}]: {v_msg}")
+    workflow_score = min(100.0, workflow_score)
 
-    # Process receiving
+    # Factor 4: Receiving Reconciliation (25%)
+    receiving_score = 0.0
     if isinstance(receiving_res, dict):
         for rec in receiving_res.get("discrepancy_reports", []):
             if rec.get("has_discrepancies"):
-                if rec.get("risk_level") == "HIGH":
+                rec_risk = rec.get("risk_level", "MEDIUM")
+                if rec_risk == "HIGH":
                     high_count += 1
+                    receiving_score += 40.0
                 else:
                     medium_count += 1
+                    receiving_score += 20.0
                 for r_msg in rec.get("issues", []):
                     key_findings.append(f"Receiving Variance [{rec['purchase_order_code']}]: {r_msg}")
+    receiving_score = min(100.0, receiving_score)
 
-    # Calculate overall risk
-    if high_count >= 1 or len(key_findings) >= 4:
+    # Weighted composite risk score (0 - 100)
+    composite_risk_score = round(
+        (workflow_score * 0.35) +
+        (consistency_score * 0.25) +
+        (receiving_score * 0.25) +
+        (dup_score * 0.15),
+        1
+    )
+
+    has_retrieval_error = len(system_diagnostics) > 0
+
+    if has_retrieval_error:
+        overall_risk = "AUDIT_INCOMPLETE"
+        effective_risk_score = None
+    elif composite_risk_score >= 60.0 or high_count >= 2:
         overall_risk = "HIGH"
-        risk_score = min(100, 70 + (high_count * 10) + len(key_findings) * 2)
-    elif medium_count >= 1 or len(key_findings) >= 1:
+        effective_risk_score = composite_risk_score
+    elif composite_risk_score >= 25.0 or medium_count >= 1 or high_count == 1:
         overall_risk = "MEDIUM"
-        risk_score = min(69, 40 + (medium_count * 8))
+        effective_risk_score = composite_risk_score
     else:
         overall_risk = "LOW"
-        risk_score = 10
+        effective_risk_score = composite_risk_score
 
-    recommendations = []
-    if overall_risk == "HIGH":
-        recommendations.append("Immediate management review required before processing pending payments or supplier dispatches.")
-    if any("Duplicate PR" in f for f in key_findings):
-        recommendations.append("Consolidate or cancel duplicate Purchase Requests to prevent excess inventory accumulation.")
-    if any("Over-receiving" in f for f in key_findings):
-        recommendations.append("Audit receiving dock receipts against authorized purchase order limits.")
-    if not recommendations:
-        recommendations.append("Procurement operations are operating within compliant governance parameters.")
+    # Categorized recommendations by operational role and issue type
+    manager_actions = []
+    officer_actions = []
+    dock_actions = []
+
+    if has_retrieval_error:
+        manager_actions.append(
+            "Audit Incomplete: Could not fully verify procurement records due to backend retrieval errors. "
+            "Please verify backend service availability and service account permissions."
+        )
+
+    if workflow_score > 0:
+        manager_actions.append("Review unapproved PR progressions and direct PO creations to enforce standard Restaurant Manager sign-off.")
+    if consistency_score > 0:
+        officer_actions.append("Audit line item quantities and unit price variances between approved PRs and commercial POs.")
+    if dup_score > 0:
+        manager_actions.append("Review pending Purchase Requests for potential duplicates before approving new inventory commitments.")
+        officer_actions.append("Consolidate overlapping ingredient requests into unified supplier purchase orders.")
+    if receiving_score > 0:
+        dock_actions.append("Cross-reference Goods Receipt notes against delivered quantities for damaged goods or over-shipments.")
+        officer_actions.append("Follow up with suppliers on overdue open purchase orders or disputed delivery notes.")
+
+    if not manager_actions and not officer_actions and not dock_actions:
+        manager_actions.append("No active compliance risks detected. Procurement workflow operating within normal governance thresholds.")
+
+    all_recommendations = list(dict.fromkeys(manager_actions + officer_actions + dock_actions))
 
     return {
         "overall_risk_level": overall_risk,
-        "risk_score": risk_score,
+        "risk_score": effective_risk_score,
         "total_issues_found": len(key_findings),
         "high_severity_count": high_count,
         "medium_severity_count": medium_count,
         "key_findings": key_findings,
-        "recommended_review_actions": recommendations,
+        "recommended_review_actions": all_recommendations,
+        "system_diagnostics": system_diagnostics,
+        "categorized_recommendations": {
+            "restaurant_manager_actions": manager_actions,
+            "procurement_officer_actions": officer_actions,
+            "receiving_dock_actions": dock_actions,
+        },
+        "scoring_breakdown": {
+            "workflow_governance": {"score": workflow_score, "weight": 0.35, "weighted_points": round(workflow_score * 0.35, 2)},
+            "pr_po_consistency": {"score": consistency_score, "weight": 0.25, "weighted_points": round(consistency_score * 0.25, 2)},
+            "receiving_reconciliation": {"score": receiving_score, "weight": 0.25, "weighted_points": round(receiving_score * 0.25, 2)},
+            "duplicate_pr_control": {"score": dup_score, "weight": 0.15, "weighted_points": round(dup_score * 0.15, 2)},
+        },
         "component_breakdown": {
             "duplicate_pr_risk": duplicates_res.get("risk_level", "LOW") if isinstance(duplicates_res, dict) else "UNKNOWN",
             "pr_po_consistency_risk": consistency_res.get("risk_level", "LOW") if isinstance(consistency_res, dict) else "UNKNOWN",
@@ -883,6 +1037,8 @@ async def investigate_procurement_transaction(
 
         if rcv_qty > ord_qty:
             status_flags.append(f"OVER_RECEIVED (+{round(rcv_qty - ord_qty, 2)})")
+        elif rcv_qty < ord_qty and matched_po and matched_po.get("status") in ("RECEIVED", "COMPLETED"):
+            status_flags.append(f"SHORT_DELIVERY (-{round(ord_qty - rcv_qty, 2)})")
 
         line_items_trace.append({
             "ingredient_id": ing_id,
@@ -893,8 +1049,89 @@ async def investigate_procurement_transaction(
             "received_quantity": rcv_qty,
             "unit_price": unit_price,
             "line_subtotal": round(ord_qty * unit_price, 2),
-            "status_flags": status_flags if status_flags else ["NORMAL_MATCH"],
+            "status_flags": status_flags if status_flags else ["MATCH_OK"],
         })
+
+    # Build Chronological Lifecycle Timeline Audit Trail
+    timeline_events = []
+
+    if matched_pr:
+        req_at = matched_pr.get("requestedAt") or matched_pr.get("createdAt")
+        timeline_events.append({
+            "timestamp": str(req_at)[:19] if req_at else None,
+            "stage": "PURCHASE_REQUEST_CREATED",
+            "actor": matched_pr.get("requestedByName") or "Staff Member",
+            "status": "COMPLETED",
+            "visual_flag": "[PR CREATED]",
+            "description": f"PR {matched_pr.get('id', '')[:8].upper()} created with reason: '{matched_pr.get('reason') or 'Inventory Replenishment'}'.",
+        })
+
+        if matched_pr.get("status") in ("APPROVED", "REJECTED") or matched_pr.get("approvedAt"):
+            app_at = matched_pr.get("approvedAt") or req_at
+            timeline_events.append({
+                "timestamp": str(app_at)[:19] if app_at else None,
+                "stage": f"PURCHASE_REQUEST_{matched_pr.get('status', 'APPROVED')}",
+                "actor": matched_pr.get("approvedByName") or "Restaurant Manager",
+                "status": "COMPLETED" if matched_pr.get("status") == "APPROVED" else "REJECTED",
+                "visual_flag": "[APPROVED]" if matched_pr.get("status") == "APPROVED" else "[REJECTED]",
+                "description": f"PR was {matched_pr.get('status', 'reviewed')} by Restaurant Manager {matched_pr.get('approvedByName') or ''}.",
+            })
+        elif matched_pr.get("status") == "PENDING_APPROVAL":
+            timeline_events.append({
+                "timestamp": None,
+                "stage": "PURCHASE_REQUEST_PENDING_APPROVAL",
+                "actor": "Pending Restaurant Manager",
+                "status": "PENDING",
+                "visual_flag": "[AWAITING APPROVAL]",
+                "description": "PR is currently pending Restaurant Manager review and authorization.",
+            })
+
+    if matched_po:
+        po_created_at = matched_po.get("createdAt") or matched_po.get("orderDate")
+        timeline_events.append({
+            "timestamp": str(po_created_at)[:19] if po_created_at else None,
+            "stage": "PURCHASE_ORDER_CREATED",
+            "actor": matched_po.get("createdByName") or "Procurement Officer",
+            "status": "COMPLETED",
+            "visual_flag": "[PO CREATED]",
+            "description": f"PO {matched_po.get('id', '')[:8].upper()} created for supplier '{matched_po.get('supplierName') or 'Vendor'}'.",
+        })
+
+        if matched_po.get("status") in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
+            timeline_events.append({
+                "timestamp": str(matched_po.get("orderDate") or po_created_at)[:19],
+                "stage": "PURCHASE_ORDER_ORDERED",
+                "actor": matched_po.get("createdByName") or "Procurement Officer",
+                "status": "COMPLETED",
+                "visual_flag": "[ORDER PLACED]",
+                "description": f"Commercial order officially transmitted to supplier on {str(matched_po.get('orderDate'))[:10]}.",
+            })
+        elif matched_po.get("status") == "DRAFT":
+            timeline_events.append({
+                "timestamp": None,
+                "stage": "PURCHASE_ORDER_DRAFT",
+                "actor": matched_po.get("createdByName") or "Procurement Officer",
+                "status": "DRAFT",
+                "visual_flag": "[DRAFT PO]",
+                "description": "PO is currently in DRAFT status and has not yet been ordered from the supplier.",
+            })
+
+    for idx, rc in enumerate(po_receipts, 1):
+        rc_at = rc.get("receiptDate") or rc.get("receivedAt") or rc.get("createdAt")
+        timeline_events.append({
+            "timestamp": str(rc_at)[:19] if rc_at else None,
+            "stage": f"GOODS_RECEIPT_{idx}",
+            "actor": rc.get("receivedByName") or "Receiving Staff",
+            "status": "COMPLETED",
+            "visual_flag": "[GOODS RECEIVED]",
+            "description": f"Receipt GR-{rc.get('id', '')[:8].upper()} logged ({len(rc.get('items', []))} items). Notes: '{rc.get('notes') or 'Delivered as ordered'}'.",
+        })
+
+    # Sort events chronologically where timestamp exists
+    dated_events = [e for e in timeline_events if e.get("timestamp")]
+    undated_events = [e for e in timeline_events if not e.get("timestamp")]
+    dated_events.sort(key=lambda x: str(x.get("timestamp")))
+    sorted_timeline = dated_events + undated_events
 
     # Run specific compliance check for this pair
     compliance_report = await analyze_procurement_compliance(
@@ -937,6 +1174,7 @@ async def investigate_procurement_transaction(
             }
             for rc in po_receipts
         ],
+        "lifecycle_timeline": sorted_timeline,
         "line_items_comparison": line_items_trace,
         "compliance_summary": {
             "overall_risk_level": compliance_report.get("overall_risk_level", "LOW"),

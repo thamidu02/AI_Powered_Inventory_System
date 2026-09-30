@@ -60,6 +60,13 @@ public static class DatabaseSeeder
                 Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
                 Name = "SALES_KITCHEN_STAFF",
                 Description = "Records sales, consumption and waste."
+            },
+
+            new Role
+            {
+                Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                Name = "AI_SERVICE",
+                Description = "Automated AI assistant service account with read-only audit permissions."
             }
         };
 
@@ -130,6 +137,14 @@ public static class DatabaseSeeder
                 FirstName = "Sales",
                 LastName = "Staff",
                 RoleId = Guid.Parse("55555555-5555-5555-5555-555555555555")
+            },
+
+            new
+            {
+                Email = "ai-service@restaurant.com",
+                FirstName = "AI",
+                LastName = "Service",
+                RoleId = Guid.Parse("66666666-6666-6666-6666-666666666666")
             }
         };
 
