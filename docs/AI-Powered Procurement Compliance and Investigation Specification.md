@@ -107,7 +107,7 @@ Component 2 **never** generates future demand forecasts or purchasing quantity r
 ### 4.4 Receiving Discrepancy & Quality Audit (`check_receiving_discrepancies`)
 - **Over-Receipt & Short Delivery**: Compares PO ordered quantities against cumulative Goods Receipt quantities.
 - **Damage & Defect Signal Detection**: Inspects Goods Receipt notes for quality keywords (`damaged`, `broken`, `spoiled`, `rejected`, `leaking`) ([Rule QA-01]).
-- **Overdue Delivery Tracking**: Flags open purchase orders where `expectedDeliveryDate` has passed without receiving logs.
+- **Overdue Delivery Tracking**: Flags open purchase orders where `expectedDeliveryDate` has passed without receiving logs using strict calendar-day boundary comparison (`expected_date < today_date`). Same-day expected deliveries are not prematurely marked overdue.
 
 ### 4.5 Transparent Multi-Factor Risk Scoring (`analyze_procurement_compliance`)
 Computes an explainable composite Procurement Compliance Risk Score ($0 - 100$) using clearly documented factor weights:
@@ -137,7 +137,7 @@ All AI findings are formatted with explicit citations to restaurant governance r
 - **[Rule QA-01]**: Goods receipt items with damage notes or quantity variances require dock quarantine and supplier reconciliation.
 
 Every discrepancy is analyzed across a 5-point explainability framework:
-1. **What Was Detected** (Document IDs, line items, variance metrics).
+1. **What Was Detected** (Document IDs, line items, variance metrics, linked vs. direct order breakdown).
 2. **Evidence Used** (Concrete quantities, unit prices, timestamps).
 3. **Why It Matters** (Financial impact, excess inventory, unauthorized liability).
 4. **Governance Rule Cited** (Explicit rule reference).
@@ -145,14 +145,34 @@ Every discrepancy is analyzed across a 5-point explainability framework:
 
 ---
 
-## 6. Testing Strategy & Validation
+## 6. Security, Authorization & Error Degradation
+
+### 6.1 Role-Based Access Control (RBAC) & Service Isolation
+- **Role Identity**: The AI Service authenticates against the .NET API as a service account with the dedicated role `AI_SERVICE`.
+- **Read-Only Authorization**: `AI_SERVICE` is granted `HTTP GET` permissions for:
+  - `/api/Suppliers`
+  - `/api/PurchaseRequests`
+  - `/api/PurchaseOrders`
+  - `/api/GoodsReceipts`
+- **Mutation Blockade**: All mutating endpoints (`POST`, `PUT`, `DELETE`) across procurement controllers reject `AI_SERVICE` requests with `403 Forbidden`. The AI service has zero write privileges.
+
+### 6.2 Degraded Backend Error Handling
+- All internal GET operations wrap backend HTTP calls via `_safe_get`.
+- Network timeouts, HTTP 500/502/503 responses, and connection refusals are intercepted and converted into structured diagnostic errors without crashing the AI assistant or throwing unhandled exceptions.
+- Compliance reports return `AUDIT_INCOMPLETE` with clear system diagnostics when upstream backend services are degraded.
+
+---
+
+## 7. Testing Strategy & Validation
 
 The test suite is implemented using Python's standard `unittest` framework with isolated async test cases (`unittest.IsolatedAsyncioTestCase`):
 
-| Test Suite Class | Focus Area | Test Count |
-| :--- | :--- | :--- |
-| `TestDuplicatePurchaseRequestDetection` | Temporal similarity, requester bonus, inactive PR filtering, edge cases | 6 |
-| `TestPRtoPOConsistency` | Quantity mismatch, financial spend variance, omitted items, extra items, missing PR | 5 |
-| `TestWorkflowCompliance` | Approved PR flow, unapproved PR progression, missing approver metadata, direct POs | 4 |
-| `TestReceivingDiscrepanciesAndInvestigation` | Over/under-delivery, damaged goods notes, full PR→PO→GR lifecycle tracing | 4 |
-| **Total Test Coverage** | **Authoritative Component 2 Unit Tests** | **19 Tests** |
+| Test Suite Class | File | Focus Area | Test Count |
+| :--- | :--- | :--- | :--- |
+| `TestDuplicatePurchaseRequestDetection` | `test_procurement_compliance.py` | Temporal similarity, requester bonus, unordered item matching, zero quantity handling, inactive PR filtering | 9 |
+| `TestPRtoPOConsistency` | `test_procurement_compliance.py` | Quantity mismatch, financial spend variance, omitted items, extra items, linked/direct breakdown counts | 6 |
+| `TestWorkflowCompliance` | `test_procurement_compliance.py` | Approved PR flow, unapproved PR progression, missing approver metadata, direct POs | 4 |
+| `TestReceivingDiscrepanciesAndInvestigation` | `test_procurement_compliance.py` | Over/under-delivery, same-day delivery boundary, damaged goods notes, full PR→PO→GR lifecycle tracing | 8 |
+| `TestDegradedBackendErrorHandling` | `test_procurement_compliance.py` | HTTP 500, network timeouts, degraded compliance fallbacks | 4 |
+| `TestAIServiceReadOnlyProcurementSecurity` | `test_ai_service_security.py` | Read-only transport verification, mutation isolation, endpoint scope validation | 3 |
+| **Total Test Coverage** | | **Comprehensive Component 2 Compliance Suite** | **34 Tests** |
