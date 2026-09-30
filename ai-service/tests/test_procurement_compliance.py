@@ -12,6 +12,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+
 for _mod in ("joblib", "ml", "ml.model", "sklearn", "pandas", "numpy"):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
@@ -19,6 +21,7 @@ for _mod in ("joblib", "ml", "ml.model", "sklearn", "pandas", "numpy"):
 from tools.procurement_compliance import (
     _clean_id,
     _id_matches,
+    _safe_get,
     check_duplicate_purchase_requests,
     check_pr_po_consistency,
     check_workflow_compliance,
@@ -722,6 +725,46 @@ class TestReceivingDiscrepanciesAndInvestigation(unittest.IsolatedAsyncioTestCas
         self.assertTrue(any("Audit Incomplete" in r for r in result.get("recommended_review_actions", [])))
 
 
+class TestDegradedBackendErrorHandling(unittest.IsolatedAsyncioTestCase):
+    """Test suite for degraded backend error scenarios, HTTP 500s, timeouts, and malformed responses."""
+
+    @patch("tools.procurement_compliance._get")
+    async def test_safe_get_http_500_error_handling(self, mock_get):
+        request = httpx.Request("GET", "http://localhost:5066/api/PurchaseOrders")
+        response = httpx.Response(500, request=request)
+        mock_get.side_effect = httpx.HTTPStatusError("Internal Server Error", request=request, response=response)
+
+        result = await _safe_get("/api/PurchaseOrders")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("is_backend_error"))
+        self.assertEqual(result.get("status_code"), 500)
+        self.assertIn("HTTP 500", result.get("error", ""))
+
+    @patch("tools.procurement_compliance._get")
+    async def test_safe_get_timeout_handling(self, mock_get):
+        request = httpx.Request("GET", "http://localhost:5066/api/PurchaseRequests")
+        mock_get.side_effect = httpx.ReadTimeout("Read timed out", request=request)
+
+        result = await _safe_get("/api/PurchaseRequests")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("is_backend_error"))
+        self.assertIn("unreachable", result.get("error", ""))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_workflow_compliance_backend_error_degradation(self, mock_get):
+        mock_get.return_value = {"error": "Internal Server Error", "is_backend_error": True}
+        result = await check_workflow_compliance()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("total_entities_checked"), 0)
+        self.assertEqual(result.get("total_violations"), 0)
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_discrepancies_backend_error_degradation(self, mock_get):
+        mock_get.return_value = {"error": "Gateway Timeout", "is_backend_error": True}
+        result = await check_receiving_discrepancies()
+        self.assertIsInstance(result, dict)
+        self.assertIn("error", result)
+
+
 if __name__ == "__main__":
     unittest.main()
-
