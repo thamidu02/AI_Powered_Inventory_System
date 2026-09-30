@@ -676,6 +676,55 @@ def _procurement_intent_from_request(message: str) -> str | None:
 
     return None
 
+
+def _normalize_procurement_query(message: str) -> str:
+    """
+    Pre-format and enrich procurement quick actions and natural language queries
+    to give Gemini explicit, focused execution instructions without unnecessary probing.
+    """
+    msg_lower = message.lower().strip()
+
+    # Extract transaction code if present (PR-XXXX, PO-XXXX, GR-XXXX)
+    id_match = re.search(r"\b((?:pr|po|gr)-[a-z0-9]{4,12})\b", msg_lower, re.IGNORECASE)
+    doc_code = id_match.group(1).upper() if id_match else None
+
+    if doc_code:
+        return (
+            f"Please investigate the specific procurement transaction {doc_code}.\n"
+            f"Call investigate_procurement_transaction(query_or_id='{doc_code}') and trace its complete lifecycle "
+            f"(PR approval status, PO ordering, and Goods Receipts) and report any compliance or quantity variances."
+        )
+
+    if any(k in msg_lower for k in ("duplicate pr", "duplicate purchase request", "check duplicate")):
+        return (
+            "Please audit the system for potential duplicate Purchase Requests.\n"
+            "Call check_duplicate_purchase_requests(window_days=14) to analyze ingredient overlaps, "
+            "temporal proximity, and requester similarities, and provide an explainable summary."
+        )
+
+    if any(k in msg_lower for k in ("verify pr-po", "verify pr to po", "pr to po consistency", "pr-po consistency", "pr-po match", "pr to po match")):
+        return (
+            "Please audit consistency between Purchase Orders and their originating Purchase Requests.\n"
+            "Call check_pr_po_consistency() to verify line-item quantities, unit price differences, "
+            "and unapproved source requests, and summarize any financial cost impacts."
+        )
+
+    if any(k in msg_lower for k in ("receiving variance", "receiving variances", "receiving discrepanc", "goods receipt discrepanc")):
+        return (
+            "Please audit receiving discrepancies between Goods Receipts and commercial Purchase Orders.\n"
+            "Call check_receiving_discrepancies() to identify over-receipts, short receipts, "
+            "damaged goods notes, and overdue open purchase orders."
+        )
+
+    if any(k in msg_lower for k in ("audit procurement", "procurement compliance", "procurement audit", "overall compliance")):
+        return (
+            "Please execute a comprehensive procurement compliance audit across the entire inventory system.\n"
+            "Call analyze_procurement_compliance() to evaluate duplicate PRs, PR/PO consistency, workflow governance, "
+            "and receiving discrepancies, and present the weighted multi-factor risk score."
+        )
+
+    return message
+
 COMPONENT3_STAGES = (
     ("sales", "SalesAgent", "get_sales_summary",
      "Analyze only recorded sales and backend-calculated revenue."),
@@ -2672,7 +2721,8 @@ async def run_agent(
         return val
 
     # Agentic loop: keep going until no more function calls
-    current_message = f"{message}\n\n[workflow_id={wf_id}]"
+    effective_message = _normalize_procurement_query(message) if intent == "PROCUREMENT_COMPLIANCE_INVESTIGATION" else message
+    current_message = f"{effective_message}\n\n[workflow_id={wf_id}]"
     while True:
         # Retry with backoff for rate limits / transient errors
         retries, delay = 3, 10
