@@ -167,6 +167,92 @@ class TestDuplicatePurchaseRequestDetection(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result2.get("total_requests_analyzed"), 0)
         self.assertEqual(result2.get("duplicate_count"), 0)
 
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_duplicate_pr_unordered_multiple_items_matching(self, mock_get):
+        # Items listed in different order should still be detected with high similarity
+        mock_get.return_value = [
+            {
+                "id": "66666666-0000-0000-0000-000000000001",
+                "requestNumber": "PR-MULTI-1",
+                "status": "APPROVED",
+                "requestedAt": "2026-03-01T10:00:00Z",
+                "requestedById": "user-1",
+                "items": [
+                    {"ingredientId": "ing-apple", "ingredientName": "Apple", "requestedQuantity": 10.0},
+                    {"ingredientId": "ing-banana", "ingredientName": "Banana", "requestedQuantity": 20.0},
+                ],
+            },
+            {
+                "id": "66666666-0000-0000-0000-000000000002",
+                "requestNumber": "PR-MULTI-2",
+                "status": "PENDING_APPROVAL",
+                "requestedAt": "2026-03-02T10:00:00Z",
+                "requestedById": "user-1",
+                "items": [
+                    {"ingredientId": "ing-banana", "ingredientName": "Banana", "requestedQuantity": 20.0},
+                    {"ingredientId": "ing-apple", "ingredientName": "Apple", "requestedQuantity": 10.0},
+                ],
+            },
+        ]
+
+        result = await check_duplicate_purchase_requests(window_days=7)
+        self.assertGreaterEqual(result.get("duplicate_count", 0), 1)
+        group = result.get("duplicate_groups", [])[0]
+        self.assertGreaterEqual(group.get("similarity_score", 0), 80.0)
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_duplicate_pr_same_requester_score_boost(self, mock_get):
+        # Same requester within window should have reason mentioning same requester
+        mock_get.return_value = [
+            {
+                "id": "77777777-0000-0000-0000-000000000001",
+                "requestNumber": "PR-SAME-1",
+                "status": "APPROVED",
+                "requestedAt": "2026-03-01T10:00:00Z",
+                "requestedById": "user-same-1",
+                "items": [{"ingredientId": "ing-milk", "ingredientName": "Milk", "requestedQuantity": 10.0}],
+            },
+            {
+                "id": "77777777-0000-0000-0000-000000000002",
+                "requestNumber": "PR-SAME-2",
+                "status": "PENDING_APPROVAL",
+                "requestedAt": "2026-03-01T15:00:00Z",
+                "requestedById": "user-same-1",
+                "items": [{"ingredientId": "ing-milk", "ingredientName": "Milk", "requestedQuantity": 12.0}],
+            },
+        ]
+
+        result = await check_duplicate_purchase_requests(window_days=7)
+        self.assertGreaterEqual(result.get("duplicate_count", 0), 1)
+        group = result.get("duplicate_groups", [])[0]
+        self.assertTrue(group.get("same_requester"))
+        self.assertIn("same requester", group.get("explanation", "").lower())
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_duplicate_pr_zero_quantity_handling(self, mock_get):
+        # Zero quantity should not cause ZeroDivisionError
+        mock_get.return_value = [
+            {
+                "id": "88888888-0000-0000-0000-000000000001",
+                "requestNumber": "PR-ZERO-1",
+                "status": "PENDING_APPROVAL",
+                "requestedAt": "2026-03-01T10:00:00Z",
+                "items": [{"ingredientId": "ing-salt", "ingredientName": "Salt", "requestedQuantity": 0.0}],
+            },
+            {
+                "id": "88888888-0000-0000-0000-000000000002",
+                "requestNumber": "PR-ZERO-2",
+                "status": "PENDING_APPROVAL",
+                "requestedAt": "2026-03-02T10:00:00Z",
+                "items": [{"ingredientId": "ing-salt", "ingredientName": "Salt", "requestedQuantity": 0.0}],
+            },
+        ]
+
+        result = await check_duplicate_purchase_requests(window_days=7)
+        self.assertNotIn("error", result)
+        self.assertGreaterEqual(result.get("duplicate_count", 0), 1)
+
+
 
 class TestPRtoPOConsistency(unittest.IsolatedAsyncioTestCase):
     """Test suite for PR-to-PO consistency and financial variance audit."""
