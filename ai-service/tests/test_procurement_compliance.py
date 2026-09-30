@@ -404,6 +404,134 @@ class TestWorkflowCompliance(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("0 recorded received items" in msg.lower() for msg in viol.get("violations", [])))
 
 
+class TestReceivingDiscrepanciesAndInvestigation(unittest.IsolatedAsyncioTestCase):
+    """Test suite for receiving discrepancy audits and end-to-end transaction investigation."""
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_discrepancy_over_and_under_receipt(self, mock_get):
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "po-11111111-0000-0000-0000-000000000001",
+                    "status": "RECEIVED",
+                    "supplierName": "Produce Express",
+                    "items": [
+                        {"ingredientId": "ing-apple", "ingredientName": "Apple", "orderedQuantity": 50.0, "receivedQuantity": 60.0},
+                        {"ingredientId": "ing-banana", "ingredientName": "Banana", "orderedQuantity": 40.0, "receivedQuantity": 30.0},
+                    ],
+                }
+            ],
+            [],  # Goods receipts
+        ]
+
+        result = await check_receiving_discrepancies()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("discrepant_orders_count"), 1)
+        rep = result.get("discrepancy_reports", [])[0]
+        self.assertTrue(rep.get("has_discrepancies"))
+        issues = rep.get("issues", [])
+        self.assertTrue(any("over-receiving" in i.lower() for i in issues))
+        self.assertTrue(any("under-receiving" in i.lower() for i in issues))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_discrepancy_damaged_goods_notes(self, mock_get):
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "po-22222222-0000-0000-0000-000000000001",
+                    "status": "PARTIALLY_RECEIVED",
+                    "items": [{"ingredientId": "ing-eggs", "ingredientName": "Eggs", "orderedQuantity": 100.0, "receivedQuantity": 80.0}],
+                }
+            ],
+            [
+                {
+                    "id": "gr-22222222-0000-0000-0000-000000000001",
+                    "purchaseOrderId": "po-22222222-0000-0000-0000-000000000001",
+                    "notes": "20 units damaged during transit / broken crates.",
+                    "items": [{"ingredientId": "ing-eggs", "receivedQuantity": 80.0}],
+                }
+            ],
+        ]
+
+        result = await check_receiving_discrepancies()
+        rep = result.get("discrepancy_reports", [])[0]
+        self.assertTrue(len(rep.get("damaged_or_quality_notes", [])) > 0)
+        self.assertTrue(any("damaged" in i.lower() for i in rep.get("issues", [])))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_complete_transaction_lifecycle_investigation(self, mock_get):
+        # Full PR -> PO -> GR trace
+        pr_id = "pr-33333333-0000-0000-0000-000000000001"
+        po_id = "po-33333333-0000-0000-0000-000000000001"
+        gr_id = "gr-33333333-0000-0000-0000-000000000001"
+
+        mock_pos = [
+            {
+                "id": po_id,
+                "purchaseRequestId": pr_id,
+                "status": "RECEIVED",
+                "supplierName": "Global Foods",
+                "createdAt": "2026-03-02T10:00:00Z",
+                "orderDate": "2026-03-02T11:00:00Z",
+                "totalAmount": 250.0,
+                "items": [{"ingredientId": "ing-cheese", "ingredientName": "Cheddar Cheese", "orderedQuantity": 10.0, "receivedQuantity": 10.0, "unitPrice": 25.0}],
+            }
+        ]
+        mock_prs = [
+            {
+                "id": pr_id,
+                "status": "APPROVED",
+                "requestedByName": "Head Chef Gordon",
+                "requestedAt": "2026-03-01T09:00:00Z",
+                "approvedByName": "Manager Jane",
+                "approvedAt": "2026-03-01T15:00:00Z",
+                "reason": "Weekly dairy stock replenishment",
+                "items": [{"ingredientId": "ing-cheese", "ingredientName": "Cheddar Cheese", "requestedQuantity": 10.0}],
+            }
+        ]
+        mock_grs = [
+            {
+                "id": gr_id,
+                "purchaseOrderId": po_id,
+                "receivedByName": "Dock Clerk Sam",
+                "receivedAt": "2026-03-04T14:00:00Z",
+                "notes": "Delivered in good condition and temperature compliant.",
+                "items": [{"ingredientId": "ing-cheese", "receivedQuantity": 10.0}],
+            }
+        ]
+
+        mock_get.side_effect = [
+            mock_pos, mock_prs, mock_grs,  # For investigate_procurement_transaction initial fetch
+            mock_prs,                      # For duplicate PR check in compliance analysis
+            mock_pos, mock_prs,            # For PR/PO consistency check
+            mock_prs, mock_pos,            # For workflow compliance check
+            mock_pos, mock_grs,            # For receiving discrepancy check
+        ]
+
+        result = await investigate_procurement_transaction(query_or_id=po_id)
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("found"))
+        self.assertIsNotNone(result.get("purchase_request"))
+        self.assertIsNotNone(result.get("purchase_order"))
+        self.assertEqual(len(result.get("goods_receipts", [])), 1)
+
+        # Timeline verification
+        timeline = result.get("lifecycle_timeline", [])
+        self.assertGreaterEqual(len(timeline), 4)
+        stages = [e.get("stage") for e in timeline]
+        self.assertIn("PURCHASE_REQUEST_CREATED", stages)
+        self.assertIn("PURCHASE_REQUEST_APPROVED", stages)
+        self.assertIn("PURCHASE_ORDER_CREATED", stages)
+        self.assertIn("PURCHASE_ORDER_ORDERED", stages)
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_investigation_not_found(self, mock_get):
+        mock_get.side_effect = [[], [], []]
+        result = await investigate_procurement_transaction(query_or_id="non-existent-po-999")
+        self.assertFalse(result.get("found"))
+        self.assertIn("No Purchase Order or Purchase Request", result.get("message"))
+
+
 if __name__ == "__main__":
     unittest.main()
 
