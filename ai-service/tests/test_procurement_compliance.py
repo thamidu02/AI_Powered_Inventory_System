@@ -306,6 +306,28 @@ class TestPRtoPOConsistency(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result.get("consistency_reports", [])), 1)
         self.assertFalse(result.get("consistency_reports", [])[0].get("is_linked_to_pr"))
 
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_pr_po_consistency_breakdown_counts(self, mock_get):
+        mock_pos = [
+            {"id": "po-1", "purchaseRequestId": "pr-1", "status": "DRAFT", "items": []},
+            {"id": "po-2", "purchaseRequestId": "pr-2", "status": "DRAFT", "items": []},
+            {"id": "po-3", "purchaseRequestId": None, "status": "DRAFT", "items": []},
+        ]
+        mock_prs = [
+            {"id": "pr-1", "status": "APPROVED", "items": []},
+            {"id": "pr-2", "status": "APPROVED", "items": []},
+        ]
+        mock_get.side_effect = [mock_pos, mock_prs]
+
+        result = await check_pr_po_consistency()
+        self.assertEqual(result.get("total_orders_analyzed"), 3)
+        self.assertEqual(result.get("linked_orders_count"), 2)
+        self.assertEqual(result.get("direct_orders_count"), 1)
+        self.assertEqual(
+            result.get("linked_orders_count") + result.get("direct_orders_count"),
+            result.get("total_orders_analyzed")
+        )
+
 
 class TestWorkflowCompliance(unittest.IsolatedAsyncioTestCase):
     """Test suite for procurement approval workflow and governance rules."""
