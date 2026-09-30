@@ -709,18 +709,20 @@ export const AiAssistantChat: React.FC = () => {
               <div className="ai-empty-state">
                 <Bot size={44} style={{ opacity: 0.25 }} />
                 <p className="text-muted" style={{ marginTop: '0.75rem' }}>
-                  Ask me about sales, consumption, recipes, or waste, or tap a Quick Action to get started.
+                  Ask me about procurement compliance, purchase requests, purchase orders, goods receipts, stock levels, or tap a Quick Action to get started.
                 </p>
                 <div className="ai-capabilities">
                   {[
-                    { icon: PackageSearch, label: 'Low-Stock Replenishment',    color: '#f59e0b' },
-                    { icon: AlertTriangle, label: 'Anomaly Investigation',      color: '#ef4444' },
-                    { icon: Settings2,     label: 'Inventory Optimization',     color: '#8b5cf6' },
-                    { icon: ShieldAlert,   label: 'Emergency Shortage Response', color: '#ec4899' },
-                    { icon: TrendingUp,    label: 'Sales Performance',          color: '#22c55e' },
-                    { icon: PackageSearch, label: 'Ingredient Consumption',      color: '#38bdf8' },
-                    { icon: AlertTriangle, label: 'Waste Analysis',              color: '#f97316' },
-                    { icon: Sparkles,      label: 'Combined C3 Report',          color: '#a855f7' },
+                    { icon: ShieldCheck,   label: 'Procurement Compliance Audit', color: '#0284c7' },
+                    { icon: FileSearch,    label: 'PR → PO Traceability',         color: '#0ea5e9' },
+                    { icon: PackageSearch, label: 'Low-Stock Replenishment',      color: '#f59e0b' },
+                    { icon: AlertTriangle, label: 'Anomaly Investigation',        color: '#ef4444' },
+                    { icon: Settings2,     label: 'Inventory Optimization',       color: '#8b5cf6' },
+                    { icon: ShieldAlert,   label: 'Emergency Shortage Response',   color: '#ec4899' },
+                    { icon: TrendingUp,    label: 'Sales Performance',            color: '#22c55e' },
+                    { icon: PackageSearch, label: 'Ingredient Consumption',        color: '#38bdf8' },
+                    { icon: AlertTriangle, label: 'Waste Analysis',                color: '#f97316' },
+                    { icon: Sparkles,      label: 'Combined C3 Report',            color: '#a855f7' },
                   ].map(c => (
                     <div key={c.label} className="ai-cap-item" style={{ '--cap-color': c.color } as React.CSSProperties}>
                       <c.icon size={16} style={{ color: c.color }} />
