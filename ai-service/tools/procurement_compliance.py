@@ -996,6 +996,8 @@ async def investigate_procurement_transaction(
 
         if rcv_qty > ord_qty:
             status_flags.append(f"OVER_RECEIVED (+{round(rcv_qty - ord_qty, 2)})")
+        elif rcv_qty < ord_qty and matched_po and matched_po.get("status") in ("RECEIVED", "COMPLETED"):
+            status_flags.append(f"SHORT_DELIVERY (-{round(ord_qty - rcv_qty, 2)})")
 
         line_items_trace.append({
             "ingredient_id": ing_id,
@@ -1006,8 +1008,89 @@ async def investigate_procurement_transaction(
             "received_quantity": rcv_qty,
             "unit_price": unit_price,
             "line_subtotal": round(ord_qty * unit_price, 2),
-            "status_flags": status_flags if status_flags else ["NORMAL_MATCH"],
+            "status_flags": status_flags if status_flags else ["MATCH_OK"],
         })
+
+    # Build Chronological Lifecycle Timeline Audit Trail
+    timeline_events = []
+
+    if matched_pr:
+        req_at = matched_pr.get("requestedAt") or matched_pr.get("createdAt")
+        timeline_events.append({
+            "timestamp": str(req_at)[:19] if req_at else None,
+            "stage": "PURCHASE_REQUEST_CREATED",
+            "actor": matched_pr.get("requestedByName") or "Staff Member",
+            "status": "COMPLETED",
+            "visual_flag": "[PR CREATED]",
+            "description": f"PR {matched_pr.get('id', '')[:8].upper()} created with reason: '{matched_pr.get('reason') or 'Inventory Replenishment'}'.",
+        })
+
+        if matched_pr.get("status") in ("APPROVED", "REJECTED") or matched_pr.get("approvedAt"):
+            app_at = matched_pr.get("approvedAt") or req_at
+            timeline_events.append({
+                "timestamp": str(app_at)[:19] if app_at else None,
+                "stage": f"PURCHASE_REQUEST_{matched_pr.get('status', 'APPROVED')}",
+                "actor": matched_pr.get("approvedByName") or "Restaurant Manager",
+                "status": "COMPLETED" if matched_pr.get("status") == "APPROVED" else "REJECTED",
+                "visual_flag": "[APPROVED]" if matched_pr.get("status") == "APPROVED" else "[REJECTED]",
+                "description": f"PR was {matched_pr.get('status', 'reviewed')} by Restaurant Manager {matched_pr.get('approvedByName') or ''}.",
+            })
+        elif matched_pr.get("status") == "PENDING_APPROVAL":
+            timeline_events.append({
+                "timestamp": None,
+                "stage": "PURCHASE_REQUEST_PENDING_APPROVAL",
+                "actor": "Pending Restaurant Manager",
+                "status": "PENDING",
+                "visual_flag": "[AWAITING APPROVAL]",
+                "description": "PR is currently pending Restaurant Manager review and authorization.",
+            })
+
+    if matched_po:
+        po_created_at = matched_po.get("createdAt") or matched_po.get("orderDate")
+        timeline_events.append({
+            "timestamp": str(po_created_at)[:19] if po_created_at else None,
+            "stage": "PURCHASE_ORDER_CREATED",
+            "actor": matched_po.get("createdByName") or "Procurement Officer",
+            "status": "COMPLETED",
+            "visual_flag": "[PO CREATED]",
+            "description": f"PO {matched_po.get('id', '')[:8].upper()} created for supplier '{matched_po.get('supplierName') or 'Vendor'}'.",
+        })
+
+        if matched_po.get("status") in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
+            timeline_events.append({
+                "timestamp": str(matched_po.get("orderDate") or po_created_at)[:19],
+                "stage": "PURCHASE_ORDER_ORDERED",
+                "actor": matched_po.get("createdByName") or "Procurement Officer",
+                "status": "COMPLETED",
+                "visual_flag": "[ORDER PLACED]",
+                "description": f"Commercial order officially transmitted to supplier on {str(matched_po.get('orderDate'))[:10]}.",
+            })
+        elif matched_po.get("status") == "DRAFT":
+            timeline_events.append({
+                "timestamp": None,
+                "stage": "PURCHASE_ORDER_DRAFT",
+                "actor": matched_po.get("createdByName") or "Procurement Officer",
+                "status": "DRAFT",
+                "visual_flag": "[DRAFT PO]",
+                "description": "PO is currently in DRAFT status and has not yet been ordered from the supplier.",
+            })
+
+    for idx, rc in enumerate(po_receipts, 1):
+        rc_at = rc.get("receiptDate") or rc.get("receivedAt") or rc.get("createdAt")
+        timeline_events.append({
+            "timestamp": str(rc_at)[:19] if rc_at else None,
+            "stage": f"GOODS_RECEIPT_{idx}",
+            "actor": rc.get("receivedByName") or "Receiving Staff",
+            "status": "COMPLETED",
+            "visual_flag": "[GOODS RECEIVED]",
+            "description": f"Receipt GR-{rc.get('id', '')[:8].upper()} logged ({len(rc.get('items', []))} items). Notes: '{rc.get('notes') or 'Delivered as ordered'}'.",
+        })
+
+    # Sort events chronologically where timestamp exists
+    dated_events = [e for e in timeline_events if e.get("timestamp")]
+    undated_events = [e for e in timeline_events if not e.get("timestamp")]
+    dated_events.sort(key=lambda x: str(x.get("timestamp")))
+    sorted_timeline = dated_events + undated_events
 
     # Run specific compliance check for this pair
     compliance_report = await analyze_procurement_compliance(
@@ -1050,6 +1133,7 @@ async def investigate_procurement_transaction(
             }
             for rc in po_receipts
         ],
+        "lifecycle_timeline": sorted_timeline,
         "line_items_comparison": line_items_trace,
         "compliance_summary": {
             "overall_risk_level": compliance_report.get("overall_risk_level", "LOW"),
