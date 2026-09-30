@@ -157,14 +157,20 @@ async def check_duplicate_purchase_requests(
                     qty_similarities.append(1.0)
 
             avg_qty_sim = sum(qty_similarities) / len(qty_similarities) if qty_similarities else 0.0
-            overall_score = (item_similarity * 0.6) + (avg_qty_sim * 0.4)
+            raw_score = (item_similarity * 0.6) + (avg_qty_sim * 0.4)
 
             # Requester match bonus
-            same_requester = (
-                pr1.get("requestedById") and pr1.get("requestedById") == pr2.get("requestedById")
-            ) or (
-                pr1.get("requestedByName") and pr1.get("requestedByName") == pr2.get("requestedByName")
+            same_requester = bool(
+                (pr1.get("requestedById") and pr1.get("requestedById") == pr2.get("requestedById"))
+                or (pr1.get("requestedByName") and pr1.get("requestedByName") == pr2.get("requestedByName"))
             )
+
+            # Apply +0.10 bonus (capped at 1.0) when submitted by the same requester
+            overall_score = min(1.0, raw_score + (0.10 if same_requester else 0.0))
+
+            pr1_active = pr1.get("status") in ("PENDING_APPROVAL", "APPROVED", "DRAFT")
+            pr2_active = pr2.get("status") in ("PENDING_APPROVAL", "APPROVED", "DRAFT")
+            has_active_risk = pr1_active or pr2_active
 
             if overall_score >= similarity_threshold or (item_similarity == 1.0 and avg_qty_sim >= 0.8):
                 # Build item breakdown description
@@ -179,26 +185,32 @@ async def check_duplicate_purchase_requests(
                             "unit": it.get("ingredientUnit") or "units",
                         })
 
+                pr1_code = f"PR-{pr1.get('id', '')[:8].upper()}"
+                pr2_code = f"PR-{pr2.get('id', '')[:8].upper()}"
+                explanation = (
+                    f"{pr2_code} ({pr2.get('status', 'UNKNOWN')}) requested items matching "
+                    f"{pr1_code} ({pr1.get('status', 'UNKNOWN')}) submitted {round(diff_days, 1)} days apart "
+                    f"with {round(overall_score * 100, 1)}% similarity"
+                    + (" by the same requester." if same_requester else ".")
+                )
+
                 duplicate_groups.append({
                     "primary_pr_id": pr1.get("id"),
-                    "primary_pr_code": f"PR-{pr1.get('id', '')[:8].upper()}",
+                    "primary_pr_code": pr1_code,
                     "primary_pr_status": pr1.get("status"),
                     "primary_requester": pr1.get("requestedByName") or "Staff",
                     "primary_date": str(pr1.get("requestedAt"))[:10],
                     "similar_pr_id": pr2.get("id"),
-                    "similar_pr_code": f"PR-{pr2.get('id', '')[:8].upper()}",
+                    "similar_pr_code": pr2_code,
                     "similar_pr_status": pr2.get("status"),
                     "similar_requester": pr2.get("requestedByName") or "Staff",
                     "similar_date": str(pr2.get("requestedAt"))[:10],
                     "days_apart": round(diff_days, 1),
                     "similarity_score": round(overall_score * 100, 1),
-                    "same_requester": bool(same_requester),
+                    "same_requester": same_requester,
+                    "is_active_risk": has_active_risk,
                     "matched_items": matched_items,
-                    "explanation": (
-                        f"{pr2.get('id', '')[:8].upper()} requested items closely matching "
-                        f"{pr1.get('id', '')[:8].upper()} submitted {round(diff_days, 1)} days apart "
-                        f"with {round(overall_score * 100, 1)}% item & quantity similarity."
-                    ),
+                    "explanation": explanation,
                 })
 
     risk_level = "HIGH" if len(duplicate_groups) >= 3 else ("MEDIUM" if len(duplicate_groups) >= 1 else "LOW")
