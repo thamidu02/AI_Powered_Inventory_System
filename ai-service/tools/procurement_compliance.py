@@ -511,8 +511,18 @@ async def check_workflow_compliance(
             if not pr.get("approvedAt"):
                 pr_issues.append(f"{pr_code} is marked APPROVED but lacks approval timestamp.")
         elif pr_status == "PENDING_APPROVAL":
-            # Normal pending state
-            pass
+            # Check for aging pending requests (> 7 days without manager action)
+            raw_dt = pr.get("requestedAt") or pr.get("createdAt")
+            if raw_dt:
+                try:
+                    req_date = datetime.fromisoformat(str(raw_dt).replace("Z", "+00:00"))
+                    now_utc = datetime.now(timezone.utc)
+                    if (now_utc - req_date).total_seconds() > (7 * 86400):
+                        pr_issues.append(
+                            f"{pr_code} has been in PENDING_APPROVAL status for over 7 days without Restaurant Manager review."
+                        )
+                except (ValueError, TypeError):
+                    pass
 
         if pr_issues:
             violations.append({
@@ -521,7 +531,7 @@ async def check_workflow_compliance(
                 "entity_code": pr_code,
                 "status": pr_status,
                 "violations": pr_issues,
-                "severity": "HIGH",
+                "severity": "HIGH" if any("lacks manager" in i for i in pr_issues) else "MEDIUM",
             })
         else:
             compliant_records.append({"entity_type": "PURCHASE_REQUEST", "entity_code": pr_code})
@@ -535,16 +545,23 @@ async def check_workflow_compliance(
 
         po_issues = []
 
-        if pr_id:
+        if not pr_id:
+            # Direct PO placed without referencing an approved PR requisition
+            po_issues.append(
+                f"{po_code} was created as a Direct PO without a linked Purchase Request requisition. "
+                "Ensure emergency or direct purchasing policies are documented."
+            )
+        else:
             pr = prs_map.get(pr_id)
             if pr:
                 pr_code = f"PR-{pr.get('id', '')[:8].upper()}"
                 if pr.get("status") != "APPROVED":
                     po_issues.append(
-                        f"{po_code} was created from {pr_code} which is currently in '{pr.get('status')}' status (Requires APPROVED PR)."
+                        f"CRITICAL: {po_code} was generated from {pr_code} which is in '{pr.get('status')}' status. "
+                        "Governance violation: Purchase Orders can only be generated from APPROVED Purchase Requests."
                     )
             else:
-                po_issues.append(f"{po_code} references nonexistent PR ID {pr_id[:8].upper()}.")
+                po_issues.append(f"{po_code} references nonexistent or deleted PR ID {pr_id[:8].upper()}.")
 
         # Validate order lifecycle states
         if po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
@@ -558,13 +575,14 @@ async def check_workflow_compliance(
                 po_issues.append(f"{po_code} is marked '{po_status}' but has 0 recorded received items.")
 
         if po_issues:
+            has_critical = any("CRITICAL" in v or "nonexistent" in v for v in po_issues)
             violations.append({
                 "entity_type": "PURCHASE_ORDER",
                 "entity_id": po_id,
                 "entity_code": po_code,
                 "status": po_status,
                 "violations": po_issues,
-                "severity": "HIGH" if any("Requires APPROVED" in v for v in po_issues) else "MEDIUM",
+                "severity": "HIGH" if has_critical else "MEDIUM",
             })
         else:
             compliant_records.append({"entity_type": "PURCHASE_ORDER", "entity_code": po_code})
@@ -579,14 +597,19 @@ async def check_workflow_compliance(
             "Procurement Officer reviews and orders PO directly with vendor (NO PO Manager Approval)",
             "Inventory / Warehouse staff receives goods against active ORDERED PO",
         ],
+        "governance_note": (
+            "Purchase Requests strictly require Restaurant Manager approval. "
+            "Purchase Orders are ordered directly by the Procurement Officer without a second manager approval step."
+        ),
         "total_entities_checked": len(prs) + len(pos),
+        "compliant_records_count": len(compliant_records),
         "violation_count": len(violations),
         "violations": violations,
         "risk_level": risk_level,
         "summary": (
-            f"Detected {len(violations)} workflow compliance violation(s) across procurement transactions."
+            f"Detected {len(violations)} workflow compliance issue(s) across procurement transactions."
             if violations
-            else "All evaluated transactions strictly adhere to the restaurant procurement governance flow."
+            else f"All {len(compliant_records)} evaluated transactions strictly adhere to the restaurant procurement governance flow."
         ),
     }
 
