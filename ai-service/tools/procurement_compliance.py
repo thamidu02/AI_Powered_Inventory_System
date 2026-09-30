@@ -776,73 +776,124 @@ async def analyze_procurement_compliance(
     high_count = 0
     medium_count = 0
 
-    # Process duplicates
-    if isinstance(duplicates_res, dict) and duplicates_res.get("duplicate_count", 0) > 0:
-        medium_count += duplicates_res["duplicate_count"]
-        for g in duplicates_res.get("duplicate_groups", []):
-            key_findings.append(f"Duplicate PR: {g['primary_pr_code']} is similar to {g['similar_pr_code']} ({g['similarity_score']}% match).")
+    # Multi-factor score calculations with explicit weights:
+    # 1. Workflow Governance (Weight: 35%)
+    # 2. PR-PO Consistency & Financial (Weight: 25%)
+    # 3. Receiving Reconciliation (Weight: 25%)
+    # 4. Duplicate PR Prevention (Weight: 15%)
 
-    # Process consistency
+    # Factor 1: Duplicate PRs (15%)
+    dup_score = 0.0
+    if isinstance(duplicates_res, dict):
+        dup_cnt = duplicates_res.get("duplicate_count", 0)
+        if dup_cnt > 0:
+            dup_score = min(100.0, dup_cnt * 35.0)
+            for g in duplicates_res.get("duplicate_groups", []):
+                key_findings.append(f"Duplicate PR: {g['primary_pr_code']} is similar to {g['similar_pr_code']} ({g['similarity_score']}% match).")
+
+    # Factor 2: PR/PO Consistency (25%)
+    consistency_score = 0.0
     if isinstance(consistency_res, dict):
         for rep in consistency_res.get("consistency_reports", []):
             if rep.get("has_discrepancies"):
-                if rep.get("risk_level") == "HIGH":
+                rep_risk = rep.get("risk_level", "MEDIUM")
+                if rep_risk == "HIGH":
                     high_count += 1
+                    consistency_score += 40.0
                 else:
                     medium_count += 1
+                    consistency_score += 20.0
                 for issue in rep.get("issues", []):
                     key_findings.append(f"PR/PO Consistency [{rep['purchase_order_code']}]: {issue}")
+    consistency_score = min(100.0, consistency_score)
 
-    # Process workflow
+    # Factor 3: Workflow Compliance (35%)
+    workflow_score = 0.0
     if isinstance(workflow_res, dict):
         for viol in workflow_res.get("violations", []):
-            if viol.get("severity") == "HIGH":
+            sev = viol.get("severity", "MEDIUM")
+            if sev == "HIGH":
                 high_count += 1
+                workflow_score += 45.0
             else:
                 medium_count += 1
+                workflow_score += 20.0
             for v_msg in viol.get("violations", []):
                 key_findings.append(f"Workflow Breach [{viol['entity_code']}]: {v_msg}")
+    workflow_score = min(100.0, workflow_score)
 
-    # Process receiving
+    # Factor 4: Receiving Reconciliation (25%)
+    receiving_score = 0.0
     if isinstance(receiving_res, dict):
         for rec in receiving_res.get("discrepancy_reports", []):
             if rec.get("has_discrepancies"):
-                if rec.get("risk_level") == "HIGH":
+                rec_risk = rec.get("risk_level", "MEDIUM")
+                if rec_risk == "HIGH":
                     high_count += 1
+                    receiving_score += 40.0
                 else:
                     medium_count += 1
+                    receiving_score += 20.0
                 for r_msg in rec.get("issues", []):
                     key_findings.append(f"Receiving Variance [{rec['purchase_order_code']}]: {r_msg}")
+    receiving_score = min(100.0, receiving_score)
 
-    # Calculate overall risk
-    if high_count >= 1 or len(key_findings) >= 4:
+    # Weighted composite risk score (0 - 100)
+    composite_risk_score = round(
+        (workflow_score * 0.35) +
+        (consistency_score * 0.25) +
+        (receiving_score * 0.25) +
+        (dup_score * 0.15),
+        1
+    )
+
+    if composite_risk_score >= 60.0 or high_count >= 2:
         overall_risk = "HIGH"
-        risk_score = min(100, 70 + (high_count * 10) + len(key_findings) * 2)
-    elif medium_count >= 1 or len(key_findings) >= 1:
+    elif composite_risk_score >= 25.0 or medium_count >= 1 or high_count == 1:
         overall_risk = "MEDIUM"
-        risk_score = min(69, 40 + (medium_count * 8))
     else:
         overall_risk = "LOW"
-        risk_score = 10
 
-    recommendations = []
-    if overall_risk == "HIGH":
-        recommendations.append("Immediate management review required before processing pending payments or supplier dispatches.")
-    if any("Duplicate PR" in f for f in key_findings):
-        recommendations.append("Consolidate or cancel duplicate Purchase Requests to prevent excess inventory accumulation.")
-    if any("Over-receiving" in f for f in key_findings):
-        recommendations.append("Audit receiving dock receipts against authorized purchase order limits.")
-    if not recommendations:
-        recommendations.append("Procurement operations are operating within compliant governance parameters.")
+    # Categorized recommendations by operational role and issue type
+    manager_actions = []
+    officer_actions = []
+    dock_actions = []
+
+    if workflow_score > 0:
+        manager_actions.append("Review unapproved PR progressions and direct PO creations to enforce standard Restaurant Manager sign-off.")
+    if consistency_score > 0:
+        officer_actions.append("Audit line item quantities and unit price variances between approved PRs and commercial POs.")
+    if dup_score > 0:
+        manager_actions.append("Review pending Purchase Requests for potential duplicates before approving new inventory commitments.")
+        officer_actions.append("Consolidate overlapping ingredient requests into unified supplier purchase orders.")
+    if receiving_score > 0:
+        dock_actions.append("Cross-reference Goods Receipt notes against delivered quantities for damaged goods or over-shipments.")
+        officer_actions.append("Follow up with suppliers on overdue open purchase orders or disputed delivery notes.")
+
+    if not manager_actions and not officer_actions and not dock_actions:
+        manager_actions.append("No active compliance risks detected. Procurement workflow operating within normal governance thresholds.")
+
+    all_recommendations = list(dict.fromkeys(manager_actions + officer_actions + dock_actions))
 
     return {
         "overall_risk_level": overall_risk,
-        "risk_score": risk_score,
+        "risk_score": composite_risk_score,
         "total_issues_found": len(key_findings),
         "high_severity_count": high_count,
         "medium_severity_count": medium_count,
         "key_findings": key_findings,
-        "recommended_review_actions": recommendations,
+        "recommended_review_actions": all_recommendations,
+        "categorized_recommendations": {
+            "restaurant_manager_actions": manager_actions,
+            "procurement_officer_actions": officer_actions,
+            "receiving_dock_actions": dock_actions,
+        },
+        "scoring_breakdown": {
+            "workflow_governance": {"score": workflow_score, "weight": 0.35, "weighted_points": round(workflow_score * 0.35, 2)},
+            "pr_po_consistency": {"score": consistency_score, "weight": 0.25, "weighted_points": round(consistency_score * 0.25, 2)},
+            "receiving_reconciliation": {"score": receiving_score, "weight": 0.25, "weighted_points": round(receiving_score * 0.25, 2)},
+            "duplicate_pr_control": {"score": dup_score, "weight": 0.15, "weighted_points": round(dup_score * 0.15, 2)},
+        },
         "component_breakdown": {
             "duplicate_pr_risk": duplicates_res.get("risk_level", "LOW") if isinstance(duplicates_res, dict) else "UNKNOWN",
             "pr_po_consistency_risk": consistency_res.get("risk_level", "LOW") if isinstance(consistency_res, dict) else "UNKNOWN",
