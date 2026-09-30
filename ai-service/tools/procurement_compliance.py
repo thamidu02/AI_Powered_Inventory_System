@@ -844,11 +844,11 @@ async def analyze_procurement_compliance(
 ) -> dict[str, Any]:
     """
     Comprehensive compliance audit consolidating:
-    - PR -> PO Consistency
-    - Duplicate PR Checks
-    - Workflow Compliance
-    - Receiving Discrepancies
-    Computes an authoritative explainable Procurement Compliance Risk Score.
+    - PR -> PO Consistency (Financial & Quantity)
+    - Duplicate PR Checks (Requisition Governance)
+    - Workflow Compliance (Approval Hierarchy)
+    - Receiving Discrepancies (Dock & Fulfillment)
+    Computes an authoritative, explainable Weighted Multi-Factor Procurement Compliance Score.
     """
     duplicates_res = await check_duplicate_purchase_requests(window_days=14)
     consistency_res = await check_pr_po_consistency(purchase_order_id, purchase_request_id)
@@ -856,76 +856,168 @@ async def analyze_procurement_compliance(
     receiving_res = await check_receiving_discrepancies(purchase_order_id)
 
     key_findings = []
-    high_count = 0
-    medium_count = 0
+    categorized_recommendations = {
+        "management_governance": [],
+        "procurement_operations": [],
+        "warehouse_receiving": [],
+        "preventive_controls": [],
+    }
 
-    # Process duplicates
-    if isinstance(duplicates_res, dict) and duplicates_res.get("duplicate_count", 0) > 0:
-        medium_count += duplicates_res["duplicate_count"]
-        for g in duplicates_res.get("duplicate_groups", []):
-            key_findings.append(f"Duplicate PR: {g['primary_pr_code']} is similar to {g['similar_pr_code']} ({g['similarity_score']}% match).")
+    # 1. Factor: Workflow Governance (Weight: 35%)
+    workflow_viol_count = 0
+    workflow_critical_count = 0
+    if isinstance(workflow_res, dict):
+        for viol in workflow_res.get("violations", []):
+            workflow_viol_count += 1
+            if viol.get("severity") == "HIGH":
+                workflow_critical_count += 1
+            for v_msg in viol.get("violations", []):
+                key_findings.append(f"Workflow Governance [{viol.get('entity_code', 'ENTITY')}]: {v_msg}")
 
-    # Process consistency
+        if workflow_critical_count > 0:
+            categorized_recommendations["management_governance"].append(
+                "Immediate Restaurant Manager review: Resolve POs linked to unapproved PRs and expedite aged pending approvals."
+            )
+        elif workflow_viol_count > 0:
+            categorized_recommendations["management_governance"].append(
+                "Verify justification documentation for direct Purchase Orders without PR requisition links."
+            )
+
+    workflow_factor = min(100.0, (workflow_critical_count * 50.0) + (workflow_viol_count * 20.0))
+
+    # 2. Factor: Financial & PR/PO Consistency (Weight: 25%)
+    consistency_issues_count = 0
+    consistency_high_count = 0
     if isinstance(consistency_res, dict):
         for rep in consistency_res.get("consistency_reports", []):
             if rep.get("has_discrepancies"):
+                consistency_issues_count += 1
                 if rep.get("risk_level") == "HIGH":
-                    high_count += 1
-                else:
-                    medium_count += 1
+                    consistency_high_count += 1
                 for issue in rep.get("issues", []):
-                    key_findings.append(f"PR/PO Consistency [{rep['purchase_order_code']}]: {issue}")
+                    key_findings.append(f"PR/PO Consistency [{rep.get('purchase_order_code', 'PO')}]: {issue}")
 
-    # Process workflow
-    if isinstance(workflow_res, dict):
-        for viol in workflow_res.get("violations", []):
-            if viol.get("severity") == "HIGH":
-                high_count += 1
-            else:
-                medium_count += 1
-            for v_msg in viol.get("violations", []):
-                key_findings.append(f"Workflow Breach [{viol['entity_code']}]: {v_msg}")
+        if consistency_issues_count > 0:
+            categorized_recommendations["procurement_operations"].append(
+                "Procurement Officer audit: Reconcile price and quantity variances against original Restaurant Manager approved PRs."
+            )
 
-    # Process receiving
+    consistency_factor = min(100.0, (consistency_high_count * 40.0) + (consistency_issues_count * 20.0))
+
+    # 3. Factor: Receiving & Delivery Reconciliation (Weight: 25%)
+    receiving_issues_count = 0
+    overdue_count = 0
+    damaged_count = 0
     if isinstance(receiving_res, dict):
+        overdue_count = receiving_res.get("overdue_orders_count", 0)
+        damaged_count = receiving_res.get("damaged_goods_incidents_count", 0)
         for rec in receiving_res.get("discrepancy_reports", []):
             if rec.get("has_discrepancies"):
-                if rec.get("risk_level") == "HIGH":
-                    high_count += 1
-                else:
-                    medium_count += 1
+                receiving_issues_count += 1
                 for r_msg in rec.get("issues", []):
-                    key_findings.append(f"Receiving Variance [{rec['purchase_order_code']}]: {r_msg}")
+                    key_findings.append(f"Receiving Variance [{rec.get('purchase_order_code', 'PO')}]: {r_msg}")
 
-    # Calculate overall risk
-    if high_count >= 1 or len(key_findings) >= 4:
+        if damaged_count > 0:
+            categorized_recommendations["warehouse_receiving"].append(
+                f"Dock Receiving Alert: Process vendor credit requests or returns for {damaged_count} damaged/rejected goods incident(s)."
+            )
+        if overdue_count > 0:
+            categorized_recommendations["procurement_operations"].append(
+                f"Expedite Deliveries: Contact suppliers regarding {overdue_count} overdue Purchase Order(s)."
+            )
+        if receiving_issues_count > (overdue_count + damaged_count):
+            categorized_recommendations["warehouse_receiving"].append(
+                "Verify receiving count logs against commercial Purchase Order quantities to prevent over-invoicing."
+            )
+
+    receiving_factor = min(100.0, (damaged_count * 30.0) + (overdue_count * 25.0) + (receiving_issues_count * 15.0))
+
+    # 4. Factor: Duplicate Requisitions (Weight: 15%)
+    dup_count = 0
+    if isinstance(duplicates_res, dict) and duplicates_res.get("duplicate_count", 0) > 0:
+        dup_count = duplicates_res["duplicate_count"]
+        for g in duplicates_res.get("duplicate_groups", []):
+            key_findings.append(
+                f"Duplicate Requisition: {g.get('primary_pr_code')} is {g.get('similarity_score')}% similar to "
+                f"{g.get('similar_pr_code')} ({g.get('duplicate_reason', 'overlapping items')})."
+            )
+
+        categorized_recommendations["preventive_controls"].append(
+            f"Consolidate or reject {dup_count} duplicate Purchase Request(s) to avoid unnecessary capital expenditure."
+        )
+
+    duplicate_factor = min(100.0, dup_count * 35.0)
+
+    # Calculate Explainable Weighted Risk Score (0 = Fully Compliant, 100 = Critical Non-Compliance)
+    weighted_risk_score = round(
+        (workflow_factor * 0.35)
+        + (consistency_factor * 0.25)
+        + (receiving_factor * 0.25)
+        + (duplicate_factor * 0.15),
+        1,
+    )
+
+    # Determine overall compliance risk level
+    if weighted_risk_score >= 60.0 or workflow_critical_count >= 1:
         overall_risk = "HIGH"
-        risk_score = min(100, 70 + (high_count * 10) + len(key_findings) * 2)
-    elif medium_count >= 1 or len(key_findings) >= 1:
+    elif weighted_risk_score >= 25.0 or len(key_findings) >= 2:
         overall_risk = "MEDIUM"
-        risk_score = min(69, 40 + (medium_count * 8))
     else:
         overall_risk = "LOW"
-        risk_score = 10
 
-    recommendations = []
-    if overall_risk == "HIGH":
-        recommendations.append("Immediate management review required before processing pending payments or supplier dispatches.")
-    if any("Duplicate PR" in f for f in key_findings):
-        recommendations.append("Consolidate or cancel duplicate Purchase Requests to prevent excess inventory accumulation.")
-    if any("Over-receiving" in f for f in key_findings):
-        recommendations.append("Audit receiving dock receipts against authorized purchase order limits.")
-    if not recommendations:
-        recommendations.append("Procurement operations are operating within compliant governance parameters.")
+    # Flattened actionable recommendation list for quick display
+    flat_recommendations = []
+    for cat_list in categorized_recommendations.values():
+        flat_recommendations.extend(cat_list)
+    if not flat_recommendations:
+        flat_recommendations.append(
+            "Procurement operations fully adhere to restaurant governance policies with zero compliance anomalies."
+        )
 
     return {
         "overall_risk_level": overall_risk,
-        "risk_score": risk_score,
+        "risk_score": weighted_risk_score,
+        "compliance_score": round(100.0 - weighted_risk_score, 1),
         "total_issues_found": len(key_findings),
-        "high_severity_count": high_count,
-        "medium_severity_count": medium_count,
         "key_findings": key_findings,
-        "recommended_review_actions": recommendations,
+        "categorized_recommendations": categorized_recommendations,
+        "recommended_review_actions": flat_recommendations,
+        "scoring_methodology": {
+            "formula": "Risk Score = (Workflow * 0.35) + (PR/PO Consistency * 0.25) + (Receiving * 0.25) + (Duplicate PR * 0.15)",
+            "governance_rule": "Purchase Requests require Restaurant Manager approval; Purchase Orders are placed directly by Procurement Officer.",
+        },
+        "factor_breakdown": {
+            "workflow_governance": {
+                "weight_pct": 35,
+                "raw_score": workflow_factor,
+                "weighted_points": round(workflow_factor * 0.35, 1),
+                "violations_count": workflow_viol_count,
+                "status": "COMPLIANT" if workflow_viol_count == 0 else "DEFICIENT",
+            },
+            "financial_pr_po_consistency": {
+                "weight_pct": 25,
+                "raw_score": consistency_factor,
+                "weighted_points": round(consistency_factor * 0.25, 1),
+                "issues_count": consistency_issues_count,
+                "status": "COMPLIANT" if consistency_issues_count == 0 else "DEFICIENT",
+            },
+            "receiving_reconciliation": {
+                "weight_pct": 25,
+                "raw_score": receiving_factor,
+                "weighted_points": round(receiving_factor * 0.25, 1),
+                "issues_count": receiving_issues_count,
+                "overdue_count": overdue_count,
+                "damaged_count": damaged_count,
+                "status": "COMPLIANT" if (receiving_issues_count + overdue_count + damaged_count) == 0 else "DEFICIENT",
+            },
+            "duplicate_requisitions": {
+                "weight_pct": 15,
+                "raw_score": duplicate_factor,
+                "weighted_points": round(duplicate_factor * 0.15, 1),
+                "duplicates_count": dup_count,
+                "status": "COMPLIANT" if dup_count == 0 else "DEFICIENT",
+            },
+        },
         "component_breakdown": {
             "duplicate_pr_risk": duplicates_res.get("risk_level", "LOW") if isinstance(duplicates_res, dict) else "UNKNOWN",
             "pr_po_consistency_risk": consistency_res.get("risk_level", "LOW") if isinstance(consistency_res, dict) else "UNKNOWN",
