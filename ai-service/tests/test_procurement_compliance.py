@@ -306,6 +306,104 @@ class TestPRtoPOConsistency(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.get("consistency_reports", [])[0].get("is_linked_to_pr"))
 
 
+class TestWorkflowCompliance(unittest.IsolatedAsyncioTestCase):
+    """Test suite for procurement approval workflow and governance rules."""
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_approved_pr_valid_po_workflow(self, mock_get):
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "pr-11111111-0000-0000-0000-000000000001",
+                    "status": "APPROVED",
+                    "approvedByName": "Manager Jane",
+                    "approvedById": "mgr-1",
+                    "approvedAt": "2026-03-01T12:00:00Z",
+                }
+            ],
+            [
+                {
+                    "id": "po-11111111-0000-0000-0000-000000000001",
+                    "purchaseRequestId": "pr-11111111-0000-0000-0000-000000000001",
+                    "status": "ORDERED",
+                    "orderDate": "2026-03-02T10:00:00Z",
+                    "items": [{"ingredientId": "ing-1", "orderedQuantity": 10.0}],
+                }
+            ],
+        ]
+
+        result = await check_workflow_compliance()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("total_violations"), 0)
+        self.assertEqual(result.get("risk_level"), "LOW")
+        rules = " ".join(result.get("workflow_rules_enforced", []))
+        self.assertTrue("MANDATORY APPROVAL" in rules or "reviews and approves" in rules)
+        self.assertTrue("NO Manager approval on PO" in rules)
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_po_from_unapproved_pr_flagged(self, mock_get):
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "pr-22222222-0000-0000-0000-000000000001",
+                    "status": "PENDING_APPROVAL",
+                }
+            ],
+            [
+                {
+                    "id": "po-22222222-0000-0000-0000-000000000001",
+                    "purchaseRequestId": "pr-22222222-0000-0000-0000-000000000001",
+                    "status": "ORDERED",
+                    "orderDate": "2026-03-02T10:00:00Z",
+                }
+            ],
+        ]
+
+        result = await check_workflow_compliance()
+        self.assertGreaterEqual(result.get("total_violations"), 1)
+        violations = result.get("violations", [])
+        self.assertTrue(any("requires approved pr" in str(v.get("violations", [])).lower() for v in violations))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_approved_pr_missing_approver_identity(self, mock_get):
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "pr-33333333-0000-0000-0000-000000000001",
+                    "status": "APPROVED",
+                    "approvedByName": None,
+                    "approvedById": None,
+                    "approvedAt": None,
+                }
+            ],
+            [],
+        ]
+
+        result = await check_workflow_compliance()
+        self.assertEqual(result.get("total_violations"), 1)
+        viol = result.get("violations", [])[0]
+        self.assertTrue(any("lacks manager approver" in msg.lower() for msg in viol.get("violations", [])))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_completed_po_with_zero_receipts(self, mock_get):
+        mock_get.side_effect = [
+            [],
+            [
+                {
+                    "id": "po-44444444-0000-0000-0000-000000000001",
+                    "status": "COMPLETED",
+                    "orderDate": "2026-03-01T10:00:00Z",
+                    "items": [{"ingredientId": "ing-1", "orderedQuantity": 10.0, "receivedQuantity": 0.0}],
+                }
+            ],
+        ]
+
+        result = await check_workflow_compliance()
+        self.assertEqual(result.get("total_violations"), 1)
+        viol = result.get("violations", [])[0]
+        self.assertTrue(any("0 recorded received items" in msg.lower() for msg in viol.get("violations", [])))
+
+
 if __name__ == "__main__":
     unittest.main()
 
