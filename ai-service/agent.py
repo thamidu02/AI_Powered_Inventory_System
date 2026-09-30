@@ -581,22 +581,83 @@ Approval:
 }
 
 def _procurement_intent_from_request(message: str) -> str | None:
-    request = message.lower()
-    procurement_keywords = [
-        "procurement", "compliance", "purchase order", "purchase request",
-        "duplicate pr", "duplicate purchase", "pr-po", "pr to po", "po-", "pr-",
-        "investigate po", "investigate pr", "audit po", "audit pr", "receiving discrepanc",
-        "over-receiv", "under-receiv", "workflow compliance", "procurement audit",
-        "goods receipt discrepanc", "flagged po", "unapproved pr", "audit transaction"
-    ]
-    if any(kw in request for kw in procurement_keywords):
-        compliance_signals = [
-            "compliance", "investigate", "audit", "duplicate", "match", "consistency",
-            "violation", "discrepanc", "flagged", "approved", "receipt", "over-receiv",
-            "under-receiv", "pr", "po", "procurement"
-        ]
-        if any(sig in request for sig in compliance_signals):
-            return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+    request = message.lower().strip()
+
+    # 1. Direct transaction identifier pattern: PR-XXXX, PO-XXXX, GR-XXXX
+    # e.g., "Investigate PO-EE1E95F7", "What is the status of PR-5A8F853C?", "Show GR-3F2A10B4"
+    if re.search(r"\b(pr|po|gr)-[a-z0-9]{4,12}\b", request):
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
+    # 2. High-confidence procurement compliance phrases (Quick Actions & direct queries)
+    high_confidence_phrases = (
+        "audit procurement",
+        "procurement compliance",
+        "check duplicate pr",
+        "duplicate pr",
+        "duplicate purchase request",
+        "duplicate purchase requests",
+        "verify pr-po",
+        "verify pr to po",
+        "pr to po consistency",
+        "pr-po consistency",
+        "pr-po match",
+        "pr to po match",
+        "purchase order consistency",
+        "receiving variance",
+        "receiving variances",
+        "receiving discrepanc",
+        "goods receipt discrepanc",
+        "goods receipt variance",
+        "investigate procurement",
+        "investigate transaction",
+        "audit transaction",
+        "procurement audit",
+        "workflow compliance",
+        "unapproved pr",
+        "flagged po",
+        "over-receiv",
+        "under-receiv",
+        "procurement traceability",
+        "trace procurement",
+    )
+    if any(phrase in request for phrase in high_confidence_phrases):
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
+    # 3. Two-factor matching: Procurement context + Compliance/Audit intent
+    procurement_nouns = (
+        "purchase order",
+        "purchase orders",
+        "purchase request",
+        "purchase requests",
+        "goods receipt",
+        "goods receipts",
+        "procurement",
+    )
+    compliance_verbs = (
+        "audit",
+        "compliance",
+        "investigate",
+        "investigation",
+        "duplicate",
+        "consistency",
+        "discrepancy",
+        "discrepancies",
+        "variance",
+        "variances",
+        "mismatch",
+        "mismatches",
+        "violation",
+        "traceability",
+        "over-received",
+        "under-received",
+    )
+
+    has_procurement = any(re.search(r"\b" + re.escape(noun) + r"\b", request) for noun in procurement_nouns)
+    has_compliance = any(re.search(r"\b" + re.escape(verb) + r"\b", request) for verb in compliance_verbs)
+
+    if has_procurement and has_compliance:
+        return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
+
     return None
 
 COMPONENT3_STAGES = (
