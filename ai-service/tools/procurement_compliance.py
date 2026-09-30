@@ -539,9 +539,17 @@ async def check_workflow_compliance(
             else:
                 po_issues.append(f"{po_code} references nonexistent PR ID {pr_id[:8].upper()}.")
 
+        # Validate direct POs without PR link
+        if not pr_id:
+            # Direct POs are permitted for direct purchasing by Procurement Officer, but noted for governance
+            if po_status == "DRAFT":
+                po_issues.append(f"{po_code} is a Direct PO in DRAFT status without linked PR requisition (Awaiting Procurement Officer order placement).")
+            else:
+                compliant_records.append({"entity_type": "PURCHASE_ORDER", "entity_code": po_code, "note": "Direct PO placed by Procurement Officer."})
+
         # Validate order lifecycle states
         if po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
-            if not po.get("orderDate"):
+            if not po.get("orderDate") and not po.get("createdAt"):
                 po_issues.append(f"{po_code} is in status '{po_status}' but lacks recorded supplier placement orderDate.")
 
         if po_status in ("PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
@@ -557,7 +565,7 @@ async def check_workflow_compliance(
                 "entity_code": po_code,
                 "status": po_status,
                 "violations": po_issues,
-                "severity": "HIGH" if any("Requires APPROVED" in v for v in po_issues) else "MEDIUM",
+                "severity": "HIGH" if any("Requires APPROVED" in v or "nonexistent PR" in v for v in po_issues) else "MEDIUM",
             })
         else:
             compliant_records.append({"entity_type": "PURCHASE_ORDER", "entity_code": po_code})
@@ -568,18 +576,19 @@ async def check_workflow_compliance(
         "workflow_rules_enforced": [
             "Staff creates and submits Purchase Request (PR)",
             "Restaurant Manager reviews and approves Purchase Request (MANDATORY APPROVAL)",
-            "Procurement Officer creates Purchase Order (PO) from approved PR (DRAFT)",
-            "Procurement Officer reviews and orders PO directly with vendor (NO PO Manager Approval)",
-            "Inventory / Warehouse staff receives goods against active ORDERED PO",
+            "Procurement Officer creates PO as DRAFT from approved PR",
+            "Procurement Officer reviews and explicitly places PO (NO Manager approval on PO)",
+            "Receiving Staff records incoming Goods Receipts against PO",
         ],
         "total_entities_checked": len(prs) + len(pos),
-        "violation_count": len(violations),
+        "total_violations": len(violations),
+        "compliant_count": len(compliant_records),
         "violations": violations,
         "risk_level": risk_level,
         "summary": (
-            f"Detected {len(violations)} workflow compliance violation(s) across procurement transactions."
+            f"Detected {len(violations)} procurement workflow governance violation(s) across {len(prs)} PRs and {len(pos)} POs."
             if violations
-            else "All evaluated transactions strictly adhere to the restaurant procurement governance flow."
+            else f"Full workflow compliance verified: All {len(prs)} PRs and {len(pos)} POs adhere strictly to restaurant governance."
         ),
     }
 
