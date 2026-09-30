@@ -330,6 +330,7 @@ async def check_pr_po_consistency(
 
         issues = []
         item_comparisons = []
+        po_extra_spend = 0.0
 
         # Check if PR was approved
         if pr_status != "APPROVED":
@@ -348,22 +349,29 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": 0.0,
+                    "unit_price": 0.0,
+                    "ordered_value": 0.0,
+                    "financial_variance": 0.0,
                     "variance": -req_qty,
                     "variance_percentage": -100.0,
                     "status": "OMITTED_IN_PO",
                 })
             else:
                 ord_qty = float(po_item.get("orderedQuantity", 0))
+                unit_price = float(po_item.get("unitPrice", 0))
                 variance = ord_qty - req_qty
                 var_pct = round((variance / req_qty) * 100, 1) if req_qty > 0 else 0.0
+                ordered_value = round(ord_qty * unit_price, 2)
+                item_fin_var = round(variance * unit_price, 2)
 
                 comp_status = "MATCH"
                 if abs(variance) > 0.001:
                     if ord_qty > req_qty:
                         comp_status = "PO_QUANTITY_EXCEEDS_PR"
+                        po_extra_spend += max(0.0, item_fin_var)
                         issues.append(
                             f"Quantity mismatch for '{ing_name}': Approved PR requested {req_qty} {pr_item.get('ingredientUnit', '')}, "
-                            f"but PO ordered {ord_qty} (+{var_pct}%)."
+                            f"but PO ordered {ord_qty} (+{var_pct}%, cost impact: +${item_fin_var:,.2f})."
                         )
                     else:
                         comp_status = "PO_QUANTITY_LESS_THAN_PR"
@@ -377,6 +385,9 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
+                    "ordered_value": ordered_value,
+                    "financial_variance": item_fin_var,
                     "variance": round(variance, 2),
                     "variance_percentage": var_pct,
                     "status": comp_status,
@@ -387,12 +398,19 @@ async def check_pr_po_consistency(
             if ing_id not in pr_item_map:
                 ing_name = po_item.get("ingredientName") or "Ingredient"
                 ord_qty = float(po_item.get("orderedQuantity", 0))
-                issues.append(f"Extra item '{ing_name}' ({ord_qty} units) in PO was never requested in approved PR {pr_code}.")
+                unit_price = float(po_item.get("unitPrice", 0))
+                ordered_value = round(ord_qty * unit_price, 2)
+                po_extra_spend += ordered_value
+
+                issues.append(f"Extra item '{ing_name}' ({ord_qty} units @ ${unit_price:,.2f} = ${ordered_value:,.2f}) in PO was never requested in approved PR {pr_code}.")
                 item_comparisons.append({
                     "ingredient_id": ing_id,
                     "ingredient_name": ing_name,
                     "requested_quantity": 0.0,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
+                    "ordered_value": ordered_value,
+                    "financial_variance": ordered_value,
                     "variance": ord_qty,
                     "variance_percentage": 100.0,
                     "status": "EXTRA_ITEM_IN_PO",
@@ -402,7 +420,7 @@ async def check_pr_po_consistency(
         if has_discrepancy:
             total_mismatches += 1
 
-        po_risk = "HIGH" if pr_status != "APPROVED" or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons) else ("MEDIUM" if has_discrepancy else "LOW")
+        po_risk = "HIGH" if pr_status != "APPROVED" or po_extra_spend > 500 or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons) else ("MEDIUM" if has_discrepancy else "LOW")
 
         reports.append({
             "purchase_order_id": po_id,
@@ -415,16 +433,20 @@ async def check_pr_po_consistency(
             "linked_pr_approver": pr.get("approvedByName"),
             "is_linked_to_pr": True,
             "has_discrepancies": has_discrepancy,
+            "unauthorized_spend_variance": round(po_extra_spend, 2),
+            "total_po_amount": float(po.get("totalAmount", 0)),
             "issues": issues,
             "item_comparisons": item_comparisons,
             "risk_level": po_risk,
         })
 
     overall_risk = "HIGH" if any(r["risk_level"] == "HIGH" for r in reports) else ("MEDIUM" if total_mismatches > 0 else "LOW")
+    total_unauthorized_variance = sum(r.get("unauthorized_spend_variance", 0.0) for r in reports)
 
     return {
         "total_orders_analyzed": len(reports),
         "inconsistent_orders_count": total_mismatches,
+        "total_unauthorized_variance": round(total_unauthorized_variance, 2),
         "consistency_reports": reports,
         "risk_level": overall_risk,
         "summary": (
