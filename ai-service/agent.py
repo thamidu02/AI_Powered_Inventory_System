@@ -599,9 +599,9 @@ Approval:
 def _procurement_intent_from_request(message: str) -> str | None:
     request = message.lower().strip()
 
-    # 1. Direct transaction identifier pattern: PR-XXXX, PO-XXXX, GR-XXXX
-    # e.g., "Investigate PO-EE1E95F7", "What is the status of PR-5A8F853C?", "Show GR-3F2A10B4"
-    if re.search(r"\b(pr|po|gr)-[a-z0-9]{4,12}\b", request):
+    # 1. Direct transaction identifier pattern: PR-XXXX, PO-XXXX, GR-XXXX (excluding phrases like 'PR-PO')
+    # e.g., "Investigate PO-EE1E95F7", "Audit PO-102", "What is the status of PR-5A8F853C?", "Show GR-3F2A10B4"
+    if re.search(r"\b(pr|po|gr)-(?!po\b)[a-z0-9]{1,36}\b", request):
         return "PROCUREMENT_COMPLIANCE_INVESTIGATION"
 
     # 2. High-confidence procurement compliance phrases (Quick Actions & direct queries)
@@ -684,8 +684,8 @@ def _normalize_procurement_query(message: str) -> str:
     """
     msg_lower = message.lower().strip()
 
-    # Extract transaction code if present (PR-XXXX, PO-XXXX, GR-XXXX)
-    id_match = re.search(r"\b((?:pr|po|gr)-[a-z0-9]{4,12})\b", msg_lower, re.IGNORECASE)
+    # Extract transaction code if present (PR-XXXX, PO-XXXX, GR-XXXX, excluding 'PR-PO')
+    id_match = re.search(r"\b((?:pr|po|gr)-(?!po\b)[a-z0-9]{1,36})\b", msg_lower, re.IGNORECASE)
     doc_code = id_match.group(1).upper() if id_match else None
 
     if doc_code:
