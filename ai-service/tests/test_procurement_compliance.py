@@ -531,6 +531,24 @@ class TestReceivingDiscrepanciesAndInvestigation(unittest.IsolatedAsyncioTestCas
         self.assertFalse(result.get("found"))
         self.assertIn("No Purchase Order or Purchase Request", result.get("message"))
 
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_analyze_procurement_compliance_with_backend_retrieval_failure(self, mock_get):
+        # Simulate 403 Forbidden or network error on backend GET requests
+        error_response = {
+            "error": "Backend returned HTTP 403 for /api/PurchaseRequests.",
+            "status_code": 403,
+            "endpoint": "/api/PurchaseRequests",
+            "is_backend_error": True,
+        }
+        mock_get.return_value = error_response
+
+        result = await analyze_procurement_compliance()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("overall_risk_level"), "AUDIT_INCOMPLETE")
+        self.assertIsNone(result.get("risk_score"))
+        self.assertGreaterEqual(len(result.get("system_diagnostics", [])), 1)
+        self.assertTrue(any("Audit Incomplete" in r for r in result.get("recommended_review_actions", [])))
+
 
 if __name__ == "__main__":
     unittest.main()

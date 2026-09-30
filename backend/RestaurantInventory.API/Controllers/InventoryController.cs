@@ -23,7 +23,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetInventory()
     {
         var result = await _inventoryService.GetInventoryAsync();
@@ -37,7 +37,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet("{ingredientId:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetInventoryByIngredient(
         Guid ingredientId)
     {
@@ -60,7 +60,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet("low-stock")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,AI_SERVICE")]
     public async Task<IActionResult> GetLowStock()
     {
         var result = await _inventoryService.GetLowStockAsync();
@@ -268,7 +268,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet("movements")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetStockMovements(
         [FromQuery] Guid? ingredientId = null,
         [FromQuery] Guid? batchId = null,
@@ -287,7 +287,7 @@ public class InventoryController : ControllerBase
     }
 
     [HttpGet("batches/{batchId:guid}/history")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetBatchHistory(
         Guid batchId,
         [FromQuery] string? movementType = null)
@@ -300,7 +300,7 @@ public class InventoryController : ControllerBase
     }
 
     [HttpGet("ingredients/{ingredientId:guid}/history")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetIngredientHistory(
         Guid ingredientId,
         [FromQuery] string? movementType = null)

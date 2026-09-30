@@ -869,17 +869,31 @@ async def analyze_procurement_compliance(
         1
     )
 
-    if composite_risk_score >= 60.0 or high_count >= 2:
+    has_retrieval_error = len(system_diagnostics) > 0
+
+    if has_retrieval_error:
+        overall_risk = "AUDIT_INCOMPLETE"
+        effective_risk_score = None
+    elif composite_risk_score >= 60.0 or high_count >= 2:
         overall_risk = "HIGH"
+        effective_risk_score = composite_risk_score
     elif composite_risk_score >= 25.0 or medium_count >= 1 or high_count == 1:
         overall_risk = "MEDIUM"
+        effective_risk_score = composite_risk_score
     else:
         overall_risk = "LOW"
+        effective_risk_score = composite_risk_score
 
     # Categorized recommendations by operational role and issue type
     manager_actions = []
     officer_actions = []
     dock_actions = []
+
+    if has_retrieval_error:
+        manager_actions.append(
+            "Audit Incomplete: Could not fully verify procurement records due to backend retrieval errors. "
+            "Please verify backend service availability and service account permissions."
+        )
 
     if workflow_score > 0:
         manager_actions.append("Review unapproved PR progressions and direct PO creations to enforce standard Restaurant Manager sign-off.")
@@ -899,7 +913,7 @@ async def analyze_procurement_compliance(
 
     return {
         "overall_risk_level": overall_risk,
-        "risk_score": composite_risk_score,
+        "risk_score": effective_risk_score,
         "total_issues_found": len(key_findings),
         "high_severity_count": high_count,
         "medium_severity_count": medium_count,
