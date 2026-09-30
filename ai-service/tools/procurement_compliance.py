@@ -681,27 +681,44 @@ async def check_receiving_discrepancies(
                 "variance_type": status_label,
             })
 
-        # Check receipt items for damaged/rejected quantities
+        # Check for overdue fulfillment on open orders
+        is_overdue = False
+        exp_delivery_raw = po.get("expectedDeliveryDate")
+        if po_status == "ORDERED" and exp_delivery_raw:
+            try:
+                exp_dt = datetime.fromisoformat(str(exp_delivery_raw).replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                now_utc = datetime.now(timezone.utc)
+                if exp_dt < now_utc:
+                    days_overdue = (now_utc - exp_dt).days
+                    is_overdue = True
+                    issues.append(
+                        f"Overdue delivery: {po_code} was expected on {str(exp_delivery_raw)[:10]} "
+                        f"({days_overdue} day(s) overdue) with no goods receipts recorded."
+                    )
+            except (ValueError, TypeError):
+                pass
+
+        # Check receipt notes and items for damage/defect mentions
         damaged_items = []
         for rc in po_receipts:
-            for r_it in rc.get("items", []):
-                rej_qty = float(r_it.get("rejectedQuantity", 0))
-                if rej_qty > 0:
-                    damaged_items.append({
-                        "receipt_id": rc.get("id"),
-                        "ingredient_name": r_it.get("ingredientName") or "Ingredient",
-                        "rejected_quantity": rej_qty,
-                        "rejection_reason": r_it.get("rejectionReason") or "Damaged / Substandard",
-                    })
-                    issues.append(
-                        f"Goods receipt reported {rej_qty} units of '{r_it.get('ingredientName')}' rejected: "
-                        f"{r_it.get('rejectionReason') or 'Damaged / Failed QA'}."
-                    )
+            rc_notes = (rc.get("notes") or "").lower()
+            rc_code = f"GR-{rc.get('id', '')[:8].upper()}"
+            if any(kw in rc_notes for kw in ("damag", "broken", "spoil", "leak", "reject", "defect", "poor quality")):
+                issues.append(f"Goods receipt {rc_code} notes contain quality/damage warning: \"{rc.get('notes')}\"")
+                damaged_items.append({
+                    "receipt_id": rc.get("id"),
+                    "receipt_code": rc_code,
+                    "receipt_date": str(rc.get("receiptDate") or rc.get("createdAt"))[:10],
+                    "notes": rc.get("notes"),
+                    "issue_type": "DAMAGE_OR_QUALITY_NOTE",
+                })
 
         if issues:
             total_discrepancies += 1
 
-        po_risk = "HIGH" if any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances) else ("MEDIUM" if issues else "LOW")
+        po_risk = "HIGH" if is_overdue or any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances) else ("MEDIUM" if issues else "LOW")
 
         if issues or po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
             discrepancy_reports.append({
@@ -711,9 +728,11 @@ async def check_receiving_discrepancies(
                 "supplier_name": po.get("supplierName") or "Vendor",
                 "goods_receipt_count": len(po_receipts),
                 "has_discrepancies": len(issues) > 0,
+                "is_overdue": is_overdue,
+                "expected_delivery_date": str(exp_delivery_raw)[:10] if exp_delivery_raw else None,
                 "issues": issues,
                 "item_variances": item_variances,
-                "damaged_or_rejected_items": damaged_items,
+                "damaged_or_quality_notes": damaged_items,
                 "risk_level": po_risk,
             })
 
