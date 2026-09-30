@@ -639,6 +639,11 @@ async def check_receiving_discrepancies(
 
     discrepancy_reports = []
     total_discrepancies = 0
+    total_overdue = 0
+    total_damaged = 0
+    now_utc = datetime.now(timezone.utc)
+
+    damage_keywords = ("damag", "broken", "spoil", "leak", "crush", "substandard", "defect", "torn", "reject", "rot")
 
     for po in pos:
         po_id = po.get("id", "")
@@ -658,6 +663,42 @@ async def check_receiving_discrepancies(
 
         item_variances = []
         issues = []
+        is_overdue = False
+        days_overdue = 0
+
+        # Check for overdue/unresolved delivery timeline
+        if po_status in ("ORDERED", "PARTIALLY_RECEIVED"):
+            expected_delivery_raw = po.get("expectedDeliveryDate")
+            if expected_delivery_raw:
+                try:
+                    exp_dt = datetime.fromisoformat(str(expected_delivery_raw).replace("Z", "+00:00"))
+                    if now_utc > exp_dt:
+                        is_overdue = True
+                        days_overdue = max(1, (now_utc - exp_dt).days)
+                        issues.append(
+                            f"DELIVERY OVERDUE: {po_code} expected by {exp_dt.strftime('%Y-%m-%d')} "
+                            f"is overdue by {days_overdue} day(s) in '{po_status}' status."
+                        )
+                        total_overdue += 1
+                except (ValueError, TypeError):
+                    pass
+            else:
+                # If no expected date, check if ordered/created > 14 days ago
+                placed_raw = po.get("orderDate") or po.get("createdAt")
+                if placed_raw:
+                    try:
+                        placed_dt = datetime.fromisoformat(str(placed_raw).replace("Z", "+00:00"))
+                        age_days = (now_utc - placed_dt).days
+                        if age_days > 14:
+                            is_overdue = True
+                            days_overdue = age_days
+                            issues.append(
+                                f"UNRESOLVED ORDER: {po_code} was placed {age_days} days ago "
+                                f"without recorded delivery completion."
+                            )
+                            total_overdue += 1
+                    except (ValueError, TypeError):
+                        pass
 
         for item in po.get("items", []):
             ing_id = item.get("ingredientId")
@@ -702,27 +743,61 @@ async def check_receiving_discrepancies(
                 "variance_type": status_label,
             })
 
-        # Check receipt items for damaged/rejected quantities
+        # Check receipt items and notes for damaged/rejected goods
         damaged_items = []
         for rc in po_receipts:
+            rc_notes = str(rc.get("notes") or "")
+            rc_id = rc.get("id", "")
+            rc_code = f"GR-{rc_id[:8].upper()}" if rc_id else "GR"
+
+            # Check receipt-level notes for damage indications
+            if any(k in rc_notes.lower() for k in damage_keywords):
+                damaged_items.append({
+                    "receipt_id": rc_id,
+                    "receipt_code": rc_code,
+                    "source": "RECEIPT_NOTES",
+                    "ingredient_name": "General Delivery Goods",
+                    "rejected_quantity": 0,
+                    "rejection_reason": rc_notes,
+                })
+                issues.append(
+                    f"Receipt {rc_code} notes indicate damaged/compromised shipment: '{rc_notes}'"
+                )
+
+            # Check individual item rejections
             for r_it in rc.get("items", []):
                 rej_qty = float(r_it.get("rejectedQuantity", 0))
-                if rej_qty > 0:
+                item_reason = str(r_it.get("rejectionReason") or "")
+                if rej_qty > 0 or any(k in item_reason.lower() for k in damage_keywords):
+                    ing_n = r_it.get("ingredientName") or "Ingredient"
                     damaged_items.append({
-                        "receipt_id": rc.get("id"),
-                        "ingredient_name": r_it.get("ingredientName") or "Ingredient",
+                        "receipt_id": rc_id,
+                        "receipt_code": rc_code,
+                        "source": "ITEM_REJECTION",
+                        "ingredient_name": ing_n,
                         "rejected_quantity": rej_qty,
-                        "rejection_reason": r_it.get("rejectionReason") or "Damaged / Substandard",
+                        "rejection_reason": item_reason or "Damaged / Substandard Delivery",
                     })
                     issues.append(
-                        f"Goods receipt reported {rej_qty} units of '{r_it.get('ingredientName')}' rejected: "
-                        f"{r_it.get('rejectionReason') or 'Damaged / Failed QA'}."
+                        f"Receipt {rc_code}: {rej_qty or 'Unspecified'} units of '{ing_n}' flagged damaged/rejected "
+                        f"({item_reason or 'Failed Quality Check'})."
                     )
+
+        if damaged_items:
+            total_damaged += len(damaged_items)
 
         if issues:
             total_discrepancies += 1
 
-        po_risk = "HIGH" if any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances) else ("MEDIUM" if issues else "LOW")
+        po_risk = (
+            "HIGH"
+            if (
+                any(v["variance_type"] == "OVER_RECEIVED" and v["variance_percentage"] > 25 for v in item_variances)
+                or is_overdue
+                or len(damaged_items) > 0
+            )
+            else ("MEDIUM" if issues else "LOW")
+        )
 
         if issues or po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
             discrepancy_reports.append({
@@ -731,10 +806,13 @@ async def check_receiving_discrepancies(
                 "status": po_status,
                 "supplier_name": po.get("supplierName") or "Vendor",
                 "goods_receipt_count": len(po_receipts),
+                "is_overdue": is_overdue,
+                "days_overdue": days_overdue,
                 "has_discrepancies": len(issues) > 0,
                 "issues": issues,
                 "item_variances": item_variances,
                 "damaged_or_rejected_items": damaged_items,
+                "has_damaged_goods": len(damaged_items) > 0,
                 "risk_level": po_risk,
             })
 
@@ -743,12 +821,15 @@ async def check_receiving_discrepancies(
     return {
         "total_orders_evaluated": len(discrepancy_reports),
         "discrepant_orders_count": total_discrepancies,
+        "overdue_orders_count": total_overdue,
+        "damaged_goods_incidents_count": total_damaged,
         "discrepancy_reports": discrepancy_reports,
         "risk_level": overall_risk,
         "summary": (
-            f"Found {total_discrepancies} Purchase Order(s) with receiving discrepancies or delivery quantity variances."
+            f"Found {total_discrepancies} Purchase Order(s) with receiving discrepancies: "
+            f"{total_overdue} overdue delivery order(s), {total_damaged} damaged/rejected goods incident(s)."
             if total_discrepancies > 0
-            else "All received goods quantities reconcile accurately against commercial Purchase Orders."
+            else "All received goods quantities reconcile accurately against commercial Purchase Orders with no delivery variances or damaged goods."
         ),
     }
 
