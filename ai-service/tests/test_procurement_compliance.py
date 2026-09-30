@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 for _mod in ("joblib", "ml", "ml.model", "sklearn", "pandas", "numpy"):
@@ -457,6 +458,69 @@ class TestReceivingDiscrepanciesAndInvestigation(unittest.IsolatedAsyncioTestCas
         rep = result.get("discrepancy_reports", [])[0]
         self.assertTrue(len(rep.get("damaged_or_quality_notes", [])) > 0)
         self.assertTrue(any("damaged" in i.lower() for i in rep.get("issues", [])))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_due_today_not_overdue(self, mock_get):
+        today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "po-due-today-0000-0000-0000-000000000001",
+                    "status": "ORDERED",
+                    "expectedDeliveryDate": today_iso,
+                    "items": [{"ingredientId": "ing-beans", "ingredientName": "Beans", "orderedQuantity": 15.0, "receivedQuantity": 0.0}],
+                }
+            ],
+            [],
+        ]
+
+        result = await check_receiving_discrepancies()
+        self.assertEqual(result.get("discrepant_orders_count"), 0)
+        rep = result.get("discrepancy_reports", [])[0]
+        self.assertFalse(rep.get("is_overdue"))
+        self.assertFalse(rep.get("has_discrepancies"))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_past_expected_date_is_overdue(self, mock_get):
+        yesterday_iso = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT00:00:00Z")
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "po-overdue-0000-0000-0000-000000000001",
+                    "status": "ORDERED",
+                    "expectedDeliveryDate": yesterday_iso,
+                    "items": [{"ingredientId": "ing-beans", "ingredientName": "Beans", "orderedQuantity": 15.0, "receivedQuantity": 0.0}],
+                }
+            ],
+            [],
+        ]
+
+        result = await check_receiving_discrepancies()
+        self.assertEqual(result.get("discrepant_orders_count"), 1)
+        rep = result.get("discrepancy_reports", [])[0]
+        self.assertTrue(rep.get("is_overdue"))
+        self.assertTrue(any("overdue" in i.lower() for i in rep.get("issues", [])))
+
+    @patch("tools.procurement_compliance._safe_get")
+    async def test_receiving_future_expected_date_not_overdue(self, mock_get):
+        future_iso = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%dT00:00:00Z")
+        mock_get.side_effect = [
+            [
+                {
+                    "id": "po-future-0000-0000-0000-000000000001",
+                    "status": "ORDERED",
+                    "expectedDeliveryDate": future_iso,
+                    "items": [{"ingredientId": "ing-beans", "ingredientName": "Beans", "orderedQuantity": 15.0, "receivedQuantity": 0.0}],
+                }
+            ],
+            [],
+        ]
+
+        result = await check_receiving_discrepancies()
+        self.assertEqual(result.get("discrepant_orders_count"), 0)
+        rep = result.get("discrepancy_reports", [])[0]
+        self.assertFalse(rep.get("is_overdue"))
+        self.assertFalse(rep.get("has_discrepancies"))
 
     @patch("tools.procurement_compliance._safe_get")
     async def test_complete_transaction_lifecycle_investigation(self, mock_get):
