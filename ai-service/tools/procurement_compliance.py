@@ -1139,17 +1139,209 @@ async def investigate_procurement_transaction(
         purchase_request_id=matched_pr.get("id") if matched_pr else "",
     )
 
+    # ─────────────────────────────────────────────────────────────────────────────
+    # BUILD CHRONOLOGICAL AUDIT TRAIL (PR -> PO -> Goods Receipt Lifecycle)
+    # ─────────────────────────────────────────────────────────────────────────────
+    audit_trail = []
+    step_num = 1
+
+    # Stage 1: Requisition Creation
+    if matched_pr:
+        pr_created_dt = str(matched_pr.get("requestedAt") or matched_pr.get("createdAt") or "")[:19]
+        audit_trail.append({
+            "step": step_num,
+            "lifecycle_stage": "REQUISITION_CREATED",
+            "event_name": "Purchase Request Submitted",
+            "timestamp": pr_created_dt or "Timestamp Unavailable",
+            "actor": matched_pr.get("requestedByName") or "Staff Requester",
+            "status_badge": "[PR_SUBMITTED]",
+            "visual_flag": "COMPLIANT",
+            "details": f"Created PR-{matched_pr.get('id', '')[:8].upper()} with {len(matched_pr.get('items', []))} item(s). Reason: {matched_pr.get('reason') or 'Standard Stock Requisition'}",
+        })
+        step_num += 1
+
+        # Stage 2: Restaurant Manager Approval
+        pr_status = matched_pr.get("status")
+        pr_appr_dt = str(matched_pr.get("approvedAt") or "")[:19]
+        if pr_status == "APPROVED":
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "MANAGER_APPROVAL",
+                "event_name": "Restaurant Manager Approval Granted",
+                "timestamp": pr_appr_dt or "Approval Recorded",
+                "actor": matched_pr.get("approvedByName") or "Restaurant Manager",
+                "status_badge": "[APPROVED]",
+                "visual_flag": "COMPLIANT",
+                "details": f"Requisition approved for commercial purchase order generation.",
+            })
+            step_num += 1
+        elif pr_status == "PENDING_APPROVAL":
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "MANAGER_APPROVAL",
+                "event_name": "Pending Restaurant Manager Review",
+                "timestamp": pr_created_dt,
+                "actor": "Pending Assignment",
+                "status_badge": "[PENDING_APPROVAL]",
+                "visual_flag": "WARNING",
+                "details": "Awaiting mandatory Restaurant Manager review before PO creation.",
+            })
+            step_num += 1
+        elif pr_status in ("REJECTED", "CANCELLED"):
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "MANAGER_APPROVAL",
+                "event_name": f"Purchase Request {pr_status}",
+                "timestamp": pr_appr_dt or pr_created_dt,
+                "actor": matched_pr.get("approvedByName") or "Manager",
+                "status_badge": f"[{pr_status}]",
+                "visual_flag": "TERMINATED",
+                "details": f"Requisition closed in {pr_status} status.",
+            })
+            step_num += 1
+    else:
+        audit_trail.append({
+            "step": step_num,
+            "lifecycle_stage": "REQUISITION_CREATED",
+            "event_name": "Direct Purchase Order (No PR Requisition)",
+            "timestamp": "N/A",
+            "actor": "Procurement Officer",
+            "status_badge": "[DIRECT_PO]",
+            "visual_flag": "INFO",
+            "details": "Purchase Order was created directly without a preceding approved Purchase Request.",
+        })
+        step_num += 1
+
+    # Stage 3: PO Creation (Draft)
+    if matched_po:
+        po_created_dt = str(matched_po.get("createdAt") or "")[:19]
+        audit_trail.append({
+            "step": step_num,
+            "lifecycle_stage": "PO_CREATED",
+            "event_name": "Purchase Order Draft Created",
+            "timestamp": po_created_dt or "Timestamp Unavailable",
+            "actor": matched_po.get("createdByName") or "Procurement Officer",
+            "status_badge": "[PO_DRAFT]",
+            "visual_flag": "COMPLIANT",
+            "details": f"PO-{matched_po.get('id', '')[:8].upper()} drafted for supplier '{matched_po.get('supplierName', 'Vendor')}' (Total: ${float(matched_po.get('totalAmount', 0)):.2f}).",
+        })
+        step_num += 1
+
+        # Stage 4: Procurement Officer Explicit Order Transmission
+        po_status = matched_po.get("status")
+        po_order_dt = str(matched_po.get("orderDate") or "")[:19]
+        if po_status in ("ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "COMPLETED"):
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "PO_ORDERED",
+                "event_name": "Purchase Order Transmitted to Vendor",
+                "timestamp": po_order_dt or po_created_dt,
+                "actor": "Procurement Officer",
+                "status_badge": "[ORDERED]",
+                "visual_flag": "COMPLIANT",
+                "details": f"Explicitly dispatched to vendor without requiring second-tier manager approval (Compliant with governance).",
+            })
+            step_num += 1
+        elif po_status == "DRAFT":
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "PO_ORDERED",
+                "event_name": "Purchase Order in DRAFT",
+                "timestamp": po_created_dt,
+                "actor": "Procurement Officer",
+                "status_badge": "[AWAITING_ORDER]",
+                "visual_flag": "INFO",
+                "details": "Order draft saved; awaiting Procurement Officer transmission to vendor.",
+            })
+            step_num += 1
+
+        # Stage 5: Goods Receipts
+        if po_receipts:
+            for rc in po_receipts:
+                rc_id = rc.get("id", "")
+                rc_code = f"GR-{rc_id[:8].upper()}" if rc_id else "GR"
+                rc_dt = str(rc.get("receiptDate") or rc.get("receivedAt") or rc.get("createdAt") or "")[:19]
+                rc_notes = rc.get("notes") or ""
+                has_damage = any(k in rc_notes.lower() for k in ("damag", "broken", "spoil", "reject", "leak"))
+                audit_trail.append({
+                    "step": step_num,
+                    "lifecycle_stage": "GOODS_RECEIVED",
+                    "event_name": f"Dock Delivery Logged ({rc_code})",
+                    "timestamp": rc_dt or "Delivery Recorded",
+                    "actor": rc.get("receivedByName") or "Warehouse Staff",
+                    "status_badge": "[DAMAGED_DETECTED]" if has_damage else "[GOODS_RECEIVED]",
+                    "visual_flag": "WARNING" if has_damage else "COMPLIANT",
+                    "details": f"Received {len(rc.get('items', []))} item line(s). Notes: {rc_notes or 'Intact packaging'}",
+                })
+                step_num += 1
+        elif po_status in ("ORDERED", "PARTIALLY_RECEIVED"):
+            # Check overdue delivery
+            exp_date_raw = matched_po.get("expectedDeliveryDate")
+            now_utc = datetime.now(timezone.utc)
+            is_overdue = False
+            days_ov = 0
+            if exp_date_raw:
+                try:
+                    exp_dt = datetime.fromisoformat(str(exp_date_raw).replace("Z", "+00:00"))
+                    if now_utc > exp_dt:
+                        is_overdue = True
+                        days_ov = max(1, (now_utc - exp_dt).days)
+                except (ValueError, TypeError):
+                    pass
+
+            audit_trail.append({
+                "step": step_num,
+                "lifecycle_stage": "AWAITING_RECEIPT",
+                "event_name": "Awaiting Dock Delivery",
+                "timestamp": str(matched_po.get("expectedDeliveryDate") or "")[:10] or "Pending",
+                "actor": "Warehouse Staff",
+                "status_badge": f"[OVERDUE_{days_ov}D]" if is_overdue else "[IN_TRANSIT]",
+                "visual_flag": "CRITICAL" if is_overdue else "INFO",
+                "details": f"Delivery is overdue by {days_ov} day(s)." if is_overdue else "Awaiting shipment arrival from supplier.",
+            })
+            step_num += 1
+
+    # Visual status badges
+    pr_badge = (
+        f"[{matched_pr.get('status')}]"
+        if matched_pr
+        else "[NO_PR_LINK]"
+    )
+    po_badge = (
+        f"[{matched_po.get('status')}]"
+        if matched_po
+        else "[NO_PO_GENERATED]"
+    )
+    receipt_badge = (
+        f"[RECEIVED_{len(po_receipts)}_RECEIPTS]"
+        if po_receipts
+        else ("[AWAITING_DELIVERY]" if matched_po and matched_po.get("status") in ("ORDERED", "PARTIALLY_RECEIVED") else "[NO_RECEIPT]")
+    )
+
+    lifecycle_integrity = (
+        "GOVERNANCE_BREACH"
+        if (matched_po and matched_pr and matched_pr.get("status") != "APPROVED")
+        else ("VERIFIED_COMPLIANT" if (matched_pr and matched_pr.get("status") == "APPROVED" and matched_po) else "PARTIAL_TRACE")
+    )
+
     return {
         "found": True,
         "investigation_target": query_or_id,
+        "visual_status_badges": {
+            "purchase_request_badge": pr_badge,
+            "purchase_order_badge": po_badge,
+            "receiving_badge": receipt_badge,
+            "lifecycle_integrity_badge": f"[{lifecycle_integrity}]",
+        },
+        "lifecycle_timeline": audit_trail,
         "purchase_request": {
             "id": matched_pr.get("id") if matched_pr else None,
             "code": f"PR-{matched_pr.get('id', '')[:8].upper()}" if matched_pr else None,
             "status": matched_pr.get("status") if matched_pr else "NO_LINKED_PR",
             "requested_by": matched_pr.get("requestedByName") if matched_pr else None,
-            "requested_at": str(matched_pr.get("requestedAt"))[:19] if matched_pr else None,
+            "requested_at": str(matched_pr.get("requestedAt") or matched_pr.get("createdAt") or "")[:19] if matched_pr else None,
             "approved_by": matched_pr.get("approvedByName") if matched_pr else None,
-            "approved_at": str(matched_pr.get("approvedAt"))[:19] if matched_pr else None,
+            "approved_at": str(matched_pr.get("approvedAt") or "")[:19] if matched_pr else None,
             "reason": matched_pr.get("reason") if matched_pr else None,
         } if matched_pr else None,
         "purchase_order": {
@@ -1158,9 +1350,9 @@ async def investigate_procurement_transaction(
             "status": matched_po.get("status") if matched_po else "NO_PO_CREATED",
             "supplier_name": matched_po.get("supplierName") if matched_po else None,
             "created_by": matched_po.get("createdByName") if matched_po else None,
-            "created_at": str(matched_po.get("createdAt"))[:19] if matched_po else None,
-            "order_date": str(matched_po.get("orderDate"))[:19] if matched_po else None,
-            "expected_delivery_date": str(matched_po.get("expectedDeliveryDate"))[:10] if matched_po else None,
+            "created_at": str(matched_po.get("createdAt") or "")[:19] if matched_po else None,
+            "order_date": str(matched_po.get("orderDate") or "")[:19] if matched_po else None,
+            "expected_delivery_date": str(matched_po.get("expectedDeliveryDate") or "")[:10] if matched_po else None,
             "total_amount": float(matched_po.get("totalAmount", 0)) if matched_po else 0.0,
         } if matched_po else None,
         "goods_receipts": [
@@ -1168,7 +1360,7 @@ async def investigate_procurement_transaction(
                 "id": rc.get("id"),
                 "code": f"GR-{rc.get('id', '')[:8].upper()}",
                 "received_by": rc.get("receivedByName") or "Staff",
-                "received_at": str(rc.get("receivedAt"))[:19],
+                "received_at": str(rc.get("receiptDate") or rc.get("receivedAt") or rc.get("createdAt") or "")[:19],
                 "item_count": len(rc.get("items", [])),
                 "notes": rc.get("notes"),
             }
