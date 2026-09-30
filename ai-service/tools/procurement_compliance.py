@@ -701,8 +701,8 @@ async def check_receiving_discrepancies(
                 if exp_dt.tzinfo is None:
                     exp_dt = exp_dt.replace(tzinfo=timezone.utc)
                 now_utc = datetime.now(timezone.utc)
-                if exp_dt < now_utc:
-                    days_overdue = (now_utc - exp_dt).days
+                if exp_dt.date() < now_utc.date():
+                    days_overdue = (now_utc.date() - exp_dt.date()).days
                     is_overdue = True
                     issues.append(
                         f"Overdue delivery: {po_code} was expected on {str(exp_delivery_raw)[:10]} "
