@@ -27,17 +27,28 @@ from .inventory import _get
 
 
 async def _safe_get(path: str, params: dict[str, Any] | None = None) -> Any:
-    """Safely fetch backend data with structured error handling."""
+    """Safely fetch backend data with structured error handling and graceful degradation."""
     try:
         return await _get(path, params)
     except httpx.HTTPStatusError as exc:
         return {
-            "error": f"Backend returned HTTP {exc.response.status_code}.",
+            "error": f"Backend returned HTTP {exc.response.status_code} for {path}.",
             "status_code": exc.response.status_code,
             "endpoint": path,
+            "is_backend_error": True,
+        }
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.NetworkError) as exc:
+        return {
+            "error": f"Backend service unreachable at {path} ({type(exc).__name__}).",
+            "endpoint": path,
+            "is_backend_error": True,
         }
     except Exception as exc:
-        return {"error": f"Backend data request failed: {exc}", "endpoint": path}
+        return {
+            "error": f"Backend data request to {path} failed: {type(exc).__name__}: {exc}",
+            "endpoint": path,
+            "is_backend_error": True,
+        }
 
 
 def _clean_id(raw_id: str | None) -> str:
@@ -775,6 +786,17 @@ async def analyze_procurement_compliance(
     key_findings = []
     high_count = 0
     medium_count = 0
+    system_diagnostics = []
+
+    # Check for endpoint or upstream retrieval errors across sub-checks
+    for sub_name, sub_res in [
+        ("Duplicate PR Check", duplicates_res),
+        ("PR-PO Consistency Check", consistency_res),
+        ("Workflow Compliance Check", workflow_res),
+        ("Receiving Discrepancy Check", receiving_res),
+    ]:
+        if isinstance(sub_res, dict) and "error" in sub_res:
+            system_diagnostics.append(f"{sub_name}: {sub_res.get('error')}")
 
     # Multi-factor score calculations with explicit weights:
     # 1. Workflow Governance (Weight: 35%)
@@ -883,6 +905,7 @@ async def analyze_procurement_compliance(
         "medium_severity_count": medium_count,
         "key_findings": key_findings,
         "recommended_review_actions": all_recommendations,
+        "system_diagnostics": system_diagnostics,
         "categorized_recommendations": {
             "restaurant_manager_actions": manager_actions,
             "procurement_officer_actions": officer_actions,
