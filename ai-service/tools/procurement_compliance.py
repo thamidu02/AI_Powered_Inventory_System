@@ -453,9 +453,13 @@ async def check_pr_po_consistency(
 
     overall_risk = "HIGH" if any(r["risk_level"] == "HIGH" for r in reports) else ("MEDIUM" if total_mismatches > 0 else "LOW")
     total_unauthorized_variance = sum(r.get("unauthorized_spend_variance", 0.0) for r in reports)
+    linked_orders_count = sum(1 for r in reports if r.get("is_linked_to_pr"))
+    direct_orders_count = sum(1 for r in reports if not r.get("is_linked_to_pr"))
 
     return {
         "total_orders_analyzed": len(reports),
+        "linked_orders_count": linked_orders_count,
+        "direct_orders_count": direct_orders_count,
         "inconsistent_orders_count": total_mismatches,
         "total_unauthorized_variance": round(total_unauthorized_variance, 2),
         "consistency_reports": reports,
@@ -463,7 +467,7 @@ async def check_pr_po_consistency(
         "summary": (
             f"Identified {total_mismatches} Purchase Order(s) with PR consistency issues or quantity variances."
             if total_mismatches > 0
-            else f"All {len(reports)} analyzed Purchase Orders match their approved Purchase Requests consistently."
+            else f"All {len(reports)} analyzed Purchase Orders ({linked_orders_count} linked to approved PRs, {direct_orders_count} direct) match consistently."
         ),
     }
 
