@@ -336,6 +336,11 @@ async def check_pr_po_consistency(
             issues.append(f"PO is linked to PR {pr_code} which is '{pr_status}' (not APPROVED).")
 
         # Compare items in PR
+        total_po_amount = float(po.get("totalAmount", 0)) or sum(
+            float(it.get("orderedQuantity", 0)) * float(it.get("unitPrice", 0)) for it in po_items
+        )
+        unauthorized_variance_cost = 0.0
+
         for ing_id, pr_item in pr_item_map.items():
             ing_name = pr_item.get("ingredientName") or "Ingredient"
             req_qty = float(pr_item.get("requestedQuantity", 0))
@@ -348,22 +353,28 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": 0.0,
+                    "unit_price": 0.0,
                     "variance": -req_qty,
                     "variance_percentage": -100.0,
+                    "cost_impact": 0.0,
                     "status": "OMITTED_IN_PO",
                 })
             else:
                 ord_qty = float(po_item.get("orderedQuantity", 0))
+                unit_price = float(po_item.get("unitPrice", 0))
                 variance = ord_qty - req_qty
                 var_pct = round((variance / req_qty) * 100, 1) if req_qty > 0 else 0.0
 
                 comp_status = "MATCH"
+                item_cost_impact = 0.0
                 if abs(variance) > 0.001:
                     if ord_qty > req_qty:
                         comp_status = "PO_QUANTITY_EXCEEDS_PR"
+                        item_cost_impact = round((ord_qty - req_qty) * unit_price, 2)
+                        unauthorized_variance_cost += item_cost_impact
                         issues.append(
                             f"Quantity mismatch for '{ing_name}': Approved PR requested {req_qty} {pr_item.get('ingredientUnit', '')}, "
-                            f"but PO ordered {ord_qty} (+{var_pct}%)."
+                            f"but PO ordered {ord_qty} (+{var_pct}%). Financial delta: +${item_cost_impact:,.2f}."
                         )
                     else:
                         comp_status = "PO_QUANTITY_LESS_THAN_PR"
@@ -377,8 +388,10 @@ async def check_pr_po_consistency(
                     "ingredient_name": ing_name,
                     "requested_quantity": req_qty,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
                     "variance": round(variance, 2),
                     "variance_percentage": var_pct,
+                    "cost_impact": item_cost_impact,
                     "status": comp_status,
                 })
 
@@ -387,28 +400,44 @@ async def check_pr_po_consistency(
             if ing_id not in pr_item_map:
                 ing_name = po_item.get("ingredientName") or "Ingredient"
                 ord_qty = float(po_item.get("orderedQuantity", 0))
-                issues.append(f"Extra item '{ing_name}' ({ord_qty} units) in PO was never requested in approved PR {pr_code}.")
+                unit_price = float(po_item.get("unitPrice", 0))
+                extra_item_cost = round(ord_qty * unit_price, 2)
+                unauthorized_variance_cost += extra_item_cost
+                issues.append(
+                    f"Extra item '{ing_name}' ({ord_qty} units @ ${unit_price:,.2f}) in PO was never requested in approved PR {pr_code}. "
+                    f"Cost impact: +${extra_item_cost:,.2f}."
+                )
                 item_comparisons.append({
                     "ingredient_id": ing_id,
                     "ingredient_name": ing_name,
                     "requested_quantity": 0.0,
                     "ordered_quantity": ord_qty,
+                    "unit_price": unit_price,
                     "variance": ord_qty,
                     "variance_percentage": 100.0,
+                    "cost_impact": extra_item_cost,
                     "status": "EXTRA_ITEM_IN_PO",
                 })
+
+        if unauthorized_variance_cost > 0:
+            issues.append(
+                f"Financial variance on {po_code}: ${unauthorized_variance_cost:,.2f} in unauthorized or inflated spend compared to approved requisition."
+            )
 
         has_discrepancy = len(issues) > 0
         if has_discrepancy:
             total_mismatches += 1
 
-        po_risk = "HIGH" if pr_status != "APPROVED" or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons) else ("MEDIUM" if has_discrepancy else "LOW")
+        po_risk = "HIGH" if (pr_status != "APPROVED" or unauthorized_variance_cost > 100 or any(c.get("variance_percentage", 0) > 30 for c in item_comparisons)) else ("MEDIUM" if has_discrepancy else "LOW")
 
         reports.append({
             "purchase_order_id": po_id,
             "purchase_order_code": po_code,
             "status": po_status,
             "supplier_name": po.get("supplierName") or "Vendor",
+            "total_ordered_amount": round(total_po_amount, 2),
+            "unauthorized_spend_variance": round(unauthorized_variance_cost, 2),
+            "has_financial_variance": unauthorized_variance_cost > 0,
             "linked_pr_id": pr_id,
             "linked_pr_code": pr_code,
             "linked_pr_status": pr_status,
