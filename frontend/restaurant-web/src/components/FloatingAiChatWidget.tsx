@@ -35,6 +35,10 @@ import './FloatingAiChatWidget.css';
 const API = 'http://localhost:5066';
 
 const QUICK_ACTIONS = [
+  { label: 'Check Next Week Demand', icon: TrendingUp,    message: "Analyze next week's demand and identify ingredients that may require additional purchasing" },
+  { label: 'Should We Purchase?',    icon: Scale,         message: "Do we need to purchase 90 kg of chicken breast for next week based on predicted demand and current stock?" },
+  { label: 'Analyze Demand & Stock', icon: PackageSearch, message: "Analyze demand forecasts and current stock levels to evaluate inventory planning and shortage risks" },
+  { label: 'Explain Forecast',       icon: Sparkles,      message: "Explain the demand forecast and weather influence factors for our top menu ingredients" },
   { label: 'Guide: Receive Stock',  icon: Sparkles,      message: 'Show me how to receive a new stock batch' },
   { label: 'Check Low Stock',       icon: PackageSearch, message: 'Check for low stock ingredients that need replenishment' },
   { label: 'Investigate Anomaly',   icon: AlertTriangle, message: 'Investigate stock discrepancies and anomalies across all ingredients' },
@@ -51,6 +55,7 @@ const QUICK_ACTIONS = [
 ];
 
 const WORKFLOW_COLORS: Record<string, string> = {
+  DEMAND_FORECAST_AND_PLANNING:         '#10b981',
   SALES_CONSUMPTION_WASTE:              '#a855f7',
   GUIDED_WORKFLOW:                    '#3b82f6',
   LOW_STOCK_REPLENISHMENT:            '#f59e0b',
