@@ -49,6 +49,7 @@ COMPONENT3_STAGE_BY_TOOL = {
 
 INTENT_SYSTEM = """
 You are an inventory and procurement AI assistant for a restaurant. Classify the user's intent into ONE of:
+  DEMAND_FORECAST_AND_PLANNING — analyze ML demand forecasts, evaluate proposed purchase quantities against predicted demand and current stock (e.g. 'Do we need to purchase 90 kg of chicken for next week?'), identify ingredient shortage risks, or explain demand forecast weather factors
   PROCUREMENT_COMPLIANCE_INVESTIGATION — analyze procurement compliance, audit PR/PO consistency, investigate purchase orders/requests, check duplicate PRs, review approval workflows, or verify receiving discrepancies
   SALES_CONSUMPTION_WASTE   — analyze recorded sales, recipe-derived consumption, stock movements, or waste
   GUIDED_WORKFLOW           — user wants to know how to perform an action, asks for a tutorial, walkthrough, or step-by-step UI guidance (e.g. 'Show me how to receive stock', 'guide me through receiving chicken', 'how do I receive a new batch', 'walk me through...', 'show me how to...')
@@ -594,7 +595,123 @@ Approval:
 
 {OUTPUT_RULES_AND_FORMAT}
 """,
+    "DEMAND_FORECAST_AND_PLANNING": f"""
+You are the Component 4 Demand Forecasting & Inventory Planning AI Agent inside a restaurant inventory and procurement management system.
+
+Your primary mission is to evaluate demand planning questions, evaluate proposed purchase quantities against ML demand forecasts and current stock, and generate data-driven reorder recommendations using live database records, ML forecasting, and weather influence signals.
+
+Your tools and capabilities:
+1. When the user proposes a purchase quantity or asks whether to purchase an amount (e.g. "Do we need to purchase 90 kg of chicken for next week?", "Should we buy 50 kg of rice?"):
+   • Call evaluate_purchase_requirement(ingredient_name_or_id="...", proposed_quantity=..., period_days=7).
+   • The tool returns live stock, predicted ML demand, safety stock, net requirement, and variance.
+   • Reason over these exact numbers to advise whether the proposed purchase creates a surplus, deficit, or optimal match.
+2. When the user asks for demand projections, weekly requirements, or items likely to run short (e.g. "How much chicken will we need next week?", "Which ingredients are likely to run short next week?", "Analyze demand & stock"):
+   • Call get_demand_forecast(ingredient_id=..., days=7) or get_planning_context(days=7).
+3. When the user asks why demand is increasing/decreasing or how weather affects the forecast (e.g. "Explain forecast", "Why is chicken demand expected to increase?"):
+   • Call explain_demand_forecast(ingredient_id_or_name=..., days=7).
+4. When supplier comparison or cost estimation is needed:
+   • Call get_supplier_options(ingredient_id=..., required_quantity=...).
+
+Strict Reasoning & Governance Rules:
+• All numbers (current stock, predicted demand, net requirement) MUST come from tool results. NEVER hard-code or invent values.
+• If data is insufficient, state: "Insufficient data to make a reliable recommendation."
+• Purchasing recommendations require manager authorization: "Manager approval required."
+
+After executing the tools, you MUST summarize your final response strictly adhering to the 7 required sections:
+
+Summary:
+• Concise overview of the demand planning evaluation and purchase assessment.
+
+Current Situation:
+• Ingredient: (name and unit)
+• Current stock: (from live inventory)
+• Minimum stock level: (threshold configured)
+• Expected demand: (ML forecast for the period)
+• Relevant expiry or weather influence: (weather impact or batch status if applicable)
+
+Analysis:
+• Detailed evaluation comparing current stock + proposed purchase vs predicted demand and safety buffer.
+• State clearly whether the proposed purchase creates a surplus, deficit, or optimal match.
+• Highlight any weather-related demand adjustments or shortage risks.
+
+Recommendation:
+• Clear recommendation stating whether to purchase the proposed amount or adjust to the data-driven recommendation.
+
+Reason:
+• Factual justification based on predicted ML demand, safety stock buffer, and current inventory.
+
+Required Action:
+• Clear step-by-step next actions:
+  1. Review the data-driven purchase recommendation.
+  2. Prepare a Purchase Request for the recommended quantity.
+
+Approval:
+• State explicitly: "Manager approval required."
+  (Manager approval required before the purchase request is finalized).
+
+{OUTPUT_RULES_AND_FORMAT}
+""",
 }
+
+def _demand_planning_intent_from_request(message: str) -> str | None:
+    """Detect Demand Forecasting & Planning Agentic AI requests."""
+    request = message.lower().strip()
+
+    # Don't hijack if it's clearly a procurement compliance audit
+    if re.search(r"\b(pr|po|gr)-(?!po\b)[a-z0-9]{1,36}\b", request):
+        return None
+    if any(k in request for k in ("duplicate pr", "duplicate purchase", "audit procurement", "receiving variance", "pr-po consistency", "pr to po")):
+        return None
+
+    # 1. Purchase evaluation & need forecasting questions: "Do we need to purchase 90 kg...", "How much chicken will we need next week?"
+    purchase_eval_patterns = (
+        r"\b(?:do we need to|should we|should i|do i need to|can we|is it enough to)\s+(?:purchase|buy|order|replenish|procure)\b",
+        r"\b(?:increase|decrease|adjust)\s+(?:the\s+)?(?:purchase|order)\s+quantity\b",
+        r"\b(?:purchase|buy|order)\s+\d+(?:\.\d+)?\s*(?:kg|g|l|ml|units?|packs?|boxes?|bags?|bottles?|tins?|cans?)?\b",
+        r"\bhow\s+much\s+(?:of\s+)?[a-z\s]+\s+(?:will\s+we\s+need|do\s+we\s+need|is\s+needed)\b",
+        r"\b(?:will\s+we\s+need|do\s+we\s+need)\s+(?:next\s+week|tomorrow|this\s+week|in\s+the\s+next)\b",
+        r"\bwhy\s+is\s+[a-z\s]+\s+demand\s+(?:expected\s+to\s+)?(?:increase|decrease|grow|drop|change)\b",
+    )
+    if any(re.search(pattern, request) for pattern in purchase_eval_patterns):
+        return "DEMAND_FORECAST_AND_PLANNING"
+
+    # 2. Demand forecasting keywords & quick actions
+    high_confidence_demand_phrases = (
+        "demand forecast",
+        "forecast demand",
+        "predict demand",
+        "predicted demand",
+        "expected demand",
+        "demand prediction",
+        "future demand",
+        "next week's demand",
+        "next week demand",
+        "check next week",
+        "should we purchase",
+        "analyze demand",
+        "explain forecast",
+        "forecast explanation",
+        "weather influence",
+        "weather forecast impact",
+        "how much will we need",
+        "how much do we need next week",
+        "how much of",
+        "ingredients that may require additional purchasing",
+        "which ingredients are likely to run short",
+        "likely to run short",
+        "run short next week",
+        "what ingredients should i purchase based on predicted demand",
+        "what ingredients should i purchase for next week",
+        "based on predicted demand",
+    )
+    if any(phrase in request for phrase in high_confidence_demand_phrases):
+        return "DEMAND_FORECAST_AND_PLANNING"
+
+    # 3. Two-factor matching: "demand" or "forecast" + planning/requirement query
+    if ("demand" in request or "forecast" in request) and any(w in request for w in ("next", "week", "month", "chicken", "beef", "ingredient", "stock", "plan", "short", "need", "purchase", "weather")):
+        return "DEMAND_FORECAST_AND_PLANNING"
+
+    return None
 
 def _procurement_intent_from_request(message: str) -> str | None:
     request = message.lower().strip()
@@ -2602,6 +2719,17 @@ def _sse(event_type: str, data: Any) -> str:
     return f"data: {payload}\n\n"
 
 
+PRIORITY_INTENT_DETECTORS = (
+    _procurement_intent_from_request,   # PO/PR compliance
+    _emergency_intent_from_request,     # emergency shortage
+    _demand_planning_intent_from_request, # Demand Forecasting & Planning
+    _anomaly_intent_from_request,       # stock discrepancy
+    _optimization_intent_from_request,  # reorder level optimization
+    _low_stock_intent_from_request,     # low stock / replenishment
+    _component3_intent_from_request,    # sales / consumption / waste
+)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Main agent entry point
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2634,18 +2762,8 @@ async def run_agent(
         return
 
     # ── Priority intent detection (deterministic, before Gemini call) ─────────
-    # Order matters: more-specific detectors run first to prevent broad
-    # Component 3 terms from hijacking other intents.
-    _priority_detectors = [
-        _procurement_intent_from_request,   # PO/PR compliance
-        _emergency_intent_from_request,     # emergency shortage
-        _anomaly_intent_from_request,       # stock discrepancy
-        _low_stock_intent_from_request,     # low stock / replenishment
-        _optimization_intent_from_request,  # reorder level optimization
-        _component3_intent_from_request,    # sales / consumption / waste
-    ]
     intent: str | None = None
-    for _detect in _priority_detectors:
+    for _detect in PRIORITY_INTENT_DETECTORS:
         intent = _detect(message)
         if intent:
             break
