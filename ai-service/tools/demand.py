@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -988,6 +989,217 @@ async def evaluate_demand_model() -> dict:
     }
 
 
+async def evaluate_purchase_requirement(
+    ingredient_name_or_id: str,
+    proposed_quantity: float,
+    period_days: int = 7,
+) -> dict:
+    """
+    Agentic Planning Tool: Evaluate a proposed purchase quantity against predicted ML demand and live stock.
+    Example: "Do we need to purchase 90 kg of chicken for next week?"
+    Returns: Current stock, predicted demand, safety stock, net requirement, comparison verdict, and actionable recommendation context.
+    """
+    details = await get_ingredient_details(ingredient_name_or_id)
+    if "error" in details:
+        return {"error": f"Could not find ingredient '{ingredient_name_or_id}'.", "details": details}
+
+    ing_id = str(details.get("ingredient_id") or details.get("id"))
+    ing_name = details.get("name") or ingredient_name_or_id
+    unit = details.get("unit") or "units"
+    current_stock = float(details.get("current_stock") or 0.0)
+    min_stock = float(details.get("minimum_stock") or 0.0)
+    max_stock = float(details.get("maximum_stock") or 0.0)
+
+    period_days = max(1, min(int(period_days), 30))
+    forecast = await get_demand_forecast(ingredient_id=ing_id, days=period_days)
+
+    predicted_demand = 0.0
+    daily_avg_demand = 0.0
+    prediction_source = "ML_MODEL"
+    weather_impact_note = None
+
+    if isinstance(forecast, dict) and "weeklyForecast" in forecast:
+        predicted_demand = float(forecast.get("weeklyForecast") or 0.0)
+        daily_avg_demand = float(forecast.get("dailyAverageDemand") or (predicted_demand / period_days if period_days else 0.0))
+        prediction_source = forecast.get("predictionSource", "ML_MODEL")
+        if forecast.get("weatherImpactFactor") and forecast.get("weatherImpactFactor") != 1.0:
+            weather_impact_note = f"Weather impact adjustment factor: {forecast.get('weatherImpactFactor')}x"
+    elif isinstance(forecast, dict) and "predicted_demand" in forecast:
+        predicted_demand = float(forecast.get("predicted_demand") or 0.0)
+        daily_avg_demand = predicted_demand / period_days if period_days else 0.0
+        prediction_source = forecast.get("model_type", "ML_MODEL")
+    elif isinstance(forecast, dict) and "forecasts" in forecast:
+        for f in forecast.get("forecasts", []):
+            if str(f.get("ingredientId")) == ing_id or str(f.get("ingredientName", "")).lower() == ing_name.lower():
+                predicted_demand = float(f.get("weeklyForecast") or f.get("predicted_demand") or 0.0)
+                daily_avg_demand = float(f.get("dailyAverageDemand") or (predicted_demand / period_days if period_days else 0.0))
+                prediction_source = f.get("predictionSource", "ML_MODEL")
+                break
+
+    safety_stock = min_stock if min_stock > 0 else round(predicted_demand * 0.1, 2)
+    net_required = max(0.0, round(predicted_demand + safety_stock - current_stock, 2))
+
+    proposed_qty = float(proposed_quantity)
+    variance = round(proposed_qty - net_required, 2)
+
+    if proposed_qty <= 0:
+        verdict = "ZERO_PURCHASE"
+        verdict_summary = "No purchase proposed."
+    elif math.isclose(proposed_qty, net_required, rel_tol=1e-3, abs_tol=0.1):
+        verdict = "OPTIMAL_MATCH"
+        verdict_summary = f"Proposed purchase of {proposed_qty} {unit} matches the net requirement of {net_required} {unit}."
+    elif proposed_qty > net_required:
+        surplus = round(proposed_qty - net_required, 2)
+        verdict = "SURPLUS_ORDER"
+        verdict_summary = f"Proposed purchase of {proposed_qty} {unit} exceeds net requirement ({net_required} {unit}) by {surplus} {unit}."
+    else:
+        deficit = round(net_required - proposed_qty, 2)
+        verdict = "DEFICIT_ORDER"
+        verdict_summary = f"Proposed purchase of {proposed_qty} {unit} is insufficient; leaves a deficit of {deficit} {unit}."
+
+    max_allowable = max_stock - current_stock if max_stock > 0 else net_required * 1.5
+    recommended_qty = min(net_required, max_allowable) if max_stock > 0 else net_required
+
+    return {
+        "ingredient_id": ing_id,
+        "ingredient_name": ing_name,
+        "unit": unit,
+        "period_days": period_days,
+        "current_stock": current_stock,
+        "minimum_stock_level": min_stock,
+        "maximum_stock_level": max_stock,
+        "predicted_demand": round(predicted_demand, 2),
+        "daily_average_demand": round(daily_avg_demand, 2),
+        "safety_stock_considered": round(safety_stock, 2),
+        "net_required_quantity": net_required,
+        "proposed_quantity": proposed_qty,
+        "quantity_variance": variance,
+        "verdict": verdict,
+        "verdict_summary": verdict_summary,
+        "recommended_purchase_quantity": recommended_qty,
+        "prediction_source": prediction_source,
+        "weather_impact_note": weather_impact_note,
+        "days_of_stock_available": round(current_stock / daily_avg_demand, 1) if daily_avg_demand > 0 else 99.0,
+    }
+
+
+async def get_planning_context(
+    ingredient_id_or_name: str | None = None,
+    days: int = 7,
+) -> dict:
+    """
+    Retrieve comprehensive Demand & Planning context across ingredients (or a specific item).
+    Combines live stock, ML predicted demand, safety stock, days of stock remaining, and shortage risks.
+    """
+    days = max(1, min(int(days), 30))
+    all_ing = await list_all_ingredients()
+    if "error" in all_ing:
+        return all_ing
+
+    forecast_resp = await get_demand_forecast(days=days)
+    forecast_map = {}
+    if isinstance(forecast_resp, dict) and "forecasts" in forecast_resp:
+        for f in forecast_resp["forecasts"]:
+            forecast_map[str(f.get("ingredientId"))] = f
+
+    target_id = None
+    if ingredient_id_or_name:
+        details = await get_ingredient_details(ingredient_id_or_name)
+        if "error" not in details:
+            target_id = str(details.get("ingredient_id"))
+
+    planning_items = []
+    for ing in all_ing.get("ingredients", []):
+        ing_id = str(ing["ingredient_id"])
+        if target_id and ing_id != target_id:
+            continue
+
+        current = float(ing.get("current_stock") or 0.0)
+        min_stock = float(ing.get("minimum_stock") or 0.0)
+        max_stock = float(ing.get("maximum_stock") or 0.0)
+
+        fc = forecast_map.get(ing_id, {})
+        pred_demand = float(fc.get("weeklyForecast") or fc.get("predicted_demand") or 0.0)
+        daily_avg = float(fc.get("dailyAverageDemand") or (pred_demand / days if days else 0.0))
+
+        safety_stock = min_stock if min_stock > 0 else round(pred_demand * 0.1, 2)
+        net_required = max(0.0, round(pred_demand + safety_stock - current, 2))
+        days_remaining = round(current / daily_avg, 1) if daily_avg > 0 else 99.0
+
+        if current <= 0 and pred_demand > 0:
+            urgency = "CRITICAL"
+        elif days_remaining <= 2:
+            urgency = "HIGH"
+        elif days_remaining <= days or current < min_stock:
+            urgency = "MEDIUM"
+        else:
+            urgency = "LOW"
+
+        planning_items.append({
+            "ingredient_id": ing_id,
+            "ingredient_name": ing.get("name"),
+            "sku": ing.get("sku"),
+            "category": ing.get("category"),
+            "unit": ing.get("unit"),
+            "current_stock": current,
+            "minimum_stock": min_stock,
+            "maximum_stock": max_stock,
+            "predicted_demand": round(pred_demand, 2),
+            "daily_average_demand": round(daily_avg, 2),
+            "net_required_replenishment": net_required,
+            "days_of_stock_remaining": days_remaining,
+            "reorder_urgency": urgency,
+            "weather_impact_factor": fc.get("weatherImpactFactor"),
+        })
+
+    planning_items.sort(key=lambda x: (
+        0 if x["reorder_urgency"] == "CRITICAL" else 1 if x["reorder_urgency"] == "HIGH" else 2 if x["reorder_urgency"] == "MEDIUM" else 3,
+        x["days_of_stock_remaining"]
+    ))
+
+    return {
+        "period_days": days,
+        "total_ingredients_evaluated": len(planning_items),
+        "items_needing_replenishment": sum(1 for i in planning_items if i["net_required_replenishment"] > 0),
+        "planning_items": planning_items if not target_id else planning_items[:1],
+    }
+
+
+async def explain_demand_forecast(
+    ingredient_id_or_name: str,
+    days: int = 7,
+) -> dict:
+    """
+    Explain the factors influencing the demand forecast for a specific ingredient.
+    Includes ML model evaluation metrics, weather influence, and historical baseline.
+    """
+    days = max(1, min(int(days), 30))
+    details = await get_ingredient_details(ingredient_id_or_name)
+    if "error" in details:
+        return details
+
+    ing_id = str(details.get("ingredient_id"))
+    fc = await get_demand_forecast(ingredient_id=ing_id, days=days)
+    model_eval = await evaluate_demand_model()
+
+    weather_ctx = None
+    try:
+        weather_ctx = await _get("/api/weather/forecast")
+    except Exception:
+        pass
+
+    return {
+        "ingredient_id": ing_id,
+        "ingredient_name": details.get("name"),
+        "unit": details.get("unit"),
+        "forecast_period_days": days,
+        "forecast_data": fc,
+        "model_evaluation": model_eval,
+        "weather_context": weather_ctx,
+        "explanation_summary": f"Demand forecast generated for {details.get('name')} over {days} days using ML Random Forest model with weather signals.",
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # GEMINI FUNCTION DECLARATIONS & DISPATCH
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1113,6 +1325,43 @@ TOOL_DEFINITIONS = Tool(function_declarations=[
         name="evaluate_demand_model",
         description="Retrieve evaluation metrics (MAE, RMSE, baseline comparison) for the ML demand model.",
         parameters={"type": "object", "properties": {}, "required": []},
+    ),
+    FunctionDeclaration(
+        name="evaluate_purchase_requirement",
+        description="Evaluate a proposed ingredient purchase quantity against ML predicted demand and current stock (e.g. 'Do we need to purchase 90 kg of chicken for next week?'). Returns comparison verdict, net requirements, and data-driven recommendations.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "ingredient_name_or_id": {"type": "string", "description": "Name, SKU, or UUID of the ingredient (e.g. 'Chicken Breast')"},
+                "proposed_quantity": {"type": "number", "description": "Proposed purchase quantity to evaluate (e.g. 90)"},
+                "period_days": {"type": "integer", "description": "Planning horizon in days (default 7)"},
+            },
+            "required": ["ingredient_name_or_id", "proposed_quantity"],
+        },
+    ),
+    FunctionDeclaration(
+        name="get_planning_context",
+        description="Get comprehensive demand and inventory planning context across ingredients or for a specific item, including predicted demand, stock on hand, minimum thresholds, days of supply, and shortage risks.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "ingredient_id_or_name": {"type": "string", "description": "Optional ingredient name or UUID"},
+                "days": {"type": "integer", "description": "Forecast period in days (default 7)"},
+            },
+            "required": [],
+        },
+    ),
+    FunctionDeclaration(
+        name="explain_demand_forecast",
+        description="Explain the ML forecasting factors, model evaluation, and weather influence for an ingredient over a forecast horizon.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "ingredient_id_or_name": {"type": "string", "description": "Name or UUID of the ingredient"},
+                "days": {"type": "integer", "description": "Forecast horizon in days (default 7)"},
+            },
+            "required": ["ingredient_id_or_name"],
+        },
     ),
     FunctionDeclaration(
         name="get_supplier_options",
@@ -1366,6 +1615,9 @@ TOOL_DISPATCH: dict[str, Any] = {
     "get_ingredient_stock": get_ingredient_stock,
     "get_expiring_batches": get_expiring_batches,
     "get_demand_forecast": get_demand_forecast,
+    "evaluate_purchase_requirement": evaluate_purchase_requirement,
+    "get_planning_context": get_planning_context,
+    "explain_demand_forecast": explain_demand_forecast,
     "train_demand_model": train_demand_model,
     "evaluate_demand_model": evaluate_demand_model,
     "get_supplier_options": get_supplier_options,
