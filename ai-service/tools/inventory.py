@@ -29,7 +29,7 @@ from .guided_workflows import (
 
 BACKEND          = os.getenv("BACKEND_BASE_URL", "http://localhost:5066")
 MODEL            = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-SERVICE_EMAIL    = os.getenv("SERVICE_ACCOUNT_EMAIL", "inventory@restaurant.com")
+SERVICE_EMAIL    = os.getenv("SERVICE_ACCOUNT_EMAIL", "ai-service@restaurant.com")
 SERVICE_PASSWORD = os.getenv("SERVICE_ACCOUNT_PASSWORD", "Restaurant@123")
 
 # ─── Token cache (in-memory, refreshed on 401) ───────────────────────────────

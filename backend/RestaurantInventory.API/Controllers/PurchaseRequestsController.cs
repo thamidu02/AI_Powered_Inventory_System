@@ -19,7 +19,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER,AI_SERVICE")]
     public async Task<IActionResult> GetAll([FromQuery] string? status = null)
     {
         var result = await _service.GetAllAsync(status);
@@ -27,7 +27,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,PROCUREMENT_OFFICER,AI_SERVICE")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);

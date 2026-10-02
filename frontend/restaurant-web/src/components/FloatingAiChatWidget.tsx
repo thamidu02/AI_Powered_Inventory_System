@@ -17,6 +17,9 @@ import {
   AlertTriangle,
   TrendingUp,
   ShieldAlert,
+  FileSearch,
+  Scale,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import { getStoredToken } from '../services/api';
@@ -32,11 +35,19 @@ import './FloatingAiChatWidget.css';
 const API = 'http://localhost:5066';
 
 const QUICK_ACTIONS = [
+  { label: 'Check Next Week Demand', icon: TrendingUp,    message: "Analyze next week's demand and identify ingredients that may require additional purchasing" },
+  { label: 'Should We Purchase?',    icon: Scale,         message: "Do we need to purchase 90 kg of chicken breast for next week based on predicted demand and current stock?" },
+  { label: 'Analyze Demand & Stock', icon: PackageSearch, message: "Analyze demand forecasts and current stock levels to evaluate inventory planning and shortage risks" },
+  { label: 'Explain Forecast',       icon: Sparkles,      message: "Explain the demand forecast and weather influence factors for our top menu ingredients" },
   { label: 'Guide: Receive Stock',  icon: Sparkles,      message: 'Show me how to receive a new stock batch' },
   { label: 'Check Low Stock',       icon: PackageSearch, message: 'Check for low stock ingredients that need replenishment' },
   { label: 'Investigate Anomaly',   icon: AlertTriangle, message: 'Investigate stock discrepancies and anomalies across all ingredients' },
   { label: 'Optimize Levels',       icon: TrendingUp,    message: 'Analyze and optimize reorder levels based on 90-day consumption history' },
   { label: 'Emergency Shortage',    icon: ShieldAlert,   message: 'Emergency — we have critically low stock on a key ingredient' },
+  { label: 'Audit Procurement',     icon: ShieldCheck,   message: 'Run an overall procurement compliance analysis across all purchase orders and purchase requests' },
+  { label: 'Check Duplicate PRs',   icon: FileSearch,    message: 'Check for duplicate or overlapping Purchase Requests within the last 14 days' },
+  { label: 'Verify PR-PO Match',    icon: Sparkles,      message: 'Verify Purchase Orders against linked approved Purchase Requests for line-item and quantity consistency' },
+  { label: 'Receiving Variances',   icon: Scale,         message: 'Audit goods receipt records against commercial Purchase Orders to detect over or under-receiving' },
   { label: 'Analyze Sales',         icon: TrendingUp,    message: 'Analyze recorded sales performance for the last 30 days' },
   { label: 'Track Consumption',     icon: PackageSearch, message: 'Analyze ingredient consumption and stock movements for the last 30 days' },
   { label: 'Analyze Waste',         icon: AlertTriangle, message: 'Analyze recorded waste by ingredient and reason for the last 30 days' },
@@ -44,12 +55,14 @@ const QUICK_ACTIONS = [
 ];
 
 const WORKFLOW_COLORS: Record<string, string> = {
-  SALES_CONSUMPTION_WASTE: '#a855f7',
-  GUIDED_WORKFLOW: '#3b82f6',
-  LOW_STOCK_REPLENISHMENT: '#f59e0b',
-  ANOMALY_INVESTIGATION: '#ef4444',
-  INVENTORY_OPTIMIZATION: '#8b5cf6',
-  EMERGENCY_SHORTAGE: '#ec4899',
+  DEMAND_FORECAST_AND_PLANNING:         '#10b981',
+  SALES_CONSUMPTION_WASTE:              '#a855f7',
+  GUIDED_WORKFLOW:                    '#3b82f6',
+  LOW_STOCK_REPLENISHMENT:            '#f59e0b',
+  ANOMALY_INVESTIGATION:              '#ef4444',
+  INVENTORY_OPTIMIZATION:             '#8b5cf6',
+  EMERGENCY_SHORTAGE:                 '#ec4899',
+  PROCUREMENT_COMPLIANCE_INVESTIGATION: '#0284c7',
 };
 
 export const FloatingAiChatWidget: React.FC = () => {
