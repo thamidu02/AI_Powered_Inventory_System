@@ -28,7 +28,7 @@ public class AiProxyService : IAiProxyService
     {
         _http = http;
         _db   = db;
-        _aiServiceUrl = cfg["AiService:BaseUrl"] ?? "http://localhost:8000";
+        _aiServiceUrl = cfg["AiService:BaseUrl"] ?? "http://localhost:8001";
     }
 
     // ─── Stream chat ─────────────────────────────────────────────────────────

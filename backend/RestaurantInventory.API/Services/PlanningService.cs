@@ -33,7 +33,7 @@ public class PlanningService : IPlanningService
         _weatherService = weatherService;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
-        _aiServiceUrl = configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
+        _aiServiceUrl = configuration["AiService:BaseUrl"] ?? "http://localhost:8001";
     }
 
     public async Task<IReadOnlyList<DemandPlan>> GenerateDemandPlansAsync(

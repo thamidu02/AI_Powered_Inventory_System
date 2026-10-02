@@ -45,7 +45,7 @@ graph TD
     end
 
     subgraph InternalServices["Internal Subsystems & External APIs"]
-        AI["Python Agentic AI Service<br/>Port: 8000 (Internal Only)<br/>FastAPI + Gemini + Scikit-Learn"]
+        AI["Python Agentic AI Service<br/>Port: 8001 (Internal Only)<br/>FastAPI + Gemini + Scikit-Learn"]
         WEATHER["External Weather API<br/>Open-Meteo API"]
     end
 
@@ -63,7 +63,7 @@ graph TD
 
 ### 3.1 Strict Backend Proxy Pattern
 * **Rule:** React and Flutter must communicate **only** with the ASP.NET Core Web API.
-* **Implementation:** The Python Agentic AI service runs internally on `http://localhost:8000`. When a client initiates AI interaction, it calls the ASP.NET Core endpoint `POST /api/ai/chat`. The backend establishes an authenticated streaming proxy (`IAiProxyService`) to forward Server-Sent Events (SSE) directly to the client. The AI service token carries the restricted `AI_SERVICE` role and is never exposed to client browsers or mobile devices.
+* **Implementation:** The Python Agentic AI service runs internally on `http://localhost:8001`. When a client initiates AI interaction, it calls the ASP.NET Core endpoint `POST /api/ai/chat`. The backend establishes an authenticated streaming proxy (`IAiProxyService`) to forward Server-Sent Events (SSE) directly to the client. The AI service token carries the restricted `AI_SERVICE` role and is never exposed to client browsers or mobile devices.
 
 ### 3.2 End-to-End Cross-Platform Workflow Pattern
 
@@ -293,9 +293,9 @@ python -m venv .venv
 .venv\Scripts\activate    # Windows (or source .venv/bin/activate on Linux/Mac)
 
 pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
-* Internal service runs at: `http://localhost:8000`
+* Internal service runs at: `http://localhost:8001`
 
 ### Step 3: React Web Application Setup
 ```bash
@@ -318,7 +318,7 @@ flutter run -d chrome
 ```bash
 # Bridge host ports over USB
 adb reverse tcp:5066 tcp:5066
-adb reverse tcp:8000 tcp:8000
+adb reverse tcp:8001 tcp:8001
 
 # Run on physical device
 flutter devices
