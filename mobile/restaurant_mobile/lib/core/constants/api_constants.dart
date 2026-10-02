@@ -6,10 +6,7 @@ class ApiConstants {
   // - Android Emulator: 10.0.2.2 points to host machine localhost
   // - iOS Simulator / Desktop / Web: localhost points to host machine
   static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:5066';
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:5066';
-    } catch (_) {}
+    // With adb reverse tcp:5066 tcp:5066, localhost points directly to host PC over USB
     return 'http://localhost:5066';
   }
 
