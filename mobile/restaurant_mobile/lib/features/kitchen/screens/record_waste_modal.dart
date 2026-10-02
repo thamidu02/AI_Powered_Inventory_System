@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../inventory/models/inventory_item_model.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../models/waste_model.dart';
@@ -100,7 +101,9 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(kitchenProvider.errorMessage ?? 'Failed to log waste.'),
+            content: Text(
+              kitchenProvider.errorMessage ?? 'Failed to log waste.',
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -135,7 +138,10 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.delete_sweep_outlined, color: Colors.red.shade700),
+                  child: Icon(
+                    Icons.delete_sweep_outlined,
+                    color: Colors.red.shade700,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -154,7 +160,9 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
               decoration: InputDecoration(
                 labelText: 'Select Ingredient',
                 prefixIcon: const Icon(Icons.inventory_2_outlined, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               items: itemsWithBatches.map((item) {
                 return DropdownMenuItem<InventoryItemModel>(
@@ -185,7 +193,9 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
                 decoration: InputDecoration(
                   labelText: 'Stock Batch',
                   prefixIcon: const Icon(Icons.qr_code, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 items: _selectedItem!.batches.map((batch) {
                   return DropdownMenuItem<StockBatchModel>(
@@ -229,11 +239,16 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
             // Quantity to Discard
             TextFormField(
               controller: _quantityController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
-                labelText: 'Quantity to Discard (${_selectedItem?.unit ?? "units"})',
+                labelText:
+                    'Quantity to Discard (${_selectedItem?.unit ?? "units"})',
                 prefixIcon: const Icon(Icons.scale_outlined, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -244,7 +259,9 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
               decoration: InputDecoration(
                 labelText: 'Reason for Disposal',
                 prefixIcon: const Icon(Icons.help_outline, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               items: _reasons.map((r) {
                 return DropdownMenuItem(
@@ -269,18 +286,25 @@ class _RecordWasteModalState extends State<RecordWasteModal> {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: kitchenProvider.isSubmitting ? null : _submitWaste,
                 icon: kitchenProvider.isSubmitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  kitchenProvider.isSubmitting ? 'Recording Waste...' : 'Confirm Waste Disposal',
+                  kitchenProvider.isSubmitting
+                      ? 'Recording Waste...'
+                      : 'Confirm Waste Disposal',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),

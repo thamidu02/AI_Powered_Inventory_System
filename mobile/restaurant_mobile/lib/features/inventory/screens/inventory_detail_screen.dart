@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../models/inventory_item_model.dart';
+import 'stock_adjustment_modal.dart';
 
 class InventoryDetailScreen extends StatelessWidget {
   final InventoryItemModel item;
@@ -12,8 +14,20 @@ class InventoryDetailScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(item.ingredientName),
+      appBar: AppBar(title: Text(item.ingredientName)),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => StockAdjustmentModal(item: item),
+          );
+        },
+        icon: const Icon(Icons.tune),
+        label: const Text('Adjust Stock'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -23,7 +37,9 @@ class InventoryDetailScreen extends StatelessWidget {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+              side: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(18.0),
@@ -42,11 +58,16 @@ class InventoryDetailScreen extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: item.statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: item.statusColor.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: item.statusColor.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Text(
                           item.statusLabel,
@@ -73,11 +94,16 @@ class InventoryDetailScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
                       value: item.minimumStockLevel > 0
-                          ? (item.currentStock / item.minimumStockLevel).clamp(0.0, 1.0)
+                          ? (item.currentStock / item.minimumStockLevel).clamp(
+                              0.0,
+                              1.0,
+                            )
                           : 1.0,
                       minHeight: 8,
                       backgroundColor: colorScheme.surfaceContainerHighest,
-                      valueColor: AlwaysStoppedAnimation<Color>(item.statusColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        item.statusColor,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -88,14 +114,16 @@ class InventoryDetailScreen extends StatelessWidget {
                       _buildMetricTile(
                         context,
                         label: 'Current Stock',
-                        value: '${item.currentStock.toStringAsFixed(1)} ${item.unit}',
+                        value:
+                            '${item.currentStock.toStringAsFixed(1)} ${item.unit}',
                         color: item.statusColor,
                       ),
                       const SizedBox(width: 8),
                       _buildMetricTile(
                         context,
                         label: 'Min Level',
-                        value: '${item.minimumStockLevel.toStringAsFixed(1)} ${item.unit}',
+                        value:
+                            '${item.minimumStockLevel.toStringAsFixed(1)} ${item.unit}',
                       ),
                       const SizedBox(width: 8),
                       _buildMetricTile(
@@ -116,16 +144,25 @@ class InventoryDetailScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.amber.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: Colors.amber.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                          const Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Reorder deficit: ${item.deficit.toStringAsFixed(1)} ${item.unit} needed to reach minimum threshold.',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -163,14 +200,20 @@ class InventoryDetailScreen extends StatelessWidget {
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                side: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
               ),
               child: const Padding(
                 padding: EdgeInsets.all(32.0),
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey),
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
                       SizedBox(height: 8),
                       Text(
                         'No active stock batches currently on hand.',
@@ -266,12 +309,18 @@ class InventoryDetailScreen extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       batch.batchNumber,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
@@ -299,7 +348,10 @@ class InventoryDetailScreen extends StatelessWidget {
                     Text('Batch Quantity', style: theme.textTheme.bodySmall),
                     Text(
                       '${batch.quantity.toStringAsFixed(1)} ${item.unit}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ],
                 ),
@@ -309,11 +361,18 @@ class InventoryDetailScreen extends StatelessWidget {
                     Text('Storage Location', style: theme.textTheme.bodySmall),
                     Row(
                       children: [
-                        const Icon(Icons.place_outlined, size: 14, color: Colors.grey),
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           batch.storageLocationName,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),

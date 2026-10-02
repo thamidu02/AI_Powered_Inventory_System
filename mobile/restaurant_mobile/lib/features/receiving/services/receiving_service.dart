@@ -19,7 +19,9 @@ class ReceivingService {
     final response = await api.get(endpoint);
     if (response is List) {
       return response
-          .map((item) => PurchaseOrderModel.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => PurchaseOrderModel.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     }
     return [];
@@ -27,7 +29,9 @@ class ReceivingService {
 
   /// Fetches single purchase order details
   Future<PurchaseOrderModel> getPurchaseOrderById(String id) async {
-    final response = await api.get('${ApiConstants.purchaseOrdersEndpoint}/$id');
+    final response = await api.get(
+      '${ApiConstants.purchaseOrdersEndpoint}/$id',
+    );
     return PurchaseOrderModel.fromJson(response as Map<String, dynamic>);
   }
 
@@ -36,7 +40,10 @@ class ReceivingService {
     final response = await api.get(ApiConstants.storageLocationsEndpoint);
     if (response is List) {
       return response
-          .map((item) => StorageLocationModel.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                StorageLocationModel.fromJson(item as Map<String, dynamic>),
+          )
           .where((loc) => loc.isActive)
           .toList();
     }
@@ -44,7 +51,9 @@ class ReceivingService {
   }
 
   /// Fetches past goods receipts history
-  Future<List<GoodsReceiptModel>> getGoodsReceipts({String? purchaseOrderId}) async {
+  Future<List<GoodsReceiptModel>> getGoodsReceipts({
+    String? purchaseOrderId,
+  }) async {
     String endpoint = ApiConstants.goodsReceiptsEndpoint;
     if (purchaseOrderId != null && purchaseOrderId.isNotEmpty) {
       endpoint += '?purchaseOrderId=${Uri.encodeComponent(purchaseOrderId)}';
@@ -53,14 +62,18 @@ class ReceivingService {
     final response = await api.get(endpoint);
     if (response is List) {
       return response
-          .map((item) => GoodsReceiptModel.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => GoodsReceiptModel.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     }
     return [];
   }
 
   /// Submits stock intake goods receipt
-  Future<GoodsReceiptModel> submitGoodsReceipt(CreateGoodsReceiptRequest request) async {
+  Future<GoodsReceiptModel> submitGoodsReceipt(
+    CreateGoodsReceiptRequest request,
+  ) async {
     final response = await api.post(
       ApiConstants.goodsReceiptsEndpoint,
       body: request.toJson(),

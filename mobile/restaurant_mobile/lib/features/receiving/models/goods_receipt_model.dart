@@ -21,7 +21,8 @@ class GoodsReceiptItemRequest {
       'storageLocationId': storageLocationId,
       'receivedQuantity': receivedQuantity,
       if (unitCost != null) 'unitCost': unitCost,
-      if (batchNumber != null && batchNumber!.isNotEmpty) 'batchNumber': batchNumber,
+      if (batchNumber != null && batchNumber!.isNotEmpty)
+        'batchNumber': batchNumber,
       if (expiryDate != null) 'expiryDate': expiryDate!.toIso8601String(),
     };
   }
@@ -91,7 +92,9 @@ class GoodsReceiptItemModel {
       batchNumber: json['batchNumber']?.toString() ?? '',
       receivedQuantity: (json['receivedQuantity'] as num?)?.toDouble() ?? 0.0,
       unitCost: (json['unitCost'] as num?)?.toDouble() ?? 0.0,
-      expiryDate: json['expiryDate'] != null ? DateTime.tryParse(json['expiryDate'].toString()) : null,
+      expiryDate: json['expiryDate'] != null
+          ? DateTime.tryParse(json['expiryDate'].toString())
+          : null,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import '../../../core/services/api_service.dart';
 
 class AiService {
@@ -43,10 +44,7 @@ class AiService {
     try {
       await api.post(
         '/api/ai/workflows/$workflowId/approve',
-        body: {
-          'decision': decision,
-          'comment': comment,
-        },
+        body: {'decision': decision, 'comment': comment},
       );
       return true;
     } catch (_) {

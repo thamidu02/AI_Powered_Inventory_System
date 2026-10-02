@@ -468,13 +468,13 @@ export const api = {
       isSimulated?: boolean;
     }>(city ? `/api/weather/forecast?city=${encodeURIComponent(city)}` : '/api/weather/forecast'),
 
-  // Direct ML service endpoints (Python AI service at port 8000)
+  // Direct ML service endpoints (Python AI service at port 8001)
   getMlForecast: (days = 7): Promise<MlForecastApiResponse> =>
-    fetch(`http://localhost:8000/ml/forecast?days=${days}`).then(r => r.json()),
+    fetch(`http://localhost:8001/ml/forecast?days=${days}`).then(r => r.json()),
   getMlStatus: (): Promise<MlStatusResponse> =>
-    fetch('http://localhost:8000/ml/status').then(r => r.json()),
+    fetch('http://localhost:8001/ml/status').then(r => r.json()),
   triggerMlTraining: (force = true): Promise<Record<string, unknown>> =>
-    fetch('http://localhost:8000/ml/train', {
+    fetch('http://localhost:8001/ml/train', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lookback_days: 60, force }),

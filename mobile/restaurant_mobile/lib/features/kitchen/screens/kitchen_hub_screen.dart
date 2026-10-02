@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../auth/providers/auth_provider.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../models/menu_item_model.dart';
@@ -132,14 +133,18 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
       inventoryProvider.fetchInventory(); // refresh stock levels immediately
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order ${sale.shortId} recorded! Ingredients deducted via FIFO.'),
+          content: Text(
+            'Order ${sale.shortId} recorded! Ingredients deducted via FIFO.',
+          ),
           backgroundColor: Colors.green.shade700,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to record kitchen preparation.'),
+          content: Text(
+            provider.errorMessage ?? 'Failed to record kitchen preparation.',
+          ),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -209,8 +214,13 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                       hintText: 'Search menu dishes...',
                       prefixIcon: const Icon(Icons.search, size: 20),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -245,7 +255,10 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                           children: [
                             Text(
                               '${provider.cartItemCount} Dishes Selected',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                             Text(
                               '\$${provider.cartTotal.toStringAsFixed(2)}',
@@ -264,12 +277,17 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                         ),
                         const SizedBox(width: 8),
                         FilledButton.icon(
-                          onPressed: provider.isSubmitting ? null : () => _confirmCheckout(context),
+                          onPressed: provider.isSubmitting
+                              ? null
+                              : () => _confirmCheckout(context),
                           icon: provider.isSubmitting
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.check),
                           label: const Text('Record Prep'),
@@ -318,7 +336,11 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.restaurant_menu, size: 56, color: Colors.grey.shade400),
+              Icon(
+                Icons.restaurant_menu,
+                size: 56,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'No menu items found',
@@ -340,7 +362,9 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -351,7 +375,10 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                     color: Colors.deepOrange.shade50,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.fastfood_outlined, color: Colors.deepOrange.shade700),
+                  child: Icon(
+                    Icons.fastfood_outlined,
+                    color: Colors.deepOrange.shade700,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -371,12 +398,16 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                           color: theme.colorScheme.primary,
                         ),
                       ),
-                      if (item.description != null && item.description!.isNotEmpty)
+                      if (item.description != null &&
+                          item.description!.isNotEmpty)
                         Text(
                           item.description!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                     ],
                   ),
@@ -401,7 +432,10 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                       ),
                       Text(
                         '$qty',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline, size: 22),
@@ -431,7 +465,11 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.point_of_sale_outlined, size: 56, color: Colors.grey.shade400),
+              Icon(
+                Icons.point_of_sale_outlined,
+                size: 56,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'No kitchen prep sales recorded yet',
@@ -458,7 +496,9 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -519,7 +559,8 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
 
     final records = provider.wasteRecords;
     final authProvider = context.watch<AuthProvider>();
-    final isManager = (authProvider.user?.isRestaurantManager ?? false) ||
+    final isManager =
+        (authProvider.user?.isRestaurantManager ?? false) ||
         (authProvider.user?.isInventoryManager ?? false);
 
     return Stack(
@@ -531,7 +572,11 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.delete_outline, size: 56, color: Colors.grey.shade400),
+                  Icon(
+                    Icons.delete_outline,
+                    size: 56,
+                    color: Colors.grey.shade400,
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     'No food waste records logged',
@@ -563,7 +608,9 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -581,7 +628,10 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: record.reasonBadgeColor.withAlpha(25),
                               borderRadius: BorderRadius.circular(8),
@@ -604,17 +654,27 @@ class _KitchenHubScreenState extends State<KitchenHubScreen>
                       ),
                       Text(
                         'Reported by ${record.reportedByName} on ${record.recordedAt.toLocal().toString().split(' ')[0]}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                       if (record.isConfirmed) ...[
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.verified, size: 14, color: Colors.green),
+                            const Icon(
+                              Icons.verified,
+                              size: 14,
+                              color: Colors.green,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               'Confirmed by ${record.confirmedByName ?? "Manager"}',
-                              style: const TextStyle(fontSize: 12, color: Colors.green),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
                             ),
                           ],
                         ),

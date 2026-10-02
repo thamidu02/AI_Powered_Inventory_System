@@ -8,10 +8,7 @@ class CreateSaleItemRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'menuItemId': menuItemId,
-      'quantity': quantity,
-    };
+    return {'menuItemId': menuItemId, 'quantity': quantity};
   }
 }
 
@@ -21,9 +18,7 @@ class CreateSaleRequest {
   const CreateSaleRequest({required this.items});
 
   Map<String, dynamic> toJson() {
-    return {
-      'items': items.map((i) => i.toJson()).toList(),
-    };
+    return {'items': items.map((i) => i.toJson()).toList()};
   }
 }
 
@@ -92,8 +87,7 @@ class SaleModel {
     );
   }
 
-  int get totalDishesCount =>
-      items.fold(0, (acc, item) => acc + item.quantity);
+  int get totalDishesCount => items.fold(0, (acc, item) => acc + item.quantity);
 
   String get shortId {
     if (id.length <= 8) return id;

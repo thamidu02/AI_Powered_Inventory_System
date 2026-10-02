@@ -16,5 +16,5 @@ if ($LASTEXITCODE -ne 0) {
 	exit 1
 }
 
-Write-Host "Starting Inventory AI Service on http://localhost:8000..." -ForegroundColor Cyan
-& $pythonPath -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Write-Host "Starting Inventory AI Service on http://localhost:8001..." -ForegroundColor Cyan
+& $pythonPath -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload

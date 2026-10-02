@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/inventory_item_model.dart';
 import '../providers/inventory_provider.dart';
 import 'inventory_detail_screen.dart';
+import '../../../core/widgets/barcode_scanner_modal.dart';
 
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
@@ -61,17 +63,37 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                     decoration: InputDecoration(
                       hintText: 'Search ingredients or SKU...',
                       prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
                               icon: const Icon(Icons.clear, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 provider.clearSearch();
                               },
-                            )
-                          : null,
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.qr_code_scanner, size: 20),
+                            tooltip: 'Scan Barcode or SKU',
+                            onPressed: () async {
+                              final code = await BarcodeScannerModal.show(
+                                context,
+                              );
+                              if (code != null && mounted) {
+                                _searchController.text = code;
+                                provider.setSearchQuery(code);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -113,13 +135,29 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip(context, label: 'All Items', filterKey: 'ALL'),
+                        _buildFilterChip(
+                          context,
+                          label: 'All Items',
+                          filterKey: 'ALL',
+                        ),
                         const SizedBox(width: 6),
-                        _buildFilterChip(context, label: 'Low Stock', filterKey: 'LOW_STOCK'),
+                        _buildFilterChip(
+                          context,
+                          label: 'Low Stock',
+                          filterKey: 'LOW_STOCK',
+                        ),
                         const SizedBox(width: 6),
-                        _buildFilterChip(context, label: 'Out of Stock', filterKey: 'OUT_OF_STOCK'),
+                        _buildFilterChip(
+                          context,
+                          label: 'Out of Stock',
+                          filterKey: 'OUT_OF_STOCK',
+                        ),
                         const SizedBox(width: 6),
-                        _buildFilterChip(context, label: 'Optimal', filterKey: 'OPTIMAL'),
+                        _buildFilterChip(
+                          context,
+                          label: 'Optimal',
+                          filterKey: 'OPTIMAL',
+                        ),
                       ],
                     ),
                   ),
@@ -143,9 +181,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
 
   Widget _buildContent(BuildContext context, InventoryProvider provider) {
     if (provider.isLoading && provider.items.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (provider.errorMessage != null && provider.items.isEmpty) {
@@ -230,11 +266,19 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
             ],
             Text(
               '$label: ',
-              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             Text(
               '$count',
-              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -300,22 +344,33 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                       children: [
                         Text(
                           item.ingredientName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                         if (item.sku.isNotEmpty)
                           Text(
                             'SKU: ${item.sku}',
-                            style: TextStyle(fontSize: 11, color: theme.hintColor),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.hintColor,
+                            ),
                           ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: item.statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: item.statusColor.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: item.statusColor.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       item.statusLabel,
@@ -340,7 +395,8 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                       children: [
                         const TextSpan(text: 'Current: '),
                         TextSpan(
-                          text: '${item.currentStock.toStringAsFixed(1)} ${item.unit}',
+                          text:
+                              '${item.currentStock.toStringAsFixed(1)} ${item.unit}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: item.statusColor,
@@ -362,7 +418,10 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: item.minimumStockLevel > 0
-                      ? (item.currentStock / item.minimumStockLevel).clamp(0.0, 1.0)
+                      ? (item.currentStock / item.minimumStockLevel).clamp(
+                          0.0,
+                          1.0,
+                        )
                       : 1.0,
                   minHeight: 6,
                   backgroundColor: colorScheme.surfaceContainerHighest,
@@ -377,7 +436,11 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.layers_outlined, size: 14, color: theme.hintColor),
+                      Icon(
+                        Icons.layers_outlined,
+                        size: 14,
+                        color: theme.hintColor,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${item.batches.length} active batch${item.batches.length == 1 ? "" : "es"}',
@@ -395,7 +458,11 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                           color: colorScheme.primary,
                         ),
                       ),
-                      Icon(Icons.chevron_right, size: 16, color: colorScheme.primary),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: colorScheme.primary,
+                      ),
                     ],
                   ),
                 ],

@@ -29,6 +29,12 @@ import 'package:restaurant_mobile/features/ai/models/ai_message_model.dart';
 import 'package:restaurant_mobile/features/ai/providers/ai_provider.dart';
 import 'package:restaurant_mobile/features/ai/services/ai_service.dart';
 import 'package:restaurant_mobile/features/ai/screens/ai_chat_screen.dart';
+import 'package:restaurant_mobile/features/receiving/models/purchase_request_model.dart';
+import 'package:restaurant_mobile/features/receiving/providers/procurement_provider.dart';
+import 'package:restaurant_mobile/features/receiving/services/procurement_service.dart';
+import 'package:restaurant_mobile/features/receiving/screens/approvals_hub_screen.dart';
+import 'package:restaurant_mobile/features/home/models/weather_model.dart';
+import 'package:restaurant_mobile/core/widgets/barcode_scanner_modal.dart';
 import 'package:restaurant_mobile/core/widgets/acumatica_brand.dart';
 import 'package:restaurant_mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +48,9 @@ void main() {
         'fullName': 'Alice Manager',
         'role': 'RESTAURANT_MANAGER',
         'token': 'mock-jwt-token-xyz',
-        'expiresAt': DateTime.now().add(const Duration(hours: 8)).toIso8601String(),
+        'expiresAt': DateTime.now()
+            .add(const Duration(hours: 8))
+            .toIso8601String(),
       };
 
       final user = UserModel.fromJson(json);
@@ -139,126 +147,139 @@ void main() {
       expect(ApiConstants.loginEndpoint, equals('/api/auth/login'));
       expect(ApiConstants.inventoryEndpoint, equals('/api/inventory'));
       expect(ApiConstants.ingredientsEndpoint, equals('/api/ingredients'));
-      expect(ApiConstants.purchaseOrdersEndpoint, equals('/api/purchaseorders'));
+      expect(
+        ApiConstants.purchaseOrdersEndpoint,
+        equals('/api/purchaseorders'),
+      );
       expect(ApiConstants.goodsReceiptsEndpoint, equals('/api/goodsreceipts'));
       expect(ApiConstants.aiChatEndpoint, equals('/api/ai/chat'));
     });
   });
 
   group('Step 2 & 3 UI and Widget Tests', () {
-    testWidgets('LoginScreen renders brand, inputs, demo role chips, and sign-in button', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final storage = await StorageService.initialize();
-      final api = ApiService(storage: storage);
-      final authService = AuthService(api: api, storage: storage);
-      final inventoryService = InventoryService(api: api);
+    testWidgets(
+      'LoginScreen renders brand, inputs, demo role chips, and sign-in button',
+      (WidgetTester tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final storage = await StorageService.initialize();
+        final api = ApiService(storage: storage);
+        final authService = AuthService(api: api, storage: storage);
+        final inventoryService = InventoryService(api: api);
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<StorageService>.value(value: storage),
-            Provider<ApiService>.value(value: api),
-            Provider<AuthService>.value(value: authService),
-            Provider<InventoryService>.value(value: inventoryService),
-            ChangeNotifierProvider<AuthProvider>(
-              create: (_) => AuthProvider(authService: authService),
-            ),
-            ChangeNotifierProvider<InventoryProvider>(
-              create: (_) => InventoryProvider(inventoryService: inventoryService),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<StorageService>.value(value: storage),
+              Provider<ApiService>.value(value: api),
+              Provider<AuthService>.value(value: authService),
+              Provider<InventoryService>.value(value: inventoryService),
+              ChangeNotifierProvider<AuthProvider>(
+                create: (_) => AuthProvider(authService: authService),
+              ),
+              ChangeNotifierProvider<InventoryProvider>(
+                create: (_) =>
+                    InventoryProvider(inventoryService: inventoryService),
+              ),
+            ],
+            child: const RestaurantInventoryApp(),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AcumaticaBrandHeader), findsOneWidget);
+        expect(find.text('Enter credentials'), findsOneWidget);
+        expect(find.byType(TextFormField), findsNWidgets(2));
+        expect(find.text('Sign In'), findsOneWidget);
+        expect(find.text('Restaurant Manager'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'HomeDashboardScreen renders authenticated user profile and operations cards',
+      (WidgetTester tester) async {
+        SharedPreferences.setMockInitialValues({
+          'auth_jwt_token': 'test-token',
+          'auth_user_data': '{"userId":"1","email":"inventory@restaurant.com","fullName":"Sam Warehouse","role":"INVENTORY_MANAGER","token":"test-token","expiresAt":"2099-01-01T00:00:00.000Z"}',
+        });
+
+        final storage = await StorageService.initialize();
+        final api = ApiService(storage: storage);
+        final authService = AuthService(api: api, storage: storage);
+        final inventoryService = InventoryService(api: api);
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<StorageService>.value(value: storage),
+              Provider<ApiService>.value(value: api),
+              Provider<AuthService>.value(value: authService),
+              Provider<InventoryService>.value(value: inventoryService),
+              ChangeNotifierProvider<AuthProvider>(
+                create: (_) => AuthProvider(authService: authService),
+              ),
+              ChangeNotifierProvider<InventoryProvider>(
+                create: (_) =>
+                    InventoryProvider(inventoryService: inventoryService),
+              ),
+            ],
+            child: const MaterialApp(home: HomeDashboardScreen()),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('SavoryInventory'), findsOneWidget);
+        expect(find.text('Sam Warehouse'), findsOneWidget);
+        expect(find.text('INVENTORY MANAGER'), findsOneWidget);
+        expect(find.text('Stock & Inventory'), findsOneWidget);
+        expect(find.text('Goods Receiving'), findsOneWidget);
+        expect(find.text('AI Assistant'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'InventoryDetailScreen renders thresholds and batch breakdown',
+      (WidgetTester tester) async {
+        final sampleItem = InventoryItemModel(
+          ingredientId: '1',
+          ingredientName: 'Tomato Sauce',
+          sku: 'ING-TOM-01',
+          unit: 'liters',
+          currentStock: 12.0,
+          minimumStockLevel: 15.0,
+          maximumStockLevel: 40.0,
+          isLowStock: true,
+          batches: [
+            StockBatchModel(
+              id: 'b-1',
+              batchNumber: 'B-TOM-101',
+              quantity: 12.0,
+              unitCost: 2.50,
+              receivedDate: DateTime.now().subtract(const Duration(days: 1)),
+              expiryDate: DateTime.now().add(const Duration(days: 30)),
+              status: 'AVAILABLE',
+              storageLocationName: 'Dry Store A',
             ),
           ],
-          child: const RestaurantInventoryApp(),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          MaterialApp(home: InventoryDetailScreen(item: sampleItem)),
+        );
 
-      expect(find.byType(AcumaticaBrandHeader), findsOneWidget);
-      expect(find.text('Enter credentials'), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(2));
-      expect(find.text('Sign In'), findsOneWidget);
-      expect(find.text('Restaurant Manager'), findsOneWidget);
-    });
+        await tester.pumpAndSettle();
 
-    testWidgets('HomeDashboardScreen renders authenticated user profile and operations cards', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({
-        'auth_jwt_token': 'test-token',
-        'auth_user_data': '{"userId":"1","email":"inventory@restaurant.com","fullName":"Sam Warehouse","role":"INVENTORY_MANAGER","token":"test-token","expiresAt":"2099-01-01T00:00:00.000Z"}',
-      });
-
-      final storage = await StorageService.initialize();
-      final api = ApiService(storage: storage);
-      final authService = AuthService(api: api, storage: storage);
-      final inventoryService = InventoryService(api: api);
-
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<StorageService>.value(value: storage),
-            Provider<ApiService>.value(value: api),
-            Provider<AuthService>.value(value: authService),
-            Provider<InventoryService>.value(value: inventoryService),
-            ChangeNotifierProvider<AuthProvider>(
-              create: (_) => AuthProvider(authService: authService),
-            ),
-            ChangeNotifierProvider<InventoryProvider>(
-              create: (_) => InventoryProvider(inventoryService: inventoryService),
-            ),
-          ],
-          child: const MaterialApp(
-            home: HomeDashboardScreen(),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      expect(find.text('SavoryInventory'), findsOneWidget);
-      expect(find.text('Sam Warehouse'), findsOneWidget);
-      expect(find.text('INVENTORY MANAGER'), findsOneWidget);
-      expect(find.text('Stock & Inventory'), findsOneWidget);
-      expect(find.text('Goods Receiving'), findsOneWidget);
-      expect(find.text('AI Assistant'), findsOneWidget);
-    });
-
-    testWidgets('InventoryDetailScreen renders thresholds and batch breakdown', (WidgetTester tester) async {
-      final sampleItem = InventoryItemModel(
-        ingredientId: '1',
-        ingredientName: 'Tomato Sauce',
-        sku: 'ING-TOM-01',
-        unit: 'liters',
-        currentStock: 12.0,
-        minimumStockLevel: 15.0,
-        maximumStockLevel: 40.0,
-        isLowStock: true,
-        batches: [
-          StockBatchModel(
-            id: 'b-1',
-            batchNumber: 'B-TOM-101',
-            quantity: 12.0,
-            unitCost: 2.50,
-            receivedDate: DateTime.now().subtract(const Duration(days: 1)),
-            expiryDate: DateTime.now().add(const Duration(days: 30)),
-            status: 'AVAILABLE',
-            storageLocationName: 'Dry Store A',
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: InventoryDetailScreen(item: sampleItem),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      expect(find.text('Tomato Sauce'), findsNWidgets(2)); // AppBar + Header Card
-      expect(find.text('SKU: ING-TOM-01  •  Unit: liters'), findsOneWidget);
-      expect(find.text('LOW STOCK'), findsOneWidget);
-      expect(find.text('B-TOM-101'), findsOneWidget);
-      expect(find.text('Dry Store A'), findsOneWidget);
-    });
+        expect(
+          find.text('Tomato Sauce'),
+          findsNWidgets(2),
+        ); // AppBar + Header Card
+        expect(find.text('SKU: ING-TOM-01  •  Unit: liters'), findsOneWidget);
+        expect(find.text('LOW STOCK'), findsOneWidget);
+        expect(find.text('B-TOM-101'), findsOneWidget);
+        expect(find.text('Dry Store A'), findsOneWidget);
+      },
+    );
   });
 
   group('Step 4 Receiving & Stock Intake Unit Tests', () {
@@ -353,66 +374,71 @@ void main() {
   });
 
   group('Step 4 Widget Tests', () {
-    testWidgets('GoodsIntakeScreen renders PO supplier, item fields, and confirm button', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final storage = await StorageService.initialize();
-      final api = ApiService(storage: storage);
-      final authService = AuthService(api: api, storage: storage);
-      final receivingService = ReceivingService(api: api);
-      final inventoryService = InventoryService(api: api);
+    testWidgets(
+      'GoodsIntakeScreen renders PO supplier, item fields, and confirm button',
+      (WidgetTester tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final storage = await StorageService.initialize();
+        final api = ApiService(storage: storage);
+        final authService = AuthService(api: api, storage: storage);
+        final receivingService = ReceivingService(api: api);
+        final inventoryService = InventoryService(api: api);
 
-      final samplePo = PurchaseOrderModel(
-        id: 'po-test-99',
-        supplierId: 'sup-1',
-        supplierName: 'Highland Dairy Co',
-        status: 'ORDERED',
-        totalAmount: 180.0,
-        items: [
-          const PurchaseOrderItemModel(
-            id: 'poi-test-1',
-            purchaseOrderId: 'po-test-99',
-            ingredientId: 'ing-1',
-            ingredientName: 'Whole Milk',
-            ingredientUnit: 'liters',
-            orderedQuantity: 40.0,
-            unitPrice: 4.50,
-            receivedQuantity: 0.0,
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<StorageService>.value(value: storage),
-            Provider<ApiService>.value(value: api),
-            Provider<AuthService>.value(value: authService),
-            Provider<ReceivingService>.value(value: receivingService),
-            Provider<InventoryService>.value(value: inventoryService),
-            ChangeNotifierProvider<AuthProvider>(
-              create: (_) => AuthProvider(authService: authService),
-            ),
-            ChangeNotifierProvider<InventoryProvider>(
-              create: (_) => InventoryProvider(inventoryService: inventoryService),
-            ),
-            ChangeNotifierProvider<ReceivingProvider>(
-              create: (_) => ReceivingProvider(receivingService: receivingService),
+        final samplePo = PurchaseOrderModel(
+          id: 'po-test-99',
+          supplierId: 'sup-1',
+          supplierName: 'Highland Dairy Co',
+          status: 'ORDERED',
+          totalAmount: 180.0,
+          items: [
+            const PurchaseOrderItemModel(
+              id: 'poi-test-1',
+              purchaseOrderId: 'po-test-99',
+              ingredientId: 'ing-1',
+              ingredientName: 'Whole Milk',
+              ingredientUnit: 'liters',
+              orderedQuantity: 40.0,
+              unitPrice: 4.50,
+              receivedQuantity: 0.0,
             ),
           ],
-          child: MaterialApp(
-            home: GoodsIntakeScreen(purchaseOrder: samplePo),
+        );
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<StorageService>.value(value: storage),
+              Provider<ApiService>.value(value: api),
+              Provider<AuthService>.value(value: authService),
+              Provider<ReceivingService>.value(value: receivingService),
+              Provider<InventoryService>.value(value: inventoryService),
+              ChangeNotifierProvider<AuthProvider>(
+                create: (_) => AuthProvider(authService: authService),
+              ),
+              ChangeNotifierProvider<InventoryProvider>(
+                create: (_) =>
+                    InventoryProvider(inventoryService: inventoryService),
+              ),
+              ChangeNotifierProvider<ReceivingProvider>(
+                create: (_) =>
+                    ReceivingProvider(receivingService: receivingService),
+              ),
+            ],
+            child: MaterialApp(
+              home: GoodsIntakeScreen(purchaseOrder: samplePo),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Receive Goods'), findsOneWidget);
-      expect(find.text('Highland Dairy Co'), findsOneWidget);
-      expect(find.text('Whole Milk'), findsOneWidget);
-      expect(find.text('Due: 40.0 liters'), findsOneWidget);
-      expect(find.text('Confirm Stock Intake (1 items)'), findsOneWidget);
-    });
+        expect(find.text('Receive Goods'), findsOneWidget);
+        expect(find.text('Highland Dairy Co'), findsOneWidget);
+        expect(find.text('Whole Milk'), findsOneWidget);
+        expect(find.text('Due: 40.0 liters'), findsOneWidget);
+        expect(find.text('Confirm Stock Intake (1 items)'), findsOneWidget);
+      },
+    );
   });
 
   group('Step 5 Kitchen Operations Unit Tests', () {
@@ -504,51 +530,54 @@ void main() {
   });
 
   group('Step 5 Widget Tests', () {
-    testWidgets('KitchenHubScreen renders tabs, menu list, and action buttons', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final storage = await StorageService.initialize();
-      final api = ApiService(storage: storage);
-      final authService = AuthService(api: api, storage: storage);
-      final inventoryService = InventoryService(api: api);
-      final receivingService = ReceivingService(api: api);
-      final kitchenService = KitchenService(api: api);
+    testWidgets(
+      'KitchenHubScreen renders tabs, menu list, and action buttons',
+      (WidgetTester tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final storage = await StorageService.initialize();
+        final api = ApiService(storage: storage);
+        final authService = AuthService(api: api, storage: storage);
+        final inventoryService = InventoryService(api: api);
+        final receivingService = ReceivingService(api: api);
+        final kitchenService = KitchenService(api: api);
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<StorageService>.value(value: storage),
-            Provider<ApiService>.value(value: api),
-            Provider<AuthService>.value(value: authService),
-            Provider<InventoryService>.value(value: inventoryService),
-            Provider<ReceivingService>.value(value: receivingService),
-            Provider<KitchenService>.value(value: kitchenService),
-            ChangeNotifierProvider<AuthProvider>(
-              create: (_) => AuthProvider(authService: authService),
-            ),
-            ChangeNotifierProvider<InventoryProvider>(
-              create: (_) => InventoryProvider(inventoryService: inventoryService),
-            ),
-            ChangeNotifierProvider<ReceivingProvider>(
-              create: (_) => ReceivingProvider(receivingService: receivingService),
-            ),
-            ChangeNotifierProvider<KitchenProvider>(
-              create: (_) => KitchenProvider(kitchenService: kitchenService),
-            ),
-          ],
-          child: const MaterialApp(
-            home: KitchenHubScreen(),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<StorageService>.value(value: storage),
+              Provider<ApiService>.value(value: api),
+              Provider<AuthService>.value(value: authService),
+              Provider<InventoryService>.value(value: inventoryService),
+              Provider<ReceivingService>.value(value: receivingService),
+              Provider<KitchenService>.value(value: kitchenService),
+              ChangeNotifierProvider<AuthProvider>(
+                create: (_) => AuthProvider(authService: authService),
+              ),
+              ChangeNotifierProvider<InventoryProvider>(
+                create: (_) =>
+                    InventoryProvider(inventoryService: inventoryService),
+              ),
+              ChangeNotifierProvider<ReceivingProvider>(
+                create: (_) =>
+                    ReceivingProvider(receivingService: receivingService),
+              ),
+              ChangeNotifierProvider<KitchenProvider>(
+                create: (_) => KitchenProvider(kitchenService: kitchenService),
+              ),
+            ],
+            child: const MaterialApp(home: KitchenHubScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Kitchen Operations'), findsOneWidget);
-      expect(find.byType(TabBar), findsOneWidget);
-      expect(find.text('Menu & POS (0)'), findsOneWidget);
-      expect(find.text('Sales (0)'), findsOneWidget);
-      expect(find.text('Waste (0)'), findsOneWidget);
-    });
+        expect(find.text('Kitchen Operations'), findsOneWidget);
+        expect(find.byType(TabBar), findsOneWidget);
+        expect(find.text('Menu & POS (0)'), findsOneWidget);
+        expect(find.text('Sales (0)'), findsOneWidget);
+        expect(find.text('Waste (0)'), findsOneWidget);
+      },
+    );
   });
 
   group('Step 6 AI Assistant Unit Tests', () {
@@ -576,36 +605,176 @@ void main() {
   });
 
   group('Step 6 AI Assistant Widget Tests', () {
-    testWidgets('AiChatScreen renders app bar, quick prompt chips, empty state copilot, and message input', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
+    testWidgets(
+      'AiChatScreen renders app bar, quick prompt chips, empty state copilot, and message input',
+      (WidgetTester tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final storage = await StorageService.initialize();
+        final api = ApiService(storage: storage);
+        final aiService = AiService(api: api);
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<StorageService>.value(value: storage),
+              Provider<ApiService>.value(value: api),
+              Provider<AiService>.value(value: aiService),
+              ChangeNotifierProvider<AiProvider>(
+                create: (_) => AiProvider(aiService: aiService),
+              ),
+            ],
+            child: const MaterialApp(home: AiChatScreen()),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('AI Inventory Assistant'), findsOneWidget);
+        expect(find.text('Restaurant AI Copilot'), findsOneWidget);
+        expect(find.text('Check low stock'), findsOneWidget);
+        expect(find.text('Expiring batches'), findsOneWidget);
+        expect(find.byType(TextField), findsOneWidget);
+        expect(find.byIcon(Icons.send), findsOneWidget);
+      },
+    );
+  });
+
+  group('Step 7 Procurement & Approvals Unit Tests', () {
+    test(
+      'PurchaseRequestModel parses JSON and computes properties correctly',
+      () {
+        final json = {
+          'id': '12345678-abcd-ef01-2345-6789abcdef01',
+          'status': 'PENDING_APPROVAL',
+          'reason': 'Stock below minimum threshold',
+          'requestedByName': 'Chef Gordon',
+          'requestedAt': '2026-10-01T10:00:00Z',
+          'items': [
+            {
+              'id': 'pri-1',
+              'purchaseRequestId': '12345678-abcd-ef01-2345-6789abcdef01',
+              'ingredientId': 'ing-1',
+              'ingredientName': 'Fresh Mozzarella',
+              'ingredientUnit': 'kg',
+              'requestedQuantity': 15.0,
+            },
+            {
+              'id': 'pri-2',
+              'purchaseRequestId': '12345678-abcd-ef01-2345-6789abcdef01',
+              'ingredientId': 'ing-2',
+              'ingredientName': 'Basil',
+              'ingredientUnit': 'kg',
+              'requestedQuantity': 2.5,
+            },
+          ],
+        };
+
+        final pr = PurchaseRequestModel.fromJson(json);
+        expect(pr.id, equals('12345678-abcd-ef01-2345-6789abcdef01'));
+        expect(pr.shortId, equals('PR-12345678'));
+        expect(pr.isPending, isTrue);
+        expect(pr.totalQuantity, equals(17.5));
+        expect(pr.items.length, equals(2));
+        expect(pr.requestedByName, equals('Chef Gordon'));
+        expect(pr.statusColor, isNotNull);
+      },
+    );
+  });
+
+  group('Step 8 Weather & Demand Outlook Unit Tests', () {
+    test(
+      'CurrentWeatherModel and WeatherDemandImpactModel parse correctly',
+      () {
+        final json = {
+          'city': 'Colombo',
+          'country': 'LK',
+          'temperature': 31.5,
+          'feelsLike': 36.0,
+          'humidity': 80,
+          'condition': 'Rain',
+          'description': 'Light rain showers',
+          'rainProbability': 0.65,
+          'demandImpact': {
+            'comfortFoodMultiplier': 1.25,
+            'coldBeverageMultiplier': 1.10,
+            'saladProduceMultiplier': 0.90,
+            'recommendationNote':
+                'Rain expected; boost hot comfort dishes & warm soups.',
+          },
+        };
+
+        final weather = CurrentWeatherModel.fromJson(json);
+        expect(weather.city, equals('Colombo'));
+        expect(weather.temperature, equals(31.5));
+        expect(weather.demandImpact.comfortFoodMultiplier, equals(1.25));
+        expect(
+          weather.demandImpact.recommendationNote,
+          contains('boost hot comfort dishes'),
+        );
+      },
+    );
+  });
+
+  group('Step 9 ApprovalsHubScreen Widget Tests', () {
+    testWidgets('ApprovalsHubScreen renders PR and PO tabs with actions', (
+      WidgetTester tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'auth_jwt_token': 'test-token',
+        'auth_user_data': '{"userId":"1","email":"manager@restaurant.com","fullName":"Alice Manager","role":"RESTAURANT_MANAGER","token":"test-token","expiresAt":"2099-01-01T00:00:00.000Z"}',
+      });
       final storage = await StorageService.initialize();
       final api = ApiService(storage: storage);
-      final aiService = AiService(api: api);
+      final authService = AuthService(api: api, storage: storage);
+      final procurementService = ProcurementService(api: api);
 
       await tester.pumpWidget(
         MultiProvider(
           providers: [
             Provider<StorageService>.value(value: storage),
             Provider<ApiService>.value(value: api),
-            Provider<AiService>.value(value: aiService),
-            ChangeNotifierProvider<AiProvider>(
-              create: (_) => AiProvider(aiService: aiService),
+            Provider<AuthService>.value(value: authService),
+            Provider<ProcurementService>.value(value: procurementService),
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(authService: authService),
+            ),
+            ChangeNotifierProvider<ProcurementProvider>(
+              create: (_) =>
+                  ProcurementProvider(procurementService: procurementService),
             ),
           ],
-          child: const MaterialApp(
-            home: AiChatScreen(),
-          ),
+          child: const MaterialApp(home: ApprovalsHubScreen()),
         ),
       );
 
       await tester.pumpAndSettle();
 
-      expect(find.text('AI Inventory Assistant'), findsOneWidget);
-      expect(find.text('Restaurant AI Copilot'), findsOneWidget);
-      expect(find.text('Check low stock'), findsOneWidget);
-      expect(find.text('Expiring batches'), findsOneWidget);
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.byIcon(Icons.send), findsOneWidget);
+      expect(find.text('Manager Approvals'), findsOneWidget);
+      expect(find.text('Requests (0)'), findsOneWidget);
+      expect(find.text('Orders (0)'), findsOneWidget);
     });
+  });
+
+  group('Step 10 Device Barcode Scanner Widget Tests', () {
+    testWidgets(
+      'BarcodeScannerModal renders viewfinder, title, and quick samples',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(home: Scaffold(body: BarcodeScannerModal())),
+        );
+
+        // BarcodeScannerModal uses an infinite repeating laser animation, so use pump rather than pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 150));
+
+        expect(find.text('Scan Batch QR / Barcode'), findsOneWidget);
+        expect(
+          find.text('Align batch QR code within the frame'),
+          findsOneWidget,
+        );
+        expect(find.text('Quick Sample Barcodes:'), findsOneWidget);
+        expect(find.text('BAT-10293-1'), findsOneWidget);
+      },
+    );
   });
 }

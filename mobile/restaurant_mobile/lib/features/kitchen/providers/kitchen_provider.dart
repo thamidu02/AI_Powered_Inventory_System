@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/errors/api_exception.dart';
 import '../models/menu_item_model.dart';
 import '../models/recipe_model.dart';
@@ -53,8 +54,7 @@ class KitchenProvider extends ChangeNotifier {
     return _menuItems.where((m) => m.name.toLowerCase().contains(q)).toList();
   }
 
-  double get totalRevenue =>
-      _sales.fold(0.0, (acc, s) => acc + s.totalAmount);
+  double get totalRevenue => _sales.fold(0.0, (acc, s) => acc + s.totalAmount);
 
   int get totalWasteCount => _wasteRecords.length;
 
@@ -143,7 +143,9 @@ class KitchenProvider extends ChangeNotifier {
 
     try {
       final items = _cart.entries
-          .map((e) => CreateSaleItemRequest(menuItemId: e.key, quantity: e.value))
+          .map(
+            (e) => CreateSaleItemRequest(menuItemId: e.key, quantity: e.value),
+          )
           .toList();
 
       final request = CreateSaleRequest(items: items);
