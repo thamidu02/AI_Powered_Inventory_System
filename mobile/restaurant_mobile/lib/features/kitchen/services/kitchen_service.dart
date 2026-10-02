@@ -25,7 +25,9 @@ class KitchenService {
   /// Fetches active recipe ingredients for a menu item
   Future<RecipeModel?> getMenuItemRecipe(String menuItemId) async {
     try {
-      final response = await api.get('${ApiConstants.salesEndpoint}/menu-items/$menuItemId/recipe');
+      final response = await api.get(
+        '${ApiConstants.salesEndpoint}/menu-items/$menuItemId/recipe',
+      );
       return RecipeModel.fromJson(response as Map<String, dynamic>);
     } catch (_) {
       return null;
@@ -57,7 +59,9 @@ class KitchenService {
     final response = await api.get(ApiConstants.wasteRecordsEndpoint);
     if (response is List) {
       return response
-          .map((item) => WasteRecordModel.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => WasteRecordModel.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     }
     return [];

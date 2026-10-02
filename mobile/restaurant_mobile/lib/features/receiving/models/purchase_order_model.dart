@@ -26,7 +26,8 @@ class PurchaseOrderItemModel {
       id: json['id']?.toString() ?? '',
       purchaseOrderId: json['purchaseOrderId']?.toString() ?? '',
       ingredientId: json['ingredientId']?.toString() ?? '',
-      ingredientName: json['ingredientName']?.toString() ?? 'Unknown Ingredient',
+      ingredientName:
+          json['ingredientName']?.toString() ?? 'Unknown Ingredient',
       ingredientUnit: json['ingredientUnit']?.toString() ?? 'units',
       orderedQuantity: (json['orderedQuantity'] as num?)?.toDouble() ?? 0.0,
       unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
@@ -95,7 +96,9 @@ class PurchaseOrderModel {
       supplierId: json['supplierId']?.toString() ?? '',
       supplierName: json['supplierName']?.toString() ?? 'Unknown Supplier',
       status: json['status']?.toString().toUpperCase() ?? 'DRAFT',
-      orderDate: json['orderDate'] != null ? DateTime.tryParse(json['orderDate'].toString()) : null,
+      orderDate: json['orderDate'] != null
+          ? DateTime.tryParse(json['orderDate'].toString())
+          : null,
       expectedDeliveryDate: json['expectedDeliveryDate'] != null
           ? DateTime.tryParse(json['expectedDeliveryDate'].toString())
           : null,
@@ -104,7 +107,9 @@ class PurchaseOrderModel {
       createdByName: json['createdByName']?.toString() ?? '',
       approvedByName: json['approvedByName']?.toString(),
       items: rawItems
-          .map((i) => PurchaseOrderItemModel.fromJson(i as Map<String, dynamic>))
+          .map(
+            (i) => PurchaseOrderItemModel.fromJson(i as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -114,8 +119,7 @@ class PurchaseOrderModel {
 
   bool get isCompleted => status == 'COMPLETED';
 
-  int get remainingItemsCount =>
-      items.where((i) => !i.isFullyReceived).length;
+  int get remainingItemsCount => items.where((i) => !i.isFullyReceived).length;
 
   double get totalOrderedQuantity =>
       items.fold(0.0, (acc, item) => acc + item.orderedQuantity);

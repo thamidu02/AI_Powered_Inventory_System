@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/ai_message_model.dart';
 import '../services/ai_service.dart';
 
@@ -85,7 +86,8 @@ class AiProvider extends ChangeNotifier {
       }
     } catch (e) {
       if (botMsg.text.isEmpty) {
-        botMsg.text = 'Summary:\n• Connection to AI Service was interrupted.\n\nCurrent Situation:\n• Network or agent stream error: $e\n\nAnalysis:\n• Insufficient data to make a reliable recommendation.\n\nRecommendation:\n• Please verify network connectivity and retry the query.\n\nReason:\n• Live stream disconnected before response was completed.\n\nRequired Action:\n1. Check backend service status.\n2. Re-send your inquiry.\n\nApproval:\n• No approval required.';
+        botMsg.text =
+            'Summary:\n• Connection to AI Service was interrupted.\n\nCurrent Situation:\n• Network or agent stream error: $e\n\nAnalysis:\n• Insufficient data to make a reliable recommendation.\n\nRecommendation:\n• Please verify network connectivity and retry the query.\n\nReason:\n• Live stream disconnected before response was completed.\n\nRequired Action:\n1. Check backend service status.\n2. Re-send your inquiry.\n\nApproval:\n• No approval required.';
       }
     } finally {
       botMsg.isStreaming = false;

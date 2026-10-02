@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
+
 import '../constants/api_constants.dart';
 import '../errors/api_exception.dart';
 import 'storage_service.dart';
@@ -9,10 +11,8 @@ class ApiService {
   final http.Client _client;
   final StorageService storage;
 
-  ApiService({
-    required this.storage,
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+  ApiService({required this.storage, http.Client? client})
+    : _client = client ?? http.Client();
 
   Map<String, String> _buildHeaders({bool requiresAuth = true}) {
     final headers = <String, String>{
@@ -122,7 +122,11 @@ class ApiService {
       final uri = _buildUri(endpoint);
       final headers = _buildHeaders(requiresAuth: requiresAuth);
       final encodedBody = body != null ? jsonEncode(body) : null;
-      final response = await _client.post(uri, headers: headers, body: encodedBody);
+      final response = await _client.post(
+        uri,
+        headers: headers,
+        body: encodedBody,
+      );
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
@@ -146,7 +150,11 @@ class ApiService {
       final uri = _buildUri(endpoint);
       final headers = _buildHeaders(requiresAuth: requiresAuth);
       final encodedBody = body != null ? jsonEncode(body) : null;
-      final response = await _client.put(uri, headers: headers, body: encodedBody);
+      final response = await _client.put(
+        uri,
+        headers: headers,
+        body: encodedBody,
+      );
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
@@ -161,10 +169,7 @@ class ApiService {
     }
   }
 
-  Future<dynamic> delete(
-    String endpoint, {
-    bool requiresAuth = true,
-  }) async {
+  Future<dynamic> delete(String endpoint, {bool requiresAuth = true}) async {
     try {
       final uri = _buildUri(endpoint);
       final headers = _buildHeaders(requiresAuth: requiresAuth);

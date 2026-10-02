@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/goods_receipt_model.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/receiving_provider.dart';
@@ -95,8 +96,13 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                                   )
                                 : null,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -106,11 +112,23 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
-                              _buildFilterChip('READY', 'Ready to Receive (${provider.readyToReceiveCount})', provider),
+                              _buildFilterChip(
+                                'READY',
+                                'Ready to Receive (${provider.readyToReceiveCount})',
+                                provider,
+                              ),
                               const SizedBox(width: 8),
-                              _buildFilterChip('ALL', 'All Orders (${provider.totalOrdersCount})', provider),
+                              _buildFilterChip(
+                                'ALL',
+                                'All Orders (${provider.totalOrdersCount})',
+                                provider,
+                              ),
                               const SizedBox(width: 8),
-                              _buildFilterChip('COMPLETED', 'Completed (${provider.completedOrdersCount})', provider),
+                              _buildFilterChip(
+                                'COMPLETED',
+                                'Completed (${provider.completedOrdersCount})',
+                                provider,
+                              ),
                             ],
                           ),
                         ),
@@ -119,9 +137,7 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                   ),
 
                   // Order List / Loader / Empty State
-                  Expanded(
-                    child: _buildOrderList(context, provider),
-                  ),
+                  Expanded(child: _buildOrderList(context, provider)),
                 ],
               ),
             ),
@@ -137,7 +153,11 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
     );
   }
 
-  Widget _buildFilterChip(String filterKey, String label, ReceivingProvider provider) {
+  Widget _buildFilterChip(
+    String filterKey,
+    String label,
+    ReceivingProvider provider,
+  ) {
     final isSelected = provider.selectedStatusFilter == filterKey;
     final theme = Theme.of(context);
     return FilterChip(
@@ -146,7 +166,9 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+        color: isSelected
+            ? theme.colorScheme.onPrimary
+            : theme.colorScheme.onSurface,
       ),
       selectedColor: theme.colorScheme.primary,
       checkmarkColor: theme.colorScheme.onPrimary,
@@ -194,13 +216,20 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade400),
+              Icon(
+                Icons.inventory_2_outlined,
+                size: 56,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 12),
               Text(
                 provider.selectedStatusFilter == 'READY'
                     ? 'No purchase orders pending delivery'
                     : 'No purchase orders found',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -234,7 +263,9 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isEligible ? colorScheme.primary.withAlpha(60) : Colors.grey.shade200,
+          color: isEligible
+              ? colorScheme.primary.withAlpha(60)
+              : Colors.grey.shade200,
         ),
       ),
       child: InkWell(
@@ -279,7 +310,10 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: order.statusColor.withAlpha(25),
                       borderRadius: BorderRadius.circular(8),
@@ -300,11 +334,17 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
               // Items summary & Total Amount
               Row(
                 children: [
-                  Icon(Icons.shopping_basket_outlined, size: 16, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.shopping_basket_outlined,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     '${order.items.length} items (${order.remainingItemsCount} pending)',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade800),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade800,
+                    ),
                   ),
                   const Spacer(),
                   Text(
@@ -322,11 +362,18 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
               if (order.expectedDeliveryDate != null)
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey.shade600),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: Colors.grey.shade600,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Expected: ${order.expectedDeliveryDate!.toLocal().toString().split(' ')[0]}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
@@ -340,7 +387,8 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => GoodsIntakeScreen(purchaseOrder: order),
+                          builder: (_) =>
+                              GoodsIntakeScreen(purchaseOrder: order),
                         ),
                       );
                     },
@@ -370,7 +418,11 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_outlined, size: 56, color: Colors.grey.shade400),
+              Icon(
+                Icons.receipt_outlined,
+                size: 56,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'No past goods receipts recorded',
@@ -418,7 +470,11 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.check_circle, size: 20, color: Colors.green.shade700),
+                  child: Icon(
+                    Icons.check_circle,
+                    size: 20,
+                    color: Colors.green.shade700,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -434,7 +490,9 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                       ),
                       Text(
                         'Received by ${receipt.receivedByName}',
-                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -461,7 +519,11 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   children: [
-                    const Icon(Icons.fiber_manual_record, size: 8, color: Colors.grey),
+                    const Icon(
+                      Icons.fiber_manual_record,
+                      size: 8,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -497,7 +559,11 @@ class _ReceivingListScreenState extends State<ReceivingListScreen>
                     Expanded(
                       child: Text(
                         receipt.notes!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
                   ],

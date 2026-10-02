@@ -31,7 +31,8 @@ class UserModel {
       role: json['role']?.toString() ?? '',
       token: json['token']?.toString() ?? '',
       expiresAt: json['expiresAt'] != null
-          ? DateTime.tryParse(json['expiresAt'].toString()) ?? DateTime.now().add(const Duration(hours: 12))
+          ? DateTime.tryParse(json['expiresAt'].toString()) ??
+                DateTime.now().add(const Duration(hours: 12))
           : DateTime.now().add(const Duration(hours: 12)),
     );
   }

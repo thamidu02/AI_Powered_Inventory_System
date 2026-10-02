@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/errors/api_exception.dart';
 import '../models/goods_receipt_model.dart';
 import '../models/purchase_order_model.dart';
@@ -51,7 +52,9 @@ class ReceivingProvider extends ChangeNotifier {
         final q = _searchQuery.toLowerCase();
         final matchSupplier = order.supplierName.toLowerCase().contains(q);
         final matchId = order.id.toLowerCase().contains(q);
-        final matchItem = order.items.any((i) => i.ingredientName.toLowerCase().contains(q));
+        final matchItem = order.items.any(
+          (i) => i.ingredientName.toLowerCase().contains(q),
+        );
         if (!matchSupplier && !matchId && !matchItem) return false;
       }
 
@@ -105,7 +108,9 @@ class ReceivingProvider extends ChangeNotifier {
   }
 
   // ── Intake Submission ───────────────────────────────────────────────────
-  Future<GoodsReceiptModel?> submitIntake(CreateGoodsReceiptRequest request) async {
+  Future<GoodsReceiptModel?> submitIntake(
+    CreateGoodsReceiptRequest request,
+  ) async {
     _isSubmitting = true;
     _errorMessage = null;
     notifyListeners();

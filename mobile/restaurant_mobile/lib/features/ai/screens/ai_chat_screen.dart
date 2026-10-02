@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../models/ai_message_model.dart';
 import '../providers/ai_provider.dart';
@@ -193,9 +194,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: AppColors.primary,
-            borderRadius: BorderRadius.circular(16).copyWith(
-              bottomRight: const Radius.circular(2),
-            ),
+            borderRadius: BorderRadius.circular(16)
+                .copyWith(bottomRight: const Radius.circular(2)),
           ),
           child: Text(
             msg.text,
@@ -217,9 +217,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16).copyWith(
-            topLeft: const Radius.circular(2),
-          ),
+          borderRadius: BorderRadius.circular(16)
+              .copyWith(topLeft: const Radius.circular(2)),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
@@ -302,7 +301,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final proposal = msg.proposal!;
     final proposalType = proposal['proposal_type'] ?? 'PURCHASE_REQUEST';
     final totalCost = proposal['total_cost'];
-    final itemCount = proposal['item_count'] ?? (proposal['items'] as List?)?.length ?? 0;
+    final itemCount =
+        proposal['item_count'] ?? (proposal['items'] as List?)?.length ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -347,7 +347,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
           const SizedBox(height: 8),
           Text(
             'Items: $itemCount | Total Estimated Cost: \$${totalCost ?? '0.00'}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -380,7 +383,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
               onPressed: msg.isApproving
                   ? null
                   : () async {
-                      final success = await context.read<AiProvider>().approveProposal(msg);
+                      final success = await context
+                          .read<AiProvider>()
+                          .approveProposal(msg);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -389,7 +394,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
                                   ? 'Proposal approved successfully! Purchase Request created.'
                                   : 'Approval submission failed. Please check permissions.',
                             ),
-                            backgroundColor: success ? AppColors.emerald : AppColors.rose,
+                            backgroundColor: success
+                                ? AppColors.emerald
+                                : AppColors.rose,
                           ),
                         );
                       }
@@ -410,7 +417,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
               ),
             ),
         ],
@@ -423,9 +433,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 0.8),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border, width: 0.8)),
       ),
       child: Row(
         children: [
@@ -434,7 +442,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
               controller: _textController,
               decoration: InputDecoration(
                 hintText: 'Ask inventory AI...',
-                hintStyle: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                hintStyle: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textMuted,
+                ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -449,10 +460,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
-              onSubmitted: aiProvider.isProcessing ? null : (_) => _handleSend(),
+              onSubmitted: aiProvider.isProcessing
+                  ? null
+                  : (_) => _handleSend(),
             ),
           ),
           const SizedBox(width: 8),

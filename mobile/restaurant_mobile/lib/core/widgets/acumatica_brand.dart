@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 /// Acumatica-style 3D gradient sphere logo with concentric inner ring
@@ -6,11 +7,7 @@ class AcumaticaLogoSphere extends StatelessWidget {
   final double size;
   final double ringSize;
 
-  const AcumaticaLogoSphere({
-    super.key,
-    this.size = 42,
-    this.ringSize = 22,
-  });
+  const AcumaticaLogoSphere({super.key, this.size = 42, this.ringSize = 22});
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +21,8 @@ class AcumaticaLogoSphere extends StatelessWidget {
           radius: 0.9,
           colors: [
             AppColors.primaryLight, // #38BDF8
-            AppColors.primary,      // #007ACC
-            AppColors.primaryNavy,  // #0369A1
+            AppColors.primary, // #007ACC
+            AppColors.primaryNavy, // #0369A1
           ],
           stops: [0.0, 0.55, 1.0],
         ),
@@ -75,10 +72,7 @@ class AcumaticaBrandHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        AcumaticaLogoSphere(
-          size: logoSize,
-          ringSize: logoSize * 0.52,
-        ),
+        AcumaticaLogoSphere(size: logoSize, ringSize: logoSize * 0.52),
         const SizedBox(width: 12),
         Flexible(
           child: Column(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/acumatica_brand.dart';
 import '../providers/auth_provider.dart';
@@ -107,10 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
         body: Row(
           children: [
             // Left Hero Pane (Acumatica Enterprise Cloud Style)
-            Expanded(
-              flex: 5,
-              child: _buildHeroPane(context),
-            ),
+            Expanded(flex: 5, child: _buildHeroPane(context)),
             // Right Form Pane
             Expanded(
               flex: 4,
@@ -118,7 +116,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: Colors.white,
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 48,
+                      vertical: 32,
+                    ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 440),
                       child: _buildFormContent(context, auth),
@@ -138,7 +139,10 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 20.0,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: _buildFormContent(context, auth),
@@ -156,11 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E293B),
-            Color(0xFF00385E),
-          ],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF00385E)],
         ),
       ),
       padding: const EdgeInsets.all(56),
@@ -190,11 +190,16 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: AppColors.primaryLight.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: const Text(
                   'RESTAURANT INVENTORY & PROCUREMENT',
@@ -279,10 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 4),
           const Text(
             'Sign in to access your inventory and procurement console',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textMuted,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
           const SizedBox(height: 20),
 
@@ -297,7 +299,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: AppColors.alertText, size: 18),
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.alertText,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -332,7 +338,11 @@ class _LoginScreenState extends State<LoginScreen> {
             style: const TextStyle(fontSize: 14, color: AppColors.textMain),
             decoration: InputDecoration(
               hintText: 'name@restaurant.com',
-              prefixIcon: const Icon(Icons.mail_outline, size: 18, color: Color(0xFF94A3B8)),
+              prefixIcon: const Icon(
+                Icons.mail_outline,
+                size: 18,
+                color: Color(0xFF94A3B8),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
                 borderSide: const BorderSide(color: AppColors.border),
@@ -343,9 +353,15 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.8,
+                ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 11,
+              ),
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
@@ -377,10 +393,16 @@ class _LoginScreenState extends State<LoginScreen> {
             style: const TextStyle(fontSize: 14, color: AppColors.textMain),
             decoration: InputDecoration(
               hintText: '••••••••',
-              prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF94A3B8)),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                size: 18,
+                color: Color(0xFF94A3B8),
+              ),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                   size: 18,
                   color: const Color(0xFF94A3B8),
                 ),
@@ -400,9 +422,15 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.8,
+                ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 11,
+              ),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -516,10 +544,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Text(
                   'Copyright © 2026 Savory Inventory System. All rights reserved.',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 2),
@@ -574,7 +599,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: isSelected ? AppColors.primaryDark : AppColors.textMain,
+                      color: isSelected
+                          ? AppColors.primaryDark
+                          : AppColors.textMain,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

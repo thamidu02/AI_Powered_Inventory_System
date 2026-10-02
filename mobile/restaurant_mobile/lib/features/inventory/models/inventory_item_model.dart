@@ -21,6 +21,8 @@ class StockBatchModel {
     required this.storageLocationName,
   });
 
+  double get quantityRemaining => quantity;
+
   bool get isExpired {
     if (expiryDate == null) return false;
     return DateTime.now().isAfter(expiryDate!);
@@ -36,8 +38,12 @@ class StockBatchModel {
     return StockBatchModel(
       id: json['id']?.toString() ?? '',
       batchNumber: json['batchNumber']?.toString() ?? '',
-      quantity: (json['quantity'] is num) ? (json['quantity'] as num).toDouble() : 0.0,
-      unitCost: (json['unitCost'] is num) ? (json['unitCost'] as num).toDouble() : 0.0,
+      quantity: (json['quantity'] is num)
+          ? (json['quantity'] as num).toDouble()
+          : 0.0,
+      unitCost: (json['unitCost'] is num)
+          ? (json['unitCost'] as num).toDouble()
+          : 0.0,
       receivedDate: json['receivedDate'] != null
           ? DateTime.tryParse(json['receivedDate'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -45,7 +51,8 @@ class StockBatchModel {
           ? DateTime.tryParse(json['expiryDate'].toString())
           : null,
       status: json['status']?.toString() ?? 'AVAILABLE',
-      storageLocationName: json['storageLocationName']?.toString() ?? 'Main Storage',
+      storageLocationName:
+          json['storageLocationName']?.toString() ?? 'Main Storage',
     );
   }
 }
@@ -86,14 +93,18 @@ class InventoryItemModel {
   String get statusLabel {
     if (isOutOfStock) return 'OUT OF STOCK';
     if (isLowStock || currentStock < minimumStockLevel) return 'LOW STOCK';
-    if (maximumStockLevel > 0 && currentStock > maximumStockLevel) return 'OVERSTOCKED';
+    if (maximumStockLevel > 0 && currentStock > maximumStockLevel) {
+      return 'OVERSTOCKED';
+    }
     return 'OPTIMAL';
   }
 
   Color get statusColor {
     if (isOutOfStock) return Colors.red;
     if (isLowStock || currentStock < minimumStockLevel) return Colors.orange;
-    if (maximumStockLevel > 0 && currentStock > maximumStockLevel) return Colors.purple;
+    if (maximumStockLevel > 0 && currentStock > maximumStockLevel) {
+      return Colors.purple;
+    }
     return Colors.green;
   }
 
@@ -108,12 +119,20 @@ class InventoryItemModel {
       ingredientName: json['ingredientName']?.toString() ?? '',
       sku: json['sku']?.toString() ?? '',
       unit: json['unit']?.toString() ?? '',
-      currentStock: (json['currentStock'] is num) ? (json['currentStock'] as num).toDouble() : 0.0,
-      minimumStockLevel: (json['minimumStockLevel'] is num) ? (json['minimumStockLevel'] as num).toDouble() : 0.0,
-      maximumStockLevel: (json['maximumStockLevel'] is num) ? (json['maximumStockLevel'] as num).toDouble() : 0.0,
-      isLowStock: json['isLowStock'] == true ||
+      currentStock: (json['currentStock'] is num)
+          ? (json['currentStock'] as num).toDouble()
+          : 0.0,
+      minimumStockLevel: (json['minimumStockLevel'] is num)
+          ? (json['minimumStockLevel'] as num).toDouble()
+          : 0.0,
+      maximumStockLevel: (json['maximumStockLevel'] is num)
+          ? (json['maximumStockLevel'] as num).toDouble()
+          : 0.0,
+      isLowStock:
+          json['isLowStock'] == true ||
           ((json['currentStock'] is num && json['minimumStockLevel'] is num) &&
-              (json['currentStock'] as num) < (json['minimumStockLevel'] as num)),
+              (json['currentStock'] as num) <
+                  (json['minimumStockLevel'] as num)),
       batches: parsedBatches,
     );
   }

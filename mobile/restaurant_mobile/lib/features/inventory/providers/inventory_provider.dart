@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/errors/api_exception.dart';
 import '../models/inventory_item_model.dart';
 import '../services/inventory_service.dart';
@@ -20,9 +21,11 @@ class InventoryProvider extends ChangeNotifier {
   String get selectedFilter => _selectedFilter;
 
   int get totalCount => _items.length;
-  int get lowStockCount => _items.where((i) => i.isLowStock && !i.isOutOfStock).length;
+  int get lowStockCount =>
+      _items.where((i) => i.isLowStock && !i.isOutOfStock).length;
   int get outOfStockCount => _items.where((i) => i.isOutOfStock).length;
-  int get optimalCount => _items.where((i) => !i.isLowStock && !i.isOutOfStock).length;
+  int get optimalCount =>
+      _items.where((i) => !i.isLowStock && !i.isOutOfStock).length;
 
   List<InventoryItemModel> get items {
     return _items.where((item) {
@@ -64,7 +67,8 @@ class InventoryProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to load inventory. Please check server connectivity.';
+      _errorMessage =
+          'Failed to load inventory. Please check server connectivity.';
       notifyListeners();
     }
   }
@@ -82,5 +86,37 @@ class InventoryProvider extends ChangeNotifier {
   void setFilter(String filter) {
     _selectedFilter = filter;
     notifyListeners();
+  }
+
+  Future<bool> adjustStock({
+    required String stockBatchId,
+    required double quantityChange,
+    required String reason,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await inventoryService.adjustStock(
+        stockBatchId: stockBatchId,
+        quantityChange: quantityChange,
+        reason: reason,
+      );
+      await fetchInventory();
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _isLoading = false;
+      _errorMessage = 'Failed to submit stock adjustment.';
+      notifyListeners();
+      return false;
+    }
   }
 }

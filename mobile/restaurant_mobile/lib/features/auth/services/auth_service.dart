@@ -7,10 +7,7 @@ class AuthService {
   final ApiService api;
   final StorageService storage;
 
-  AuthService({
-    required this.api,
-    required this.storage,
-  });
+  AuthService({required this.api, required this.storage});
 
   Future<UserModel> login({
     required String email,
@@ -18,10 +15,7 @@ class AuthService {
   }) async {
     final response = await api.post(
       ApiConstants.loginEndpoint,
-      body: {
-        'email': email.trim(),
-        'password': password,
-      },
+      body: {'email': email.trim(), 'password': password},
       requiresAuth: false,
     );
 

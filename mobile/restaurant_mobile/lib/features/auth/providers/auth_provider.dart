@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/errors/api_exception.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
-enum AuthStatus {
-  initial,
-  authenticating,
-  authenticated,
-  unauthenticated,
-}
+enum AuthStatus { initial, authenticating, authenticated, unauthenticated }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService authService;
@@ -22,7 +18,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   AuthStatus get status => _status;
-  bool get isAuthenticated => _status == AuthStatus.authenticated && _currentUser != null;
+  bool get isAuthenticated =>
+      _status == AuthStatus.authenticated && _currentUser != null;
   bool get isLoading => _status == AuthStatus.authenticating;
   UserModel? get user => _currentUser;
   String? get errorMessage => _errorMessage;
@@ -60,7 +57,8 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _status = AuthStatus.unauthenticated;
-      _errorMessage = 'An unexpected error occurred during login. Please try again.';
+      _errorMessage =
+          'An unexpected error occurred during login. Please try again.';
       notifyListeners();
       return false;
     }

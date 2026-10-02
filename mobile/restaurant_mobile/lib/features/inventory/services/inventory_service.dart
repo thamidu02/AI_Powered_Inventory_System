@@ -14,15 +14,37 @@ class InventoryService {
     }
 
     return response
-        .map((item) => InventoryItemModel.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) => InventoryItemModel.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
   }
 
-  Future<InventoryItemModel?> getInventoryByIngredient(String ingredientId) async {
-    final response = await api.get('${ApiConstants.inventoryEndpoint}/$ingredientId');
+  Future<InventoryItemModel?> getInventoryByIngredient(
+    String ingredientId,
+  ) async {
+    final response = await api.get(
+      '${ApiConstants.inventoryEndpoint}/$ingredientId',
+    );
     if (response is! Map<String, dynamic>) {
       return null;
     }
     return InventoryItemModel.fromJson(response);
+  }
+
+  Future<Map<String, dynamic>> adjustStock({
+    required String stockBatchId,
+    required double quantityChange,
+    required String reason,
+  }) async {
+    final response = await api.post(
+      ApiConstants.inventoryAdjustEndpoint,
+      body: {
+        'stockBatchId': stockBatchId,
+        'quantityChange': quantityChange,
+        'reason': reason,
+      },
+    );
+    return response as Map<String, dynamic>;
   }
 }

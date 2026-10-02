@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../auth/providers/auth_provider.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../models/goods_receipt_model.dart';
 import '../models/purchase_order_model.dart';
 import '../models/storage_location_model.dart';
 import '../providers/receiving_provider.dart';
+import '../../../core/widgets/barcode_scanner_modal.dart';
 
 class GoodsIntakeScreen extends StatefulWidget {
   final PurchaseOrderModel purchaseOrder;
@@ -68,7 +70,11 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
           orderItem: item,
           isIncluded: isEligible,
           quantityController: TextEditingController(
-            text: isEligible ? remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 2) : '0',
+            text: isEligible
+                ? remaining.toStringAsFixed(
+                    remaining.truncateToDouble() == remaining ? 0 : 2,
+                  )
+                : '0',
           ),
           batchController: TextEditingController(text: defaultBatch),
           expiryDate: now.add(const Duration(days: 30)),
@@ -120,7 +126,10 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
     final now = DateTime.now();
     final dateStr =
         '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final millis = (now.millisecondsSinceEpoch % 1000).toString().padLeft(3, '0');
+    final millis = (now.millisecondsSinceEpoch % 1000).toString().padLeft(
+      3,
+      '0',
+    );
     final cleanIng = form.orderItem.ingredientName
         .replaceAll(RegExp(r'[^a-zA-Z]'), '')
         .toUpperCase();
@@ -153,7 +162,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
       if (qty <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Quantity for ${form.orderItem.ingredientName} must be greater than 0.'),
+            content: Text(
+              'Quantity for ${form.orderItem.ingredientName} must be greater than 0.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -163,7 +174,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
       if (form.selectedLocation == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Please select a storage location for ${form.orderItem.ingredientName}.'),
+            content: Text(
+              'Please select a storage location for ${form.orderItem.ingredientName}.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -225,7 +238,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Stock intake completed! ${result.items.length} batches recorded.'),
+            content: Text(
+              'Stock intake completed! ${result.items.length} batches recorded.',
+            ),
             backgroundColor: Colors.green.shade700,
           ),
         );
@@ -233,7 +248,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(receivingProvider.errorMessage ?? 'Intake submission failed.'),
+            content: Text(
+              receivingProvider.errorMessage ?? 'Intake submission failed.',
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -251,9 +268,7 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
     final isStaffOnly = authProvider.user?.isSalesKitchenStaff ?? false;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Receive Goods'),
-      ),
+      appBar: AppBar(title: const Text('Receive Goods')),
       body: SafeArea(
         child: Column(
           children: [
@@ -265,7 +280,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                   Card(
                     elevation: 0,
                     color: colorScheme.surfaceContainerHighest,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -279,7 +296,10 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                   color: colorScheme.primaryContainer,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Icon(Icons.local_shipping, color: colorScheme.primary),
+                                child: Icon(
+                                  Icons.local_shipping,
+                                  color: colorScheme.primary,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -288,16 +308,20 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                   children: [
                                     Text(
                                       widget.purchaseOrder.supplierName,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                     Text(
                                       '${widget.purchaseOrder.shortId}  •  ${widget.purchaseOrder.statusLabel}',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: widget.purchaseOrder.statusColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: widget
+                                                .purchaseOrder
+                                                .statusColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -338,7 +362,10 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.amber.shade800),
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.amber.shade800,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -388,7 +415,9 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                         side: BorderSide(
-                          color: form.isIncluded ? colorScheme.primary.withAlpha(80) : Colors.grey.shade300,
+                          color: form.isIncluded
+                              ? colorScheme.primary.withAlpha(80)
+                              : Colors.grey.shade300,
                           width: form.isIncluded ? 1.5 : 1,
                         ),
                       ),
@@ -410,26 +439,32 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                 ),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.ingredientName,
-                                        style: theme.textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                       Text(
                                         'Ordered: ${item.orderedQuantity} ${item.ingredientUnit}  •  Received: ${item.receivedQuantity} ${item.ingredientUnit}',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: Colors.grey.shade600,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: Colors.grey.shade600,
+                                            ),
                                       ),
                                     ],
                                   ),
                                 ),
                                 if (item.isFullyReceived)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.green.shade50,
                                       borderRadius: BorderRadius.circular(6),
@@ -445,7 +480,10 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                   )
                                 else
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.blue.shade50,
                                       borderRadius: BorderRadius.circular(6),
@@ -472,12 +510,18 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                     flex: 3,
                                     child: TextFormField(
                                       controller: form.quantityController,
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
                                       decoration: InputDecoration(
-                                        labelText: 'Receiving Qty (${item.ingredientUnit})',
+                                        labelText:
+                                            'Receiving Qty (${item.ingredientUnit})',
                                         isDense: true,
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -486,12 +530,19 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                   OutlinedButton(
                                     onPressed: () {
                                       setState(() {
-                                        form.quantityController.text = item.remainingQuantity.toString();
+                                        form.quantityController.text = item
+                                            .remainingQuantity
+                                            .toString();
                                       });
                                     },
                                     style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                     child: const Text('Max Rem.'),
                                   ),
@@ -501,11 +552,18 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
 
                               // Storage Location Dropdown
                               DropdownButtonFormField<StorageLocationModel>(
-                                initialValue: form.selectedLocation ?? (locations.isNotEmpty ? locations.first : null),
+                                initialValue:
+                                    form.selectedLocation ??
+                                    (locations.isNotEmpty
+                                        ? locations.first
+                                        : null),
                                 decoration: InputDecoration(
                                   labelText: 'Storage Location',
                                   isDense: true,
-                                  prefixIcon: const Icon(Icons.warehouse_outlined, size: 20),
+                                  prefixIcon: const Icon(
+                                    Icons.warehouse_outlined,
+                                    size: 20,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
@@ -516,7 +574,11 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(loc.temperatureIcon, size: 16, color: loc.temperatureBadgeColor),
+                                        Icon(
+                                          loc.temperatureIcon,
+                                          size: 16,
+                                          color: loc.temperatureBadgeColor,
+                                        ),
                                         const SizedBox(width: 6),
                                         Flexible(
                                           child: Text(
@@ -545,14 +607,34 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                       decoration: InputDecoration(
                                         labelText: 'Batch Number',
                                         isDense: true,
-                                        prefixIcon: const Icon(Icons.qr_code, size: 20),
+                                        prefixIcon: const Icon(
+                                          Icons.qr_code,
+                                          size: 20,
+                                        ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
+                                  IconButton(
+                                    tooltip: 'Scan Barcode / QR',
+                                    icon: const Icon(Icons.qr_code_scanner),
+                                    onPressed: () async {
+                                      final scanned =
+                                          await BarcodeScannerModal.show(
+                                            context,
+                                          );
+                                      if (scanned != null && mounted) {
+                                        setState(() {
+                                          form.batchController.text = scanned;
+                                        });
+                                      }
+                                    },
+                                  ),
                                   IconButton(
                                     tooltip: 'Generate new batch code',
                                     icon: const Icon(Icons.refresh),
@@ -567,30 +649,45 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                                 onTap: () => _pickExpiryDate(form),
                                 borderRadius: BorderRadius.circular(10),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade400),
+                                    border: Border.all(
+                                      color: Colors.grey.shade400,
+                                    ),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.event, size: 18, color: colorScheme.primary),
+                                          Icon(
+                                            Icons.event,
+                                            size: 18,
+                                            color: colorScheme.primary,
+                                          ),
                                           const SizedBox(width: 8),
                                           Text(
                                             form.expiryDate != null
                                                 ? 'Expiry: ${form.expiryDate!.toLocal().toString().split(' ')[0]}'
                                                 : 'Set Expiry Date',
                                             style: TextStyle(
-                                              color: form.expiryDate != null ? colorScheme.onSurface : Colors.grey,
+                                              color: form.expiryDate != null
+                                                  ? colorScheme.onSurface
+                                                  : Colors.grey,
                                               fontSize: 13,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                                      const Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Colors.grey,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -631,14 +728,20 @@ class _GoodsIntakeScreenState extends State<GoodsIntakeScreen> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.check_circle_outline),
                     label: Text(
                       receivingProvider.isSubmitting
                           ? 'Recording Stock Intake...'
                           : 'Confirm Stock Intake (${_itemForms.where((f) => f.isIncluded).length} items)',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
