@@ -1,9 +1,14 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class ApiConstants {
   // Configurable host address:
   // - Android Emulator: 10.0.2.2 points to host machine localhost
   // - iOS Simulator / Desktop / Web: localhost points to host machine
   static String get baseUrl {
-    // With adb reverse tcp:5066 tcp:5066, localhost points directly to host PC over USB
+    if (!kIsWeb && Platform.isAndroid) {
+      return 'http://10.0.2.2:5066';
+    }
     return 'http://localhost:5066';
   }
 
