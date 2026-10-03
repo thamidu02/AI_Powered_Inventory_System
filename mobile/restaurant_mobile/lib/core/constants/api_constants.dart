@@ -1,14 +1,32 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
 class ApiConstants {
   // Configurable host address:
-  // - Android Emulator: 10.0.2.2 points to host machine localhost
-  // - iOS Simulator / Desktop / Web: localhost points to host machine
+  // Can be overridden at build or run time:
+  // flutter build apk --dart-define=API_URL=https://restaurant-inventory-api-phi.vercel.app
+  static const String _envBaseUrl = String.fromEnvironment('API_URL');
+
+  // Deployed Cloud Backend (which in turn connects to the deployed AI Service)
+  static const String cloudBackendUrl = 'https://restaurant-inventory-api-phi.vercel.app';
+
   static String get baseUrl {
+    // 1. If an explicit API_URL was provided via --dart-define, prioritize it
+    if (_envBaseUrl.isNotEmpty) {
+      return _envBaseUrl;
+    }
+
+    // 2. In Release APK builds, default to the live cloud backend
+    if (kReleaseMode) {
+      return cloudBackendUrl;
+    }
+
+    // 3. In Debug mode on Android Emulator: 10.0.2.2 maps to host machine's localhost
     if (!kIsWeb && Platform.isAndroid) {
       return 'http://10.0.2.2:5066';
     }
+
+    // 4. Default for local web, desktop, and iOS simulator
     return 'http://localhost:5066';
   }
 
