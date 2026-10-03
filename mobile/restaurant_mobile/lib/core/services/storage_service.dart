@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class StorageService {
   static const String _keyToken = 'auth_jwt_token';
   static const String _keyUser = 'auth_user_data';
+  static const String _keyBaseUrl = 'api_custom_base_url';
 
   final SharedPreferences _prefs;
 
@@ -42,6 +43,15 @@ class StorageService {
     } catch (_) {
       return null;
     }
+  }
+
+  // Backend Base URL configuration
+  Future<bool> saveBaseUrl(String url) async {
+    return await _prefs.setString(_keyBaseUrl, url);
+  }
+
+  String? getBaseUrl() {
+    return _prefs.getString(_keyBaseUrl);
   }
 
   // Clear all authentication session data
