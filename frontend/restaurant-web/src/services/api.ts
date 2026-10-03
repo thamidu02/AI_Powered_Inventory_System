@@ -468,17 +468,23 @@ export const api = {
       isSimulated?: boolean;
     }>(city ? `/api/weather/forecast?city=${encodeURIComponent(city)}` : '/api/weather/forecast'),
 
-  // Direct ML service endpoints (Python AI service at port 8001)
-  getMlForecast: (days = 7): Promise<MlForecastApiResponse> =>
-    fetch(`http://localhost:8001/ml/forecast?days=${days}`).then(r => r.json()),
-  getMlStatus: (): Promise<MlStatusResponse> =>
-    fetch('http://localhost:8001/ml/status').then(r => r.json()),
-  triggerMlTraining: (force = true): Promise<Record<string, unknown>> =>
-    fetch('http://localhost:8001/ml/train', {
+  // Direct ML service endpoints (Python AI service)
+  getMlForecast: (days = 7): Promise<MlForecastApiResponse> => {
+    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+    return fetch(`${AI_URL}/ml/forecast?days=${days}`).then(r => r.json());
+  },
+  getMlStatus: (): Promise<MlStatusResponse> => {
+    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+    return fetch(`${AI_URL}/ml/status`).then(r => r.json());
+  },
+  triggerMlTraining: (force = true): Promise<Record<string, unknown>> => {
+    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+    return fetch(`${AI_URL}/ml/train`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lookback_days: 60, force }),
-    }).then(r => r.json()),
+    }).then(r => r.json());
+  },
 };
 
 // ML service response types

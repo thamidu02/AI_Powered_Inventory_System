@@ -30,7 +30,18 @@ builder.Services.AddCors(options =>
                 try
                 {
                     var uri = new Uri(origin);
-                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                    // Allow localhost for development
+                    if (uri.Host == "localhost" || uri.Host == "127.0.0.1")
+                        return true;
+                    // Allow Vercel domains (*.vercel.app)
+                    if (uri.Host.EndsWith(".vercel.app"))
+                        return true;
+                    // Allow custom frontend URL set via environment variable
+                    var allowedOrigin = builder.Configuration["FRONTEND_URL"];
+                    if (!string.IsNullOrEmpty(allowedOrigin) &&
+                        origin.StartsWith(allowedOrigin, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    return false;
                 }
                 catch
                 {

@@ -32,7 +32,7 @@ import type {
 } from '../types';
 import './FloatingAiChatWidget.css';
 
-const API = 'http://localhost:5066';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5066';
 
 const QUICK_ACTIONS = [
   { label: 'Check Next Week Demand', icon: TrendingUp,    message: "Analyze next week's demand and identify ingredients that may require additional purchasing" },
