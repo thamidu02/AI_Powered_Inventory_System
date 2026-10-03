@@ -17,4 +17,7 @@ COPY --from=build /app/publish .
 
 ENV DOTNET_EnableDiagnostics=0
 
-ENTRYPOINT ["dotnet", "RestaurantInventory.API.dll"]
+# The base aspnet image sets ASPNETCORE_HTTP_PORTS=8080 by default.
+# Vercel injects PORT at runtime — we must override ASPNETCORE_HTTP_PORTS
+# so the app binds to the port Vercel expects.
+CMD ["sh", "-c", "ASPNETCORE_HTTP_PORTS=${PORT:-8080} dotnet RestaurantInventory.API.dll"]
