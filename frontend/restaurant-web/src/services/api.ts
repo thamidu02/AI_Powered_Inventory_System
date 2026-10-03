@@ -49,6 +49,25 @@ import type {
 const TOKEN_KEY = 'restaurant_auth_token';
 const USER_KEY = 'restaurant_auth_user';
 
+const DEFAULT_BACKEND_URL = 'https://restaurant-inventory-api-phi.vercel.app';
+export const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? DEFAULT_BACKEND_URL : '')
+).replace(/\/+$/, '');
+
+const DEFAULT_AI_URL = 'https://restaurant-ai-service.vercel.app';
+export const AI_BASE_URL = (
+  import.meta.env.VITE_AI_SERVICE_URL ||
+  (import.meta.env.PROD ? DEFAULT_AI_URL : 'http://localhost:8001')
+).replace(/\/+$/, '');
+
+export function resolveApiUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return API_BASE_URL ? `${API_BASE_URL}${cleanEndpoint}` : cleanEndpoint;
+}
 
 export const getStoredToken = (): string | null => {
   const user = getStoredUser();
@@ -94,7 +113,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(endpoint, {
+  const url = resolveApiUrl(endpoint);
+
+  const res = await fetch(url, {
     ...options,
     headers,
   });
@@ -470,16 +491,13 @@ export const api = {
 
   // Direct ML service endpoints (Python AI service)
   getMlForecast: (days = 7): Promise<MlForecastApiResponse> => {
-    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
-    return fetch(`${AI_URL}/ml/forecast?days=${days}`).then(r => r.json());
+    return fetch(`${AI_BASE_URL}/ml/forecast?days=${days}`).then(r => r.json());
   },
   getMlStatus: (): Promise<MlStatusResponse> => {
-    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
-    return fetch(`${AI_URL}/ml/status`).then(r => r.json());
+    return fetch(`${AI_BASE_URL}/ml/status`).then(r => r.json());
   },
   triggerMlTraining: (force = true): Promise<Record<string, unknown>> => {
-    const AI_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
-    return fetch(`${AI_URL}/ml/train`, {
+    return fetch(`${AI_BASE_URL}/ml/train`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lookback_days: 60, force }),

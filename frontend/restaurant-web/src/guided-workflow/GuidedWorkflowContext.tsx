@@ -11,8 +11,9 @@ import type {
 import { WORKFLOW_DEFINITIONS } from './workflowDefinitions';
 import { isAllowedTarget } from './targetRegistry';
 import { GuidedWorkflowContext } from './guidedWorkflowContextDef';
+import { API_BASE_URL } from '../services/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5066';
+const API_BASE = API_BASE_URL || (import.meta.env.PROD ? 'https://restaurant-inventory-api-phi.vercel.app' : 'http://localhost:5066');
 
 const initialWorkflowState: GuidedWorkflowState = {
   isActive: false,
