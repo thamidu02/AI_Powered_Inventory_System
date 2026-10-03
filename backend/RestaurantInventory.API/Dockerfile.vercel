@@ -15,9 +15,6 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-# Vercel routes traffic to port 8080
-ENV PORT=8080
-ENV ASPNETCORE_HTTP_PORTS=8080
 ENV DOTNET_EnableDiagnostics=0
 
 ENTRYPOINT ["dotnet", "RestaurantInventory.API.dll"]
