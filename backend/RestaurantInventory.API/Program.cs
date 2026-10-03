@@ -180,6 +180,10 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Bind to the PORT environment variable injected by Vercel (defaults to 8080 for local dev)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
