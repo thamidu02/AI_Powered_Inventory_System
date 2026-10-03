@@ -10,11 +10,9 @@ import {
   Utensils,
   Truck,
   ShoppingCart,
-  Sparkles,
   BarChart3,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
-import { TEST_ACCOUNTS } from '../types';
 
 interface NavbarProps {
   activeTab: 'inventory' | 'operations' | 'masterData' | 'menuRecipes' | 'salesWaste' | 'procurement' | 'kitchenOrder' | 'aiAssistant' | 'planning';
@@ -39,7 +37,7 @@ const getRoleBadgeColor = (role?: string) => {
 };
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
-  const { user, logout, quickLogin, loading } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <header className="navbar-container">
@@ -53,25 +51,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               Savory<span>Inventory</span>
             </div>
             <div className="brand-subtitle">AI-Assisted Operations & FEFO Traceability</div>
-          </div>
-        </div>
-
-        {/* Fast Role Switcher Pill */}
-        <div className="role-switcher">
-          <span className="switcher-label">Switch Role:</span>
-          <div className="role-chips">
-            {TEST_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.role}
-                type="button"
-                className={`role-chip ${user?.role === acc.role ? 'active' : ''}`}
-                onClick={() => quickLogin(acc.email)}
-                disabled={loading}
-                title={`Switch to ${acc.name} (${acc.role})`}
-              >
-                {acc.name.split(' ')[0]}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -180,19 +159,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           >
             <ShoppingCart size={18} />
             <span>Kitchen Orders</span>
-          </button>
-        )}
-
-        {user?.role === 'INVENTORY_MANAGER' && (
-          <button
-            type="button"
-            id="nav-ai-assistant"
-            data-guide-id="nav-ai-assistant"
-            className={`nav-tab nav-tab--ai ${activeTab === 'aiAssistant' ? 'active' : ''}`}
-            onClick={() => setActiveTab('aiAssistant')}
-          >
-            <Sparkles size={18} />
-            <span>AI Assistant</span>
           </button>
         )}
       </nav>

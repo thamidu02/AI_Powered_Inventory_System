@@ -6,11 +6,10 @@ import {
   Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
-import { TEST_ACCOUNTS } from '../types';
 import './LoginView.css';
 
 export const LoginView: React.FC = () => {
-  const { login, quickLogin, loading, error, clearError } = useAuth();
+  const { login, loading, error, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -22,13 +21,6 @@ export const LoginView: React.FC = () => {
     } catch {
       // Error handled in AuthContext
     }
-  };
-
-  const handleQuickFill = (testEmail: string) => {
-    setEmail(testEmail);
-    setPassword('Password123!');
-    clearError();
-    quickLogin(testEmail);
   };
 
   return (
@@ -130,42 +122,14 @@ export const LoginView: React.FC = () => {
                 )}
               </button>
 
-              <button
-                type="button"
+              <span
                 className="acumatica-link-forgot"
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={() => handleQuickFill('manager@restaurant.com')}
+                style={{ fontSize: '0.8rem', color: '#64748b' }}
               >
-                Forgot your credentials?
-              </button>
+                Need access? Contact your administrator.
+              </span>
             </div>
           </form>
-
-          {/* Demo Profiles 1-Click Access */}
-          <div className="acumatica-demo-section">
-            <div className="acumatica-demo-header">
-              <span>Quick Demo Access</span>
-              <span className="acumatica-demo-badge">5 Roles Available</span>
-            </div>
-
-            <div className="acumatica-roles-grid">
-              {TEST_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.role}
-                  type="button"
-                  className="acumatica-role-pill"
-                  disabled={loading}
-                  onClick={() => handleQuickFill(acc.email)}
-                  title={acc.description}
-                >
-                  <span className="acumatica-role-pill-name">{acc.name}</span>
-                  <span className="acumatica-role-pill-role">
-                    {acc.role.replace('_', ' ')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
