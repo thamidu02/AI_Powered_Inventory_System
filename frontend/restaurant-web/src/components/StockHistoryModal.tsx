@@ -391,9 +391,9 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                   return (
                     <tr key={m.id}>
                       <td className="text-nowrap">
-                        <div className="flex items-center gap-1">
-                          <Clock size={12} className="text-muted" />
-                          <span className="text-sm font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={13} style={{ color: '#64748b' }} />
+                          <span className="text-sm font-semibold" style={{ color: '#0f172a' }}>
                             {dateObj.toLocaleDateString(undefined, {
                               month: 'short',
                               day: 'numeric',
@@ -401,7 +401,10 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                             })}
                           </span>
                         </div>
-                        <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>
+                        <div
+                          className="text-xs font-mono"
+                          style={{ color: '#64748b', paddingLeft: '1.25rem', marginTop: '2px' }}
+                        >
                           {dateObj.toLocaleTimeString(undefined, {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -417,19 +420,22 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                           className={`font-mono font-bold ${
                             deduction ? 'text-rose' : 'text-emerald'
                           }`}
+                          style={{ fontSize: '0.95rem' }}
                         >
                           {deduction ? '-' : '+'}
                           {m.quantity.toLocaleString(undefined, {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 3,
                           })}{' '}
-                          <span className="text-xs text-muted">{m.unit}</span>
+                          <span className="text-xs text-muted" style={{ fontWeight: 500 }}>
+                            {m.unit}
+                          </span>
                         </span>
                       </td>
 
                       {!batch && (
                         <td>
-                          <span className="font-mono text-xs text-accent">
+                          <span className="font-mono text-xs text-accent font-semibold">
                             {m.batchNumber || '—'}
                           </span>
                         </td>
@@ -437,32 +443,35 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
 
                       <td>
                         <span className="location-pill text-xs">
-                          <MapPin size={11} className="inline-icon text-muted" />
-                          {m.storageLocationName || '—'}
+                          <MapPin size={12} className="inline-icon text-muted" />
+                          <span>{m.storageLocationName || '—'}</span>
                         </span>
                       </td>
 
                       <td>
-                        <div className="text-sm">
+                        <div className="text-sm font-semibold" style={{ color: '#0f172a' }}>
                           {m.reason || (
-                            <span className="text-muted italic">No reason specified</span>
+                            <span className="text-muted italic font-normal">No reason specified</span>
                           )}
                         </div>
                         {m.referenceType && (
-                          <div className="text-xs text-muted">
-                            Ref: <span className="font-mono">{m.referenceType}</span>
+                          <div className="text-xs" style={{ color: '#64748b', marginTop: '2px' }}>
+                            Ref: <span className="font-mono font-medium" style={{ color: '#334155' }}>{m.referenceType}</span>
                             {m.referenceId ? ` (${m.referenceId.substring(0, 8)}...)` : ''}
                           </div>
                         )}
                       </td>
 
                       <td>
-                        <div className="flex items-center gap-1 text-sm">
-                          <UserIcon size={12} className="text-muted" />
+                        <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#0f172a' }}>
+                          <UserIcon size={13} style={{ color: '#64748b' }} />
                           <span>{m.createdByName || 'System User'}</span>
                         </div>
                         {m.createdByEmail && (
-                          <div className="text-xs text-muted" style={{ paddingLeft: '1rem' }}>
+                          <div
+                            className="text-xs"
+                            style={{ color: '#64748b', paddingLeft: '1.25rem', marginTop: '2px' }}
+                          >
                             {m.createdByEmail}
                           </div>
                         )}
@@ -476,14 +485,24 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="modal-actions" style={{ marginTop: '1.25rem' }}>
-          <div className="text-muted text-xs flex items-center gap-1">
-            <History size={12} />
+        <div
+          className="modal-actions"
+          style={{
+            marginTop: '1.25rem',
+            paddingTop: '1rem',
+            borderTop: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div className="text-muted text-xs flex items-center gap-1.5" style={{ fontWeight: 500 }}>
+            <History size={14} style={{ color: '#64748b' }} />
             <span>
-              Showing {filteredMovements.length} of {movements.length} total events
+              Showing <strong>{filteredMovements.length}</strong> of <strong>{movements.length}</strong> total events
             </span>
           </div>
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary" onClick={onClose} style={{ minWidth: '90px' }}>
             Close
           </button>
         </div>
