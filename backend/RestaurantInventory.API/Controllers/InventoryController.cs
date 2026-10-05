@@ -74,7 +74,7 @@ public class InventoryController : ControllerBase
     // ============================================================
 
     [HttpGet("expiring")]
-    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER")]
+    [Authorize(Roles = "SYSTEM_ADMIN,RESTAURANT_MANAGER,INVENTORY_MANAGER,PROCUREMENT_OFFICER,SALES_KITCHEN_STAFF,AI_SERVICE")]
     public async Task<IActionResult> GetExpiringStock(
         [FromQuery] int days = 7)
     {
