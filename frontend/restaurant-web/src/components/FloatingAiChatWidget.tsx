@@ -32,7 +32,7 @@ import type {
 } from '../types';
 import './FloatingAiChatWidget.css';
 
-const API = API_BASE_URL || (import.meta.env.PROD ? 'https://restaurant-inventory-api-phi.vercel.app' : 'http://localhost:5066');
+const API = API_BASE_URL;
 
 const QUICK_ACTIONS = [
   { label: 'Check Next Week Demand', icon: TrendingUp,    message: "Analyze next week's demand and identify ingredients that may require additional purchasing" },
