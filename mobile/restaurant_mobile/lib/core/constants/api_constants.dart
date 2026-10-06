@@ -19,27 +19,30 @@ class ApiConstants {
   static String? customBaseUrl;
 
   static String get baseUrl {
-    // 1. If user configured in-app or loaded from storage
+    // In Release builds, ALWAYS use the Vercel cloud backend.
+    // No saved URL, env var, or custom override can change this for production.
+    if (kReleaseMode) {
+      return cloudBackendUrl;
+    }
+
+    // --- Debug / Development builds only below ---
+
+    // 1. If user configured in-app or loaded from storage (debug only)
     if (customBaseUrl != null && customBaseUrl!.trim().isNotEmpty) {
       return customBaseUrl!.trim();
     }
 
-    // 2. If provided via --dart-define=API_URL=...
+    // 2. If provided via --dart-define=API_URL=... (debug only)
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
 
-    // 3. In Release APK builds, default to your PC's Wi-Fi IP
-    if (kReleaseMode) {
-      return localWifiUrl;
-    }
-
-    // 4. In Debug mode on Android Emulator: 10.0.2.2 maps to host machine's localhost
+    // 3. In Debug mode on Android Emulator: 10.0.2.2 maps to host machine's localhost
     if (!kIsWeb && Platform.isAndroid) {
       return emulatorUrl;
     }
 
-    // 5. Default for local web, desktop, and iOS simulator
+    // 4. Default for local web, desktop, and iOS simulator
     return 'http://localhost:5066';
   }
 

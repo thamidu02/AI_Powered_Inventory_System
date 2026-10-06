@@ -102,7 +102,7 @@ class ApiService {
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
-        message: 'Cannot reach backend server. Check your network or host URL.',
+        message: 'Cannot reach backend at ${ApiConstants.baseUrl}. (${e.message})',
         details: e.toString(),
       );
     } on http.ClientException catch (e) {
@@ -130,7 +130,7 @@ class ApiService {
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
-        message: 'Cannot reach backend server. Check your network or host URL.',
+        message: 'Cannot reach backend at ${ApiConstants.baseUrl}. (${e.message})',
         details: e.toString(),
       );
     } on http.ClientException catch (e) {
@@ -158,7 +158,7 @@ class ApiService {
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
-        message: 'Cannot reach backend server. Check your network or host URL.',
+        message: 'Cannot reach backend at ${ApiConstants.baseUrl}. (${e.message})',
         details: e.toString(),
       );
     } on http.ClientException catch (e) {
@@ -177,7 +177,7 @@ class ApiService {
       return _processResponse(response);
     } on SocketException catch (e) {
       throw ApiException(
-        message: 'Cannot reach backend server. Check your network or host URL.',
+        message: 'Cannot reach backend at ${ApiConstants.baseUrl}. (${e.message})',
         details: e.toString(),
       );
     } on http.ClientException catch (e) {
@@ -219,7 +219,7 @@ class ApiService {
       }
     } on SocketException catch (e) {
       throw ApiException(
-        message: 'Cannot reach backend server. Check your network or host URL.',
+        message: 'Cannot reach backend at ${ApiConstants.baseUrl}. (${e.message})',
         details: e.toString(),
       );
     } on http.ClientException catch (e) {

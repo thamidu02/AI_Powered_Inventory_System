@@ -20,44 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  final List<Map<String, String>> _demoAccounts = const [
-    {
-      'role': 'RESTAURANT_MANAGER',
-      'name': 'Restaurant Manager',
-      'email': 'manager@restaurant.com',
-      'password': 'Restaurant@123',
-      'description': 'Approves purchase requests & stock adjustments',
-    },
-    {
-      'role': 'INVENTORY_MANAGER',
-      'name': 'Inventory Manager',
-      'email': 'inventory@restaurant.com',
-      'password': 'Restaurant@123',
-      'description': 'Receives goods, transfers & audit checks',
-    },
-    {
-      'role': 'PROCUREMENT_OFFICER',
-      'name': 'Procurement Officer',
-      'email': 'procurement@restaurant.com',
-      'password': 'Restaurant@123',
-      'description': 'Monitors stock thresholds & issues orders',
-    },
-    {
-      'role': 'SALES_KITCHEN_STAFF',
-      'name': 'Kitchen Staff',
-      'email': 'staff@restaurant.com',
-      'password': 'Restaurant@123',
-      'description': 'Logs recipe prep, POS sales & waste records',
-    },
-    {
-      'role': 'SYSTEM_ADMIN',
-      'name': 'System Admin',
-      'email': 'admin@restaurant.com',
-      'password': 'Restaurant@123',
-      'description': 'Full administrative control & master data CRUD',
-    },
-  ];
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -65,19 +27,14 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _selectDemoAccount(Map<String, String> account) {
-    setState(() {
-      _emailController.text = account['email']!;
-      _passwordController.text = account['password']!;
-    });
-    context.read<AuthProvider>().clearError();
-  }
-
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
-    final email = _emailController.text.trim();
+    var email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      email = '$email@restaurant.com';
+    }
     final password = _passwordController.text;
 
     final success = await authProvider.login(email, password);
@@ -499,145 +456,368 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 16),
           ],
 
-          // Email Field
-          const Text(
-            'Username / Email',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+          // Email / Username Field
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 19, color: Color(0xFF00385E)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Username / Email',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: const Text(
+                  'e.g. manager',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.next,
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+                letterSpacing: 0.2,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                hintText: 'manager@restaurant.com or username',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Icon(
+                    Icons.email_outlined,
+                    size: 24,
+                    color: Color(0xFF00385E),
+                  ),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                suffixIcon: _emailController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20, color: Color(0xFF64748B)),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.clear();
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.5),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF00385E),
+                    width: 2.2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.redAccent, width: 2.2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your email or username';
+                }
+                return null;
+              },
             ),
           ),
           const SizedBox(height: 6),
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            style: const TextStyle(fontSize: 14, color: AppColors.textMain),
-            decoration: InputDecoration(
-              hintText: 'name@restaurant.com',
-              prefixIcon: const Icon(
-                Icons.mail_outline,
-                size: 18,
-                color: Color(0xFF94A3B8),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.8,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 11,
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text(
+              'Enter your registered email (e.g. manager@restaurant.com) or username',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
               ),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!value.contains('@') || !value.contains('.')) {
-                return 'Please enter a valid email address';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
           // Password Field
-          const Text(
-            'Password',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _handleLogin(),
-            style: const TextStyle(fontSize: 14, color: AppColors.textMain),
-            decoration: InputDecoration(
-              hintText: '••••••••',
-              prefixIcon: const Icon(
-                Icons.lock_outline,
-                size: 18,
-                color: Color(0xFF94A3B8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.lock_outline_rounded, size: 19, color: Color(0xFF00385E)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Password',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
               ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  size: 18,
-                  color: const Color(0xFF94A3B8),
-                ),
+              TextButton(
                 onPressed: () {
                   setState(() {
                     _obscurePassword = !_obscurePassword;
                   });
                 },
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.8,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _obscurePassword ? 'Show password' : 'Hide password',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF00385E),
+                  ),
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 11,
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleLogin(),
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+                letterSpacing: 0.5,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                hintText: 'Enter account password',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Icon(
+                    Icons.key_rounded,
+                    size: 24,
+                    color: Color(0xFF00385E),
+                  ),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 24,
+                    color: const Color(0xFF00385E),
+                  ),
+                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.5),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF00385E),
+                    width: 2.2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.redAccent, width: 2.2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your password';
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text(
+              'Case-sensitive password (e.g. Manager@123)',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
               ),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your password';
-              }
-              return null;
-            },
+          ),
+          const SizedBox(height: 14),
+
+          // User-friendly credentials helper card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF166534)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: const TextSpan(
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF166534)),
+                      children: [
+                        TextSpan(
+                          text: 'Default Login: ',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(text: 'manager@restaurant.com / Manager@123'),
+                      ],
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _emailController.text = 'manager@restaurant.com';
+                      _passwordController.text = 'Manager@123';
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: const Color(0xFFDCFCE7),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                  child: const Text(
+                    'Auto-Fill',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF166534),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
 
           // Acumatica Sign In Button
           SizedBox(
-            height: 42,
+            height: 50,
             child: FilledButton(
               onPressed: auth.isLoading ? null : _handleLogin,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                elevation: 0,
+                elevation: 1,
               ),
               child: auth.isLoading
                   ? const SizedBox(
-                      height: 18,
-                      width: 18,
+                      height: 22,
+                      width: 22,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                        strokeWidth: 2.5,
                         color: Colors.white,
                       ),
                     )
@@ -647,74 +827,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           'Sign In',
                           style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
                           ),
                         ),
-                        SizedBox(width: 6),
-                        Icon(Icons.arrow_forward, size: 16),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
             ),
           ),
-          const SizedBox(height: 28),
-
-          // Acumatica Quick Demo Accounts Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'QUICK DEMO ACCESS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.demoBadgeBg,
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: AppColors.demoBadgeBorder),
-                ),
-                child: const Text(
-                  '5 Roles Available',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.demoBadgeText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Demo Roles Grid (2-column Acumatica style cards)
-          Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(child: _buildRoleCard(_demoAccounts[0])),
-                  const SizedBox(width: 8),
-                  Expanded(child: _buildRoleCard(_demoAccounts[1])),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _buildRoleCard(_demoAccounts[2])),
-                  const SizedBox(width: 8),
-                  Expanded(child: _buildRoleCard(_demoAccounts[3])),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildRoleCard(_demoAccounts[4]),
-            ],
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 36),
 
           // Footer
           const Center(
@@ -743,95 +867,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildRoleCard(Map<String, String> account) {
-    final isSelected = _emailController.text == account['email'];
 
-    return InkWell(
-      onTap: () => _selectDemoAccount(account),
-      borderRadius: BorderRadius.circular(4),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.demoBadgeBg : AppColors.surfaceSubtle,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.borderSubtle,
-            width: isSelected ? 1.4 : 1.0,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _getRoleIcon(account['role']!),
-                  size: 13,
-                  color: isSelected ? AppColors.primary : AppColors.textMuted,
-                ),
-                const SizedBox(width: 5),
-                Expanded(
-                  child: Text(
-                    account['name']!,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? AppColors.primaryDark
-                          : AppColors.textMain,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 3),
-            Text(
-              account['role']!.replaceAll('_', ' '),
-              style: const TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-                letterSpacing: 0.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              account['description']!,
-              style: const TextStyle(
-                fontSize: 9.5,
-                color: AppColors.textMuted,
-                height: 1.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _getRoleIcon(String role) {
-    switch (role) {
-      case 'RESTAURANT_MANAGER':
-        return Icons.business_center_outlined;
-      case 'INVENTORY_MANAGER':
-        return Icons.inventory_2_outlined;
-      case 'PROCUREMENT_OFFICER':
-        return Icons.local_shipping_outlined;
-      case 'SALES_KITCHEN_STAFF':
-        return Icons.restaurant_menu_outlined;
-      case 'SYSTEM_ADMIN':
-        return Icons.admin_panel_settings_outlined;
-      default:
-        return Icons.person_outline;
-    }
-  }
 }
 
 class _HeroMetric extends StatelessWidget {
