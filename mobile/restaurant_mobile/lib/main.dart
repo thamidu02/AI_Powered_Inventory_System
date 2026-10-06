@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/constants/api_constants.dart';
 import 'core/services/api_service.dart';
 import 'core/services/storage_service.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -24,6 +25,19 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final storageService = await StorageService.initialize();
+  final savedUrl = storageService.getBaseUrl();
+  if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+    final url = savedUrl.trim();
+    // Only use a saved URL if it's a proper HTTPS cloud URL.
+    // Discard any stale local/LAN IP (http://) so release APKs always
+    // default to the Vercel cloud backend automatically.
+    if (url.startsWith('https://')) {
+      ApiConstants.customBaseUrl = url;
+    } else {
+      // Clear the stale local URL from storage
+      await storageService.saveBaseUrl('');
+    }
+  }
   final apiService = ApiService(storage: storageService);
   final authService = AuthService(api: apiService, storage: storageService);
   final inventoryService = InventoryService(api: apiService);

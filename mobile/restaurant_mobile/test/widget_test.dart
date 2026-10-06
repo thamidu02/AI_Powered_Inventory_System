@@ -158,7 +158,7 @@ void main() {
 
   group('Step 2 & 3 UI and Widget Tests', () {
     testWidgets(
-      'LoginScreen renders brand, inputs, demo role chips, and sign-in button',
+      'LoginScreen renders brand, inputs, and sign-in button',
       (WidgetTester tester) async {
         SharedPreferences.setMockInitialValues({});
         final storage = await StorageService.initialize();
@@ -191,7 +191,7 @@ void main() {
         expect(find.text('Enter credentials'), findsOneWidget);
         expect(find.byType(TextFormField), findsNWidgets(2));
         expect(find.text('Sign In'), findsOneWidget);
-        expect(find.text('Restaurant Manager'), findsOneWidget);
+        expect(find.text('Username / Email'), findsOneWidget);
       },
     );
 
