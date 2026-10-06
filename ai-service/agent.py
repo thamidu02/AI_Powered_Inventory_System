@@ -28,7 +28,7 @@ from google.api_core.exceptions import (
 from tools import TOOL_DEFINITIONS, call_tool, COMPONENT3_READ_ONLY_TOOLS
 
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 logger = logging.getLogger(__name__)
 
 COMPONENT3_STAGE_BY_TOOL = {
