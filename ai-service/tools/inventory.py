@@ -27,7 +27,9 @@ from .guided_workflows import (
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-BACKEND          = os.getenv("BACKEND_BASE_URL", "http://localhost:5066")
+def _get_backend_url() -> str:
+    return os.getenv("BACKEND_BASE_URL", "http://localhost:8080").rstrip("/")
+
 MODEL            = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 SERVICE_EMAIL    = os.getenv("SERVICE_ACCOUNT_EMAIL", "ai-service@restaurant.com")
 SERVICE_PASSWORD = os.getenv("SERVICE_ACCOUNT_PASSWORD", "Restaurant@123")
@@ -56,7 +58,7 @@ async def _get_token() -> str:
 
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.post(
-            f"{BACKEND}/api/auth/login",
+            f"{_get_backend_url()}/api/auth/login",
             json={"email": SERVICE_EMAIL, "password": SERVICE_PASSWORD},
         )
         r.raise_for_status()
@@ -80,7 +82,7 @@ async def _get(path: str, params: dict | None = None) -> Any:
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.get(
-                f"{BACKEND}{path}",
+                f"{_get_backend_url()}{path}",
                 params=params or {},
                 headers={"Authorization": f"Bearer {token}"},
             )
@@ -93,7 +95,7 @@ async def _get(path: str, params: dict | None = None) -> Any:
             token = await _get_token()
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.get(
-                    f"{BACKEND}{path}",
+                    f"{_get_backend_url()}{path}",
                     params=params or {},
                     headers={"Authorization": f"Bearer {token}"},
                 )
@@ -106,7 +108,7 @@ async def _post(path: str, body: dict) -> Any:
     token = await _get_token()
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(
-            f"{BACKEND}{path}",
+            f"{_get_backend_url()}{path}",
             json=body,
             headers={"Authorization": f"Bearer {token}"},
         )
